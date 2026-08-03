@@ -15,9 +15,9 @@ Interfaz Web de **Tactica Flow** estilo BlueTicks para la gestión de conversaci
 
 ## 2. Stack Tecnológico
 
-- **Framework**: React 18 (Vite).
-- **Estilos**: TailwindCSS.
-- **Iconos**: Lucide Icons (`lucide-react`).
+- **Framework**: React 18 (Vite) + TypeScript.
+- **Componentes UI**: **Exclusivamente Shadcn UI** + TailwindCSS + Lucide React Icons.
+- **Iconos**: Lucide React (`lucide-react`).
 - **Peticiones HTTP**: Axios con interceptores.
 - **Tiempo Real**: Socket.io-client.
 - **Navegación**: React Router DOM.
@@ -26,12 +26,17 @@ Interfaz Web de **Tactica Flow** estilo BlueTicks para la gestión de conversaci
 
 ## 3. Reglas Obligatorias de Interfaz y UI (Táctica Standard)
 
-### 3.1 Regla de Paginación
+### 🚨 3.1 Regla Estricta de Componentes UI (SOLO Shadcn UI)
+> [!IMPORTANT]
+> **NO INSTALAR OTRASS LIBRERÍAS DE UI**. Queda estrictamente prohibido incorporar frameworks de UI de terceros (como Material UI, Chakra UI, Ant Design, Mantine, Bootstrap, etc.). 
+> **Toda la UI debe construirse de forma limpia únicamente utilizando Shadcn UI + TailwindCSS + Lucide React**. Esto garantiza cero sobrecarga de dependencias, control total del código y máxima mantenibilidad a largo plazo.
+
+### 3.2 Regla de Paginación
 - **Escritorio**: Paginación clásica reemplazando registros cargados.
 - **Móvil**: Desplazamiento infinito (Infinite Scroll) acumulando registros.
-- **Componente**: Componente global [`TablePagination`](file:///d:/tactica-flow/frontend/src/components/ui/TablePagination.jsx) renderizado **arriba** del contenedor de resultados.
+- **Componente**: Componente global [`TablePagination.tsx`](file:///d:/tactica-flow/frontend/src/components/ui/TablePagination.tsx) renderizado **arriba** del contenedor de resultados.
 
-### 3.2 Regla de Colores de Botones
+### 3.3 Regla de Colores de Botones
 - **Botones Principales y Acciones Estándar**:
   - Modo Claro: Fondo Negro (`bg-black text-white hover:bg-black/90`).
   - Modo Oscuro: Fondo Blanco (`dark:bg-white dark:text-black dark:hover:bg-white/90`).
@@ -41,7 +46,7 @@ Interfaz Web de **Tactica Flow** estilo BlueTicks para la gestión de conversaci
 
 ## 4. Vistas y Módulos Frontend
 
-- **`App.jsx`**: Layout principal con Sidebar, selector de vistas y bandeja de chats.
+- **`App.tsx`**: Layout principal con Sidebar, selector de vistas y bandeja de chats en tiempo real con estética Glassmorphism.
 - **Bandeja de Chats**: Vista dividida con lista de conversaciones a la izquierda, área de mensajes al centro y panel de Táctica ERP a la derecha.
 - **Bots & Agentes IA**: Listado y panel de configuración de automatizaciones y bots.
-- **Reportes & Analítica**: Métricas de rendimiento, tiempos de respuesta y ventas generadas.
+- **Reportes & Analítica**: Métricas de rendimiento, tiempos de respuesta y cotizaciones creadas.
