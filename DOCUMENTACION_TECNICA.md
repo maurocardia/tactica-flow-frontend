@@ -34,7 +34,7 @@ Interfaz Web de **Tactica Flow** estilo BlueTicks para la gestión de conversaci
 ### 3.2 Regla de Paginación
 - **Escritorio**: Paginación clásica reemplazando registros cargados.
 - **Móvil**: Desplazamiento infinito (Infinite Scroll) acumulando registros.
-- **Componente**: Componente global [`TablePagination.tsx`](file:///d:/tactica-flow/frontend/src/components/ui/TablePagination.tsx) renderizado **arriba** del contenedor de resultados.
+- **Componente**: Componente global [`TablePagination.tsx`](src/components/ui/TablePagination.tsx) renderizado **arriba** del contenedor de resultados.
 
 ### 3.3 Regla de Colores de Botones
 - **Botones Principales y Acciones Estándar**:
@@ -46,7 +46,7 @@ Interfaz Web de **Tactica Flow** estilo BlueTicks para la gestión de conversaci
 
 ## 4. Vistas y Módulos Frontend
 
-- **`App.tsx`**: Layout principal con Sidebar, selector de vistas y bandeja de chats en tiempo real con estética Glassmorphism.
-- **Bandeja de Chats**: Vista dividida con lista de conversaciones a la izquierda, área de mensajes al centro y panel de Táctica ERP a la derecha.
-- **Bots & Agentes IA**: Listado y panel de configuración de automatizaciones y bots.
-- **Reportes & Analítica**: Métricas de rendimiento, tiempos de respuesta y cotizaciones creadas.
+- **`App.tsx`**: Layout principal con Sidebar, selector de vistas y bandeja de chats conectada al backend real (`GET /api/conversations`, Socket.io) con estética Glassmorphism.
+- **Bandeja de Chats**: Vista dividida con lista de conversaciones a la izquierda, área de mensajes al centro y panel de Táctica ERP a la derecha. Incluye un toggle para simular mensajes entrantes del cliente y así probar el bot sin WhatsApp conectado.
+- **Bots & Agentes IA** (`components/BotsPanel.tsx`): CRUD de reglas por palabra clave contra `/api/bot/rules` + probador de mensajes contra `/api/bot/reply`.
+- **Reportes & Analítica**: Todavía es una maqueta sin datos reales (ver "Limitaciones conocidas" en [CHATBOT.md](CHATBOT.md)).

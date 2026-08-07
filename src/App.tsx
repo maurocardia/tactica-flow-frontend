@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, Bot, BarChart3, Settings, Search, Send, Sparkles, CheckCircle2, User, Phone, Zap } from 'lucide-react';
+import { io, Socket } from 'socket.io-client';
 import TablePagination from './components/ui/TablePagination';
+import BotsPanel from './components/BotsPanel';
 
 interface Chat {
   id: number;
@@ -20,22 +22,187 @@ interface Message {
   time: string;
 }
 
+// Time formatting: today → "h:mm AM/PM", yesterday → "Ayer", other → "DD/MM"
+function formatMessageTime(isoString: string): string {
+  const date = new Date(isoString);
+  const now = new Date();
+
+  // Check if today
+  if (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  ) {
+    return date.toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: true });
+  }
+
+  // Check if yesterday
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate()
+  ) {
+    return 'Ayer';
+  }
+
+  // Other dates: DD/MM
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${day}/${month}`;
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'inbox' | 'bots' | 'analytics'>('inbox');
-  const [selectedChat, setSelectedChat] = useState<number>(1);
+  const [selectedChat, setSelectedChat] = useState<number | null>(null);
   const [messageText, setMessageText] = useState<string>('');
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [sendAsCustomer, setSendAsCustomer] = useState<boolean>(false);
 
-  const chats: Chat[] = [
-    { id: 1, name: 'Juan Pérez (Distribuidora Sur)', phone: '+54 9 11 4567-8901', lastMsg: 'Necesito consultar el stock de cajas de agua', time: '12:34 PM', unread: 2, tag: 'Cliente VIP', status: 'bot' },
-    { id: 2, name: 'María Gómez (Logística Global)', phone: '+54 9 11 9876-5432', lastMsg: 'Perfecto, quedo a la espera del presupuesto', time: '11:15 AM', unread: 0, tag: 'Cotización', status: 'active' },
-    { id: 3, name: 'Carlos Rodríguez', phone: '+54 9 11 3333-2222', lastMsg: 'Se me rompió la cafetera de oficina', time: 'Ayer', unread: 0, tag: 'Soporte', status: 'resolved' },
-  ];
+  const socketRef = useRef<Socket | null>(null);
+  const selectedChatRef = useRef<number | null>(null);
 
-  const messages: Message[] = [
-    { id: 1, sender: 'customer', text: 'Hola buenas tardes, necesito hacer una consulta urgente.', time: '12:30 PM' },
-    { id: 2, sender: 'bot', text: '¡Hola! Soy el asistente IA de Tactica Flow. ¿En qué puedo ayudarte hoy?', time: '12:30 PM' },
-    { id: 3, sender: 'customer', text: 'Necesito consultar el stock de 30 cajas de agua mineral para registrar un pedido.', time: '12:34 PM' },
-  ];
+  // Fetch chats on mount
+  useEffect(() => {
+    const fetchChats = async () => {
+      try {
+        const response = await fetch('/api/conversations');
+        const data = await response.json();
+        const formattedChats: Chat[] = data.map((conv: any) => ({
+          id: conv.id,
+          name: conv.name,
+          phone: conv.phone,
+          lastMsg: conv.lastMsg,
+          time: formatMessageTime(conv.lastMessageAt),
+          unread: conv.unread,
+          tag: conv.tag,
+          status: conv.status,
+        }));
+        setChats(formattedChats);
+        // Default to first chat if available
+        if (formattedChats.length > 0) {
+          setSelectedChat(formattedChats[0].id);
+          selectedChatRef.current = formattedChats[0].id;
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching chats:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchChats();
+  }, []);
+
+  // Fetch messages when selectedChat changes
+  useEffect(() => {
+    if (selectedChat === null) return;
+
+    const fetchMessages = async () => {
+      try {
+        const response = await fetch(`/api/conversations/${selectedChat}/messages`);
+        const data = await response.json();
+        const formattedMessages: Message[] = data.map((msg: any) => ({
+          id: msg.id,
+          sender: msg.sender,
+          text: msg.text,
+          time: formatMessageTime(msg.createdAt),
+        }));
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    };
+
+    fetchMessages();
+
+    // Emit join_chat on socket
+    if (socketRef.current) {
+      socketRef.current.emit('join_chat', selectedChat);
+    }
+  }, [selectedChat]);
+
+  // Set up socket connection on mount
+  useEffect(() => {
+    const socket = io('http://localhost:5000');
+    socketRef.current = socket;
+
+    // Listen for new messages
+    socket.on('new_message', (payload: any) => {
+      if (payload.conversationId === selectedChatRef.current) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: payload.id,
+            sender: payload.sender,
+            text: payload.text,
+            time: formatMessageTime(payload.createdAt),
+          },
+        ]);
+      }
+    });
+
+    // Listen for conversation updates
+    socket.on('conversation_updated', (payload: any) => {
+      setChats((prev) =>
+        prev.map((chat) =>
+          chat.id === payload.id
+            ? {
+                ...chat,
+                lastMsg: payload.lastMsg,
+                time: formatMessageTime(payload.lastMessageAt),
+                unread: payload.unread,
+              }
+            : chat
+        )
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  // Update selectedChatRef whenever selectedChat changes
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
+
+  // Handle sending a message
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || selectedChat === null) return;
+
+    try {
+      const response = await fetch(`/api/conversations/${selectedChat}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: messageText,
+          sender: sendAsCustomer ? 'customer' : 'agent',
+        }),
+      });
+
+      if (response.ok) {
+        setMessageText('');
+        // Messages will be appended via socket event, don't optimistically add
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  // Handle Enter key in message input
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const currentChat = chats.find((c) => c.id === selectedChat);
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans relative">
@@ -168,15 +335,23 @@ export default function App() {
             <section className="flex-1 flex flex-col glass-card">
               {/* Header Chat */}
               <header className="p-4 glass-panel border-b border-white/10 flex items-center justify-between">
-                <div>
-                  <h2 className="font-bold text-base text-white flex items-center gap-2">
-                    Juan Pérez (Distribuidora Sur)
-                    <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
-                      Táctica Sync
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-400">+54 9 11 4567-8901 • Asignado a: Bot IA de Táctica</p>
-                </div>
+                {selectedChat !== null && currentChat ? (
+                  <div>
+                    <h2 className="font-bold text-base text-white flex items-center gap-2">
+                      {currentChat.name}
+                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">
+                        Táctica Sync
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      {currentChat.phone} • Asignado a: {currentChat.status === 'bot' ? 'Bot IA de Táctica' : 'Agente'}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <h2 className="font-bold text-base text-white">Cargando...</h2>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-2">
                   <button className="px-4 py-2 bg-white text-black font-semibold rounded-full text-xs transition-all hover:bg-white/90 shadow-lg shadow-white/10 active:scale-95">
@@ -214,17 +389,46 @@ export default function App() {
               </div>
 
               {/* Responder */}
-              <footer className="p-4 glass-panel border-t border-white/10 flex items-center gap-3">
-                <input
-                  type="text"
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder="Escribe un mensaje o usa '/' para automatizaciones de Táctica..."
-                  className="flex-1 px-4 py-3 glass-input text-white rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-                />
-                <button className="p-3 bg-white text-black hover:bg-white/90 rounded-full transition-all shadow-lg active:scale-95">
-                  <Send className="w-4 h-4" />
-                </button>
+              <footer className="glass-panel border-t border-white/10">
+                <div className="px-4 pt-2.5 flex items-center gap-2">
+                  <button
+                    onClick={() => setSendAsCustomer((prev) => !prev)}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
+                      sendAsCustomer
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                        : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'
+                    }`}
+                    title="Simula un mensaje entrante del cliente (útil para probar el bot sin WhatsApp conectado)"
+                  >
+                    <User className="w-3 h-3" />
+                    {sendAsCustomer ? 'Simulando mensaje del cliente' : 'Enviando como agente'}
+                  </button>
+                  {sendAsCustomer && currentChat && currentChat.status !== 'bot' && (
+                    <span className="text-[11px] text-amber-400/80">
+                      Esta conversación no está en modo bot — no habrá respuesta automática.
+                    </span>
+                  )}
+                </div>
+                <div className="p-4 pt-2 flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={messageText}
+                    onChange={(e) => setMessageText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={
+                      sendAsCustomer
+                        ? "Escribe lo que 'diría' el cliente (ej: hola, horario)..."
+                        : "Escribe un mensaje o usa '/' para automatizaciones de Táctica..."
+                    }
+                    className="flex-1 px-4 py-3 glass-input text-white rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  />
+                  <button
+                    onClick={handleSendMessage}
+                    className="p-3 bg-white text-black hover:bg-white/90 rounded-full transition-all shadow-lg active:scale-95"
+                  >
+                    <Send className="w-4 h-4" />
+                  </button>
+                </div>
               </footer>
             </section>
           </div>
@@ -234,7 +438,7 @@ export default function App() {
           <div className="flex-1 p-8 overflow-y-auto">
             <h2 className="text-2xl font-bold mb-2 text-white">Motor de Bots & Agentes IA (TypeScript)</h2>
             <p className="text-slate-400 mb-6">Gestiona las respuestas automáticas, flujos de decisión y agentes con Function Calling hacia Táctica ERP.</p>
-            <TablePagination currentPage={1} totalPages={5} totalRecords={50} pageLimit={10} />
+            <BotsPanel />
           </div>
         )}
 
