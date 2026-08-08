@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import Sidebar from './Sidebar';
+import Sidebar from '../components/Sidebar';
 import indexCss from '../index.css?inline';
 
 function injectSidebar() {
