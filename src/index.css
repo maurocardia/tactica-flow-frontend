@@ -4,59 +4,36 @@
 
 @layer base {
   :root {
-    --background: 240 10% 98%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
+    --background: 0 0% 10%;
+    --foreground: 0 0% 100%;
+    --border: 0 0% 30%;
     --radius: 0.75rem;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --border: 240 3.7% 15.9%;
+    --background: 0 0% 5%;
+    --foreground: 0 0% 100%;
+    --border: 0 0% 20%;
   }
 
   body {
-    @apply font-sans antialiased bg-slate-950 text-slate-100 min-h-screen selection:bg-cyan-500 selection:text-white;
+    @apply font-sans antialiased bg-red-900 text-white min-h-screen selection:bg-cyan-500 selection:text-white;
   }
 }
 
 /* Custom Glassmorphism Classes (Glass Blur & Ultra Modern Effects) */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgb(255, 255, 255);
 }
 
 .glass-card {
-  background: rgba(30, 41, 59, 0.45);
+  background: rgba(247, 247, 247, 0.45);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.glass-input {
-  background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.glass-input:focus {
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
 }
 
 /* Custom Scrollbar */
@@ -64,16 +41,19 @@
   width: 5px;
   height: 5px;
 }
-
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(158, 17, 20, 0.1);
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(158, 17, 20, 0.7);
   border-radius: 9999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Fondo rojo y texto blanco */
+body {
+  background-color: rgb(158, 17, 20);
+  color: #ffffff;
 }
