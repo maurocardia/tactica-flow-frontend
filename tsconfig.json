@@ -19,7 +19,9 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["chrome"],
+    "types": ["chrome", "vite/client"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
   },
   "include": ["src"]
 }

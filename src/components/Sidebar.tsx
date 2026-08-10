@@ -1,36 +1,35 @@
 // src/components/Sidebar.tsx
 import React from 'react';
-import { useActiveChat } from '@/hooks/useActiveChat';
-import { useContactNotes } from '@/hooks/useContactNotes';
-
 import Header from './sidebar/Header';
 import ContactCard from './sidebar/ContactCard';
-import AiModule from './sidebar/AiModule';
-import NotesCard from './sidebar/NotesCard';
+import { AiModule } from './sidebar/AiModule';
+import { SelectMessagesCard } from './sidebar/SelectMessagesCard';
+import { BotRulesCard } from './sidebar/BotRulesCard';
 import Ficha360 from './sidebar/Ficha360';
+import ChatbotModule from './sidebar/ChatbotModule';
 import ToolsGrid from './sidebar/ToolsGrid';
+import { useActiveChat } from '@/hooks/useActiveChat';
 
-export default function Sidebar() {
-    const { activeContact, refreshChat } = useActiveChat();
-    const { note, setNote, isSaved, saveNote } = useContactNotes(activeContact);
+export const Sidebar: React.FC = () => {
+    const { activeContact } = useActiveChat();
 
     return (
-        <aside className="w-[360px] h-full bg-white border-l border-slate-300 flex flex-col flex-shrink-0 text-slate-800 font-sans select-none overflow-hidden">
-            <Header onRefresh={refreshChat} />
+        // Usa w-full e items-stretch para obligar a todo a pegarse a los bordes
+        <aside className="w-full h-full bg-slate-100 border-l border-slate-200 flex flex-col items-stretch overflow-y-auto font-sans">
+            {/* Header rojo ocupando el 100% */}
+            <Header />
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50">
+            {/* Contenedor del cuerpo con ancho completo */}
+            <div className="w-full p-3 flex flex-col gap-3 box-border">
                 <ContactCard contactName={activeContact} />
+                <ChatbotModule />
                 <AiModule />
-                <NotesCard
-                    note={note}
-                    setNote={setNote}
-                    onSave={saveNote}
-                    isSaved={isSaved}
-                    disabled={activeContact === 'Sin chat seleccionado'}
-                />
+                <SelectMessagesCard />
+                <BotRulesCard />
                 <Ficha360 />
+
                 <ToolsGrid />
             </div>
         </aside>
     );
-}
+};

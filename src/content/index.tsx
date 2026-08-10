@@ -1,6 +1,6 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import Sidebar from '../components/Sidebar';
+import { createRoot } from 'react-dom/client';
+import { Sidebar } from '../components/Sidebar';
 import indexCss from '../index.css?inline';
 
 function injectSidebar() {
@@ -45,7 +45,7 @@ function injectSidebar() {
     shadowRoot.appendChild(reactRootDiv);
 
     // 6. Renderizar React
-    const root = ReactDOM.createRoot(reactRootDiv);
+    const root = createRoot(reactRootDiv);
     root.render(
         <React.StrictMode>
             <Sidebar />

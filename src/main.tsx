@@ -1,6 +1,6 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import Sidebar from './components/Sidebar';
+import { createRoot } from 'react-dom/client';
+import { Sidebar } from './components/Sidebar';
 import indexCss from './index.css?inline';
 
 function mountSidebar() {
@@ -30,7 +30,7 @@ function mountSidebar() {
 
   document.body.appendChild(container);
 
-  const root = ReactDOM.createRoot(container);
+  const root = createRoot(container);
   root.render(
     <React.StrictMode>
       <Sidebar />

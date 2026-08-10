@@ -5,7 +5,7 @@ interface ContactCardProps {
     contactName: string;
 }
 
-export default function ContactCard({ contactName }: ContactCardProps) {
+const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const isSelected = contactName !== 'Sin chat seleccionado';
 
     return (
@@ -41,3 +41,4 @@ export default function ContactCard({ contactName }: ContactCardProps) {
         </div>
     );
 }
+export default ContactCard;

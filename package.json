@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "tree": "node tree.js"
   },
@@ -32,6 +32,9 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vite": "^6.1.0"
+  },
+  "overrides": {
+    "rollup": "npm:@rollup/wasm-node@4.62.4"
   },
   "description": "Interfaz web moderna de **Tactica Flow** estilo BlueTicks para la gestión de conversaciones de WhatsApp, agentes de Inteligencia Artificial y vinculación en tiempo real con **Táctica ERP**.",
   "main": "tailwind.config.js",

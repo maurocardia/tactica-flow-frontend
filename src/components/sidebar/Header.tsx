@@ -2,10 +2,10 @@ import React from 'react';
 import { RefreshCw, Settings } from 'lucide-react';
 
 interface HeaderProps {
-    onRefresh: () => void;
+    onRefresh?: () => void;
 }
 
-export default function Header({ onRefresh }: HeaderProps) {
+export function Header({ onRefresh = () => {} }: HeaderProps) {
     return (
         <div className="bg-[#9e1114] text-white p-3 flex items-start justify-between shadow-sm">
             <div>
@@ -41,3 +41,4 @@ export default function Header({ onRefresh }: HeaderProps) {
         </div>
     );
 }
+export default Header;
