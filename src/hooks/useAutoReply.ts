@@ -124,7 +124,7 @@ export function useAutoReply(enabled: boolean, aiFallbackEnabled: boolean = fals
         rulesRef.current = await ApiService.getBotRules();
         console.log(`[useAutoReply] ${rulesRef.current.length} regla(s) cargadas desde el backend.`);
       } catch (err) {
-        console.error('[useAutoReply] No se pudieron cargar las reglas del bot (¿está corriendo el backend en localhost:5000?):', err);
+        console.error('[useAutoReply] No se pudieron cargar las reglas del bot (¿está corriendo el backend?):', err);
       }
     };
 

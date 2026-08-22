@@ -3,6 +3,7 @@
 import { Conversation } from "@/types/conversation";
 import { KeywordRule, KeywordRuleInput } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
+import { API_URL } from '../config/env';
 
 export const ApiService = {
     async sendBackgroundRequest<T>(endpoint: string, method = 'GET', body?: any): Promise<T> {
@@ -98,7 +99,7 @@ export const ApiService = {
     async uploadKbDocument(knowledgeBaseId: number, file: File): Promise<KnowledgeDocument> {
         const formData = new FormData();
         formData.append('file', file);
-        const res = await fetch(`http://localhost:5000/api/knowledge-bases/${knowledgeBaseId}/documents`, {
+        const res = await fetch(`${API_URL}/knowledge-bases/${knowledgeBaseId}/documents`, {
             method: 'POST',
             body: formData,
         });

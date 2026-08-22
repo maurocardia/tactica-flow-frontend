@@ -1,6 +1,6 @@
 // src/background/index.ts
 
-const API_URL = 'http://localhost:5000/api';
+import { API_URL } from '../config/env';
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.type === 'FETCH_API') {

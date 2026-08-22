@@ -117,7 +117,9 @@ function injectSidebar() {
     launcher.addEventListener('click', () => applyPanelState(hostDiv, launcher, true));
     window.addEventListener(TOGGLE_EVENT, () => applyPanelState(hostDiv, launcher, !panelOpen));
 
-    console.log("🚀 [Táctica Flow] Sidebar renderizado en Shadow DOM.");
+    import('../config/env').then(({ IS_CLOUD_DEV, IS_LOCAL_DEV, API_URL }) => {
+        console.log(`🚀 [Táctica Flow] Sidebar renderizado en Shadow DOM. API: ${API_URL} (Cloud: ${IS_CLOUD_DEV}, Local: ${IS_LOCAL_DEV})`);
+    });
 }
 
 // Escuchador de mensajes seguro (responde inmediatamente para evitar cerrar el canal)
