@@ -1,9 +1,10 @@
 // src/components/sidebar/AiModule.tsx
 import React, { useState } from 'react';
 import { ApiService } from '@/services/api.service';
+import { useAppState } from '@/state/AppStateContext';
+import { useModal } from '@/state/ModalContext';
 import {
     Mic,
-    Edit3,
     MessageSquare,
     Send,
     Bot,
@@ -23,6 +24,8 @@ interface AiModuleProps {
 }
 
 export const AiModule: React.FC<AiModuleProps> = ({ conversationId }) => {
+    const { config } = useAppState();
+    const { openModal } = useModal();
     // Estado para alternar entre el Menú Rápido y el Chat de Redacción
     const [viewMode, setViewMode] = useState<'menu' | 'chat'>('menu');
 
@@ -78,17 +81,14 @@ export const AiModule: React.FC<AiModuleProps> = ({ conversationId }) => {
                         <span className="text-indigo-950">INTELIGENCIA ARTIFICIAL</span>
                     </div>
                     <span className="text-[11px] font-semibold text-slate-500 lowercase first-letter:uppercase">
-                        OpenAI
+                        {config.aiProvider}
                     </span>
                 </div>
 
                 {/* Grid de botones superiores */}
                 <div className="grid grid-cols-2 gap-2">
                     <button
-                        onClick={() => {
-                            setViewMode('chat');
-                            handleSend('Resumir charla actual');
-                        }}
+                        onClick={() => openModal('ai-summary')}
                         className="flex items-center justify-center gap-1.5 bg-purple-50/70 hover:bg-purple-100/80 text-purple-700 font-medium text-xs py-2.5 px-2 rounded-lg border border-purple-100 transition-colors"
                     >
                         <MessageSquare className="w-3.5 h-3.5 text-purple-600 shrink-0" />
@@ -111,15 +111,6 @@ export const AiModule: React.FC<AiModuleProps> = ({ conversationId }) => {
                         </span>
                     </button>
                 </div>
-
-                {/* Botón Principal: Redactar respuesta (Abre la vista de Chat) */}
-                <button
-                    onClick={() => setViewMode('chat')}
-                    className="w-full flex items-center justify-center gap-2 bg-purple-50/70 hover:bg-purple-100/80 text-purple-700 font-medium text-xs py-2.5 px-3 rounded-lg border border-purple-100 transition-colors"
-                >
-                    <Edit3 className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                    <span>Redactar respuesta</span>
-                </button>
             </div>
         );
     }

@@ -9,6 +9,8 @@ import {
     PhoneOutgoing,
     Mail
 } from 'lucide-react';
+import { useAppState } from '@/state/AppStateContext';
+import { PrototypeNotice } from '@/components/ui/PrototypeNotice';
 
 interface HistoryItem {
     id: string;
@@ -19,8 +21,21 @@ interface HistoryItem {
     author: string;
 }
 
+type Ficha360Tab = 'historial' | 'pendientes' | 'presupuestos' | 'facturacion' | 'compras' | 'ctacte';
+
+const TAB_LABELS: Record<Ficha360Tab, string> = {
+    historial: 'Historial',
+    pendientes: 'Pendientes',
+    presupuestos: 'Presupuestos',
+    facturacion: 'Facturación',
+    compras: 'Compras',
+    ctacte: 'Cta. corriente',
+};
+
 const Ficha360: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'historial' | 'pendientes' | 'presupuestos' | 'facturas'>('historial');
+    const { config } = useAppState();
+    const visibleTabs = (Object.keys(config.ficha360Tabs) as Ficha360Tab[]).filter((k) => config.ficha360Tabs[k]);
+    const [activeTab, setActiveTab] = useState<Ficha360Tab>(visibleTabs[0] ?? 'historial');
     const [filterText, setFilterText] = useState('');
     const [filterType, setFilterType] = useState('todos');
 
@@ -28,8 +43,9 @@ const Ficha360: React.FC = () => {
 
     ];
 
-
-
+    if (visibleTabs.length > 0 && !visibleTabs.includes(activeTab)) {
+        setActiveTab(visibleTabs[0]);
+    }
 
     return (
         <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col gap-2.5">
@@ -39,44 +55,22 @@ const Ficha360: React.FC = () => {
                 <span>FICHA 360° · TACTICA</span>
             </div>
 
-            {/* Tabs / Pestañas de Navegación con Scroll */}
+            <PrototypeNotice text="Próximamente: todavía no trae datos reales de Táctica ERP." />
+
+            {/* Tabs / Pestañas de Navegación con Scroll (visibilidad configurable desde Config) */}
             <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs no-scrollbar">
-                <button
-                    onClick={() => setActiveTab('historial')}
-                    className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors shrink-0 ${activeTab === 'historial'
-                        ? 'bg-red-900 text-white shadow-sm'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                        }`}
-                >
-                    Historial
-                </button>
-                <button
-                    onClick={() => setActiveTab('pendientes')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors shrink-0 ${activeTab === 'pendientes'
-                        ? 'bg-red-900 text-white shadow-sm'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                        }`}
-                >
-                    Pendientes
-                </button>
-                <button
-                    onClick={() => setActiveTab('presupuestos')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors shrink-0 ${activeTab === 'presupuestos'
-                        ? 'bg-red-900 text-white shadow-sm'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                        }`}
-                >
-                    Presupuestos
-                </button>
-                <button
-                    onClick={() => setActiveTab('facturas')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors shrink-0 ${activeTab === 'facturas'
-                        ? 'bg-red-900 text-white shadow-sm'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                        }`}
-                >
-                    Facturas
-                </button>
+                {visibleTabs.map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors shrink-0 ${activeTab === tab
+                            ? 'bg-red-900 text-white shadow-sm'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                            }`}
+                    >
+                        {TAB_LABELS[tab]}
+                    </button>
+                ))}
             </div>
 
             {/* Barra de desplazamiento indicadora */}

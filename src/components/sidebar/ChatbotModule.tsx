@@ -1,13 +1,22 @@
 import React, { useState } from 'react';
-import { Bot, ChevronDown, X, Loader2 } from 'lucide-react';
+import { Bot, ChevronDown, X, Loader2, Sparkles } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
+import { useKnowledgeBases } from '@/hooks/useKnowledgeBases';
+import { useModal } from '@/state/ModalContext';
+import { useAppState } from '@/state/AppStateContext';
+import { Toggle } from '@/components/ui/Toggle';
 import { BotFlowModal } from './BotFlowModal';
 
 const ChatbotModule: React.FC = () => {
-  const [enabled, setEnabled] = useState(true);
+  const { config, setConfig } = useAppState();
+  const enabled = config.botEnabled;
+  const setEnabled = (v: boolean) => setConfig((c) => ({ ...c, botEnabled: v }));
+  const [aiFallbackEnabled, setAiFallbackEnabled] = useState(false);
   const [showFlowModal, setShowFlowModal] = useState(false);
+  const { bases } = useKnowledgeBases();
+  const { openModal } = useModal();
 
-  const { pending, cancelPendingReply, testWithLastMessage } = useAutoReply(enabled);
+  const { pending, cancelPendingReply, testWithLastMessage } = useAutoReply(enabled, aiFallbackEnabled);
 
   const autoReplyBanner = pending && (
     <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 text-[11px]">
@@ -44,23 +53,35 @@ const ChatbotModule: React.FC = () => {
         </button>
       </div>
 
-      {/* Selector de Base de conocimiento */}
+      {/* Selector de Base de conocimiento (activa/global, ver KnowledgeBaseModal) */}
       <div className="flex items-center justify-between text-xs gap-2">
         <span className="text-slate-600 text-[11px] leading-tight">
-          Base de conocimiento de este chat
+          Base activa para el bot
         </span>
         <div className="relative">
-          <select className="appearance-none bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold px-3 py-1 pr-6 text-slate-700 focus:outline-none">
-            <option>Ventas</option>
-            <option>Soporte</option>
+          <select className="appearance-none bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold px-3 py-1 pr-6 text-slate-700 focus:outline-none" disabled={bases.length === 0}>
+            {bases.length === 0 ? (
+              <option>Sin bases cargadas</option>
+            ) : (
+              bases.filter((b) => b.isActive).length > 0 ? (
+                bases.filter((b) => b.isActive).map((b) => <option key={b.id}>{b.title}</option>)
+              ) : (
+                <option>Ninguna activa</option>
+              )
+            )}
           </select>
           <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-1.5 top-1.5 pointer-events-none" />
         </div>
       </div>
 
-      <p className="text-[10px] text-slate-500 leading-tight">
-        Flujo: <strong className="text-slate-700">Bienvenida + Calificación</strong> · Deriva a humano fuera de horario.
-      </p>
+      {/* Fallback a IA cuando ninguna regla matchea (motor real, mismo que "Probar") */}
+      <div className="flex items-center justify-between gap-2 bg-purple-50/60 border border-purple-100 rounded-lg px-2.5 py-2">
+        <span className="flex items-center gap-1.5 text-[11px] text-purple-800 font-medium">
+          <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+          Responder con IA
+        </span>
+        <Toggle size="sm" checked={aiFallbackEnabled} onChange={setAiFallbackEnabled} />
+      </div>
 
       {/* Botones inferiores */}
       <div className="grid grid-cols-2 gap-2 mt-1">
@@ -70,7 +91,10 @@ const ChatbotModule: React.FC = () => {
         >
           Editar flujo
         </button>
-        <button className="bg-slate-100 hover:bg-slate-200 text-red-800 font-bold text-xs py-2 px-2 rounded-lg transition-colors border border-slate-200/60 leading-tight">
+        <button
+          onClick={() => openModal('knowledge-base')}
+          className="bg-slate-100 hover:bg-slate-200 text-red-800 font-bold text-xs py-2 px-2 rounded-lg transition-colors border border-slate-200/60 leading-tight"
+        >
           Bases de conocimiento
         </button>
       </div>

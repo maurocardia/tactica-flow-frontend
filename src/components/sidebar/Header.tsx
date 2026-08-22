@@ -1,11 +1,18 @@
 import React from 'react';
-import { RefreshCw, Settings } from 'lucide-react';
+import { RefreshCw, Settings, PanelRightClose } from 'lucide-react';
+import { useModal } from '@/state/ModalContext';
 
 interface HeaderProps {
     onRefresh?: () => void;
 }
 
+// El content script escucha este evento para deslizar el panel fuera de pantalla y devolverle
+// el ancho completo a WhatsApp Web — ver src/content/index.tsx (vive fuera del Shadow DOM, así
+// que no puede recibir esto como prop de React).
+const closePanel = () => window.dispatchEvent(new CustomEvent('tactica-flow:toggle-panel'));
+
 export function Header({ onRefresh = () => {} }: HeaderProps) {
+    const { openModal } = useModal();
     return (
         <div className="bg-[#9e1114] text-white p-3 flex items-start justify-between shadow-sm">
             <div>
@@ -32,10 +39,18 @@ export function Header({ onRefresh = () => {} }: HeaderProps) {
                     <RefreshCw className="w-4 h-4" />
                 </button>
                 <button
+                    onClick={() => openModal('config')}
                     className="text-white hover:opacity-80 transition p-1"
                     title="Configuración"
                 >
                     <Settings className="w-5 h-5" />
+                </button>
+                <button
+                    onClick={closePanel}
+                    className="text-white hover:opacity-80 transition p-1"
+                    title="Cerrar panel"
+                >
+                    <PanelRightClose className="w-5 h-5" />
                 </button>
             </div>
         </div>

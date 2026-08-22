@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Bot, Clock, Repeat } from 'lucide-react';
+import { User } from 'lucide-react';
 
 interface ContactCardProps {
     contactName: string;
@@ -24,18 +24,6 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-[#e8181e] font-semibold border border-red-100 shrink-0">
                     Vinculado
-                </span>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 mt-3">
-                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800">
-                    <Bot className="w-3 h-3" /> Autoatención activa
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-md bg-red-50 border border-red-200 text-[#9e1114] cursor-pointer hover:bg-red-100">
-                    <Clock className="w-3 h-3" /> 1 programado
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 cursor-pointer">
-                    <Repeat className="w-3 h-3" /> Secuencia 2/4
                 </span>
             </div>
         </div>

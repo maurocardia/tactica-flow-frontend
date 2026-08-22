@@ -14,6 +14,17 @@ body,
   overflow-x: hidden;
 }
 
+/* WhatsApp Web fuerza color-scheme:dark en su <html>, y esa propiedad se hereda cruzando el
+   límite del Shadow DOM (no la detiene el aislamiento de estilos). Sin este reset, cualquier
+   input/select/textarea de acá adentro pinta su texto con la paleta oscura nativa del navegador
+   aunque el fondo sea blanco: texto invisible. Se fija acá una sola vez para todo el panel en
+   vez de agregar bg/color a mano en cada campo. */
+:host,
+html,
+body {
+  color-scheme: light only;
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;

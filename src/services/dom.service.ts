@@ -19,6 +19,11 @@ function extractMessageText(row: Element): string | null {
     return textEl?.textContent?.trim() || null;
 }
 
+export interface VisibleMessage {
+    sender: 'me' | 'them';
+    text: string;
+}
+
 export const DOMService = {
     getChatTitle(): string | null {
         const selectors = [
@@ -121,9 +126,30 @@ export const DOMService = {
      *
      * Deduplicación por data-id (id único de mensaje que pone WhatsApp en cada fila) — más
      * preciso que comparar texto, no falla con mensajes entrantes idénticos seguidos.
+     *
+     * Con debounce (400ms): un mensaje entrante no llega al DOM en un solo cambio — WhatsApp
+     * dispara varias mutaciones seguidas para la misma fila (texto, tilde de estado, etc.), y
+     * justo al conectar el watcher (o al abrir un chat) puede haber una ráfaga de mutaciones
+     * mientras termina de cargar. Sin debounce, cada mutación de la ráfaga podía pasar la
+     * deduplicación por separado y disparar `onMessage` más de una vez para el mismo mensaje —
+     * esto era la causa real de que el primer mensaje se respondiera doble. Ahora se espera a
+     * que la ráfaga se asiente y se evalúa una sola vez el último estado.
      */
     startIncomingMessageWatcher(onMessage: (text: string) => void): () => void {
         let stopped = false;
+        let debounceTimer: number | null = null;
+
+        const evaluate = (container: Element) => {
+            const row = getLastIncomingRow(container);
+            if (!row) return;
+            const messageId = row.getAttribute('data-id');
+            if (!messageId || messageId === lastProcessedMessageId) return;
+            const text = extractMessageText(row);
+            if (!text) return;
+            lastProcessedMessageId = messageId;
+            console.log('[DOMService] Mensaje entrante nuevo detectado:', text);
+            onMessage(text);
+        };
 
         const attach = (container: Element) => {
             // Marca como "ya visto" lo que hay al entrar, para no reprocesar historial viejo.
@@ -134,15 +160,11 @@ export const DOMService = {
             if (messagesObserver) messagesObserver.disconnect();
 
             messagesObserver = new MutationObserver(() => {
-                const row = getLastIncomingRow(container);
-                if (!row) return;
-                const messageId = row.getAttribute('data-id');
-                if (!messageId || messageId === lastProcessedMessageId) return;
-                const text = extractMessageText(row);
-                if (!text) return;
-                lastProcessedMessageId = messageId;
-                console.log('[DOMService] Mensaje entrante nuevo detectado:', text);
-                onMessage(text);
+                if (debounceTimer) window.clearTimeout(debounceTimer);
+                debounceTimer = window.setTimeout(() => {
+                    debounceTimer = null;
+                    evaluate(container);
+                }, 400);
             });
 
             messagesObserver.observe(container, { childList: true, subtree: true });
@@ -168,9 +190,44 @@ export const DOMService = {
             stopped = true;
             if (watcherRetryInterval) window.clearInterval(watcherRetryInterval);
             watcherRetryInterval = null;
+            if (debounceTimer) window.clearTimeout(debounceTimer);
+            debounceTimer = null;
             messagesObserver?.disconnect();
             messagesObserver = null;
         };
+    },
+
+    /**
+     * Lee los mensajes con texto que estén cargados en el DOM del chat abierto ahora mismo, en
+     * orden cronológico. Limitación real: WhatsApp Web virtualiza la lista de mensajes — solo
+     * devuelve lo que ya está renderizado en pantalla (lo visible + lo que quedó cargado por
+     * scroll previo), no la charla completa si nunca se scrolleó hacia arriba. Los mensajes sin
+     * texto (audio, imagen sin caption) se omiten, no se inventan.
+     */
+    getVisibleMessages(): VisibleMessage[] {
+        try {
+            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
+            if (!container) return [];
+
+            const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
+            const messages: VisibleMessage[] = [];
+
+            rows.forEach((row) => {
+                const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
+                const isOutgoing = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT);
+                if (!isIncoming && !isOutgoing) return; // separador de fecha, sistema, etc.
+
+                const text = extractMessageText(row);
+                if (!text) return; // audio/imagen sin texto, o placeholder virtualizado sin renderizar
+
+                messages.push({ sender: isIncoming ? 'them' : 'me', text });
+            });
+
+            return messages;
+        } catch (err) {
+            console.error('[DOMService] Error al leer los mensajes visibles del chat:', err);
+            return [];
+        }
     },
 
     /**
