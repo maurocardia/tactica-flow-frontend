@@ -1,21 +1,31 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import path from 'path';
+import { resolve } from 'path';
 
 export default defineConfig({
-  plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+      '@': resolve(__dirname, 'src')
+    }
   },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
+  plugins: [react()],
+  build: {
+    modulePreload: false,
+    cssCodeSplit: false,
+    target: 'es2018',
+    rollupOptions: {
+      input: {
+        popup: resolve(__dirname, 'popup.html'),
+        content: resolve(__dirname, 'src/content/index.tsx'),
+        background: resolve(__dirname, 'src/background/index.ts'),
+      },
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]',
       },
     },
+    outDir: 'dist',
+    emptyOutDir: true,
   },
 });
