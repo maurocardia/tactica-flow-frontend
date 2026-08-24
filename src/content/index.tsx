@@ -5,6 +5,7 @@ import { AppStateProvider } from '../state/AppStateContext';
 import { ModalProvider } from '../state/ModalContext';
 import { AuthProvider } from '../state/AuthContext';
 import { KnowledgeBaseProvider } from '../state/KnowledgeBaseContext';
+import { WhatsappStatusProvider } from '../state/WhatsappStatusContext';
 import { mountWaHeaderStatus } from './waHeaderStatus';
 import indexCss from '../index.css?inline';
 
@@ -121,13 +122,15 @@ function injectSidebar() {
     root.render(
         <React.StrictMode>
             <AuthProvider>
-                <AppStateProvider>
-                    <KnowledgeBaseProvider>
-                        <ModalProvider>
-                            <Sidebar />
-                        </ModalProvider>
-                    </KnowledgeBaseProvider>
-                </AppStateProvider>
+                <WhatsappStatusProvider>
+                    <AppStateProvider>
+                        <KnowledgeBaseProvider>
+                            <ModalProvider>
+                                <Sidebar />
+                            </ModalProvider>
+                        </KnowledgeBaseProvider>
+                    </AppStateProvider>
+                </WhatsappStatusProvider>
             </AuthProvider>
         </React.StrictMode>
     );

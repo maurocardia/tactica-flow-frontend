@@ -10,13 +10,30 @@ export const OPEN_MODAL_EVENT = 'tactica-flow:open-modal';
 export const TOGGLE_BOT_EVENT = 'tactica-flow:toggle-bot';
 export const STATUS_UPDATE_EVENT = 'tactica-flow:status-update';
 
+type WaConnectionStatus = 'disconnected' | 'connecting' | 'qr_ready' | 'connected';
+
 interface StatusDetail {
     pendingCount: number;
     sequenceCount: number;
     botEnabled: boolean;
+    waStatus: WaConnectionStatus;
 }
 
-let lastStatus: StatusDetail = { pendingCount: 0, sequenceCount: 0, botEnabled: true };
+let lastStatus: StatusDetail = { pendingCount: 0, sequenceCount: 0, botEnabled: true, waStatus: 'disconnected' };
+
+const WA_STATUS_COLOR: Record<WaConnectionStatus, string> = {
+    connected: '#25d366',
+    connecting: '#f0a93a',
+    qr_ready: '#f0a93a',
+    disconnected: '#98a2a9',
+};
+
+const WA_STATUS_LABEL: Record<WaConnectionStatus, string> = {
+    connected: 'Conectado',
+    connecting: 'Conectando…',
+    qr_ready: 'Esperando que escanees el código QR',
+    disconnected: 'Desconectado',
+};
 
 function dispatchOpenModal(id: string, payload?: unknown) {
     window.dispatchEvent(new CustomEvent(OPEN_MODAL_EVENT, { detail: { id, payload } }));
@@ -54,6 +71,8 @@ interface ContainerRefs {
     alarmBadge: HTMLSpanElement;
     seqBadge: HTMLSpanElement;
     botDot: HTMLSpanElement;
+    waBtn: HTMLButtonElement;
+    waDot: HTMLSpanElement;
 }
 
 function buildContainer(): { el: HTMLDivElement; refs: ContainerRefs } {
@@ -78,8 +97,15 @@ function buildContainer(): { el: HTMLDivElement; refs: ContainerRefs } {
     const seqBadge = makeBadge();
     seqBtn.appendChild(seqBadge);
 
-    container.append(calBtn, alarmBtn, botBtn, seqBtn);
-    return { el: container, refs: { alarmBadge, seqBadge, botDot } };
+    // Estado real de la sesión de WhatsApp (Baileys, backend) — a diferencia del botDot (on/off),
+    // este punto siempre está visible y solo cambia de color según el estado real.
+    const waBtn = makeIconButton('📱', 'WhatsApp (conexión real): desconectado', () => dispatchOpenModal('config'));
+    const waDot = document.createElement('span');
+    waDot.style.cssText = `position:absolute; bottom:2px; right:2px; width:7px; height:7px; border-radius:50%; background:${WA_STATUS_COLOR.disconnected}; border:1.5px solid #f0f2f5;`;
+    waBtn.appendChild(waDot);
+
+    container.append(calBtn, alarmBtn, botBtn, seqBtn, waBtn);
+    return { el: container, refs: { alarmBadge, seqBadge, botDot, waBtn, waDot } };
 }
 
 const containerRefs = new WeakMap<HTMLDivElement, ContainerRefs>();
@@ -92,6 +118,8 @@ function applyStatus(container: HTMLDivElement, status: StatusDetail) {
     refs.seqBadge.textContent = String(status.sequenceCount);
     refs.seqBadge.style.display = status.sequenceCount > 0 ? 'block' : 'none';
     refs.botDot.style.display = status.botEnabled ? 'block' : 'none';
+    refs.waDot.style.background = WA_STATUS_COLOR[status.waStatus];
+    refs.waBtn.title = `WhatsApp (conexión real): ${WA_STATUS_LABEL[status.waStatus]}`;
 }
 
 export function mountWaHeaderStatus() {

@@ -9,6 +9,7 @@ import ChatbotModule from './sidebar/ChatbotModule';
 import ToolsGrid from './sidebar/ToolsGrid';
 import { ModalHost } from './sidebar/ModalHost';
 import { ExternalBridge } from './ExternalBridge';
+import { WhatsappStatusToast } from './WhatsappStatusToast';
 import { useActiveChat } from '@/hooks/useActiveChat';
 import { useAppState } from '@/state/AppStateContext';
 
@@ -36,6 +37,7 @@ export const Sidebar: React.FC = () => {
 
             <ModalHost />
             <ExternalBridge />
+            <WhatsappStatusToast />
         </aside>
     );
 };

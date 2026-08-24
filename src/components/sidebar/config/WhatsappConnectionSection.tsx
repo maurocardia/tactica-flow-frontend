@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
+import { useWhatsappStatus } from '@/state/WhatsappStatusContext';
 import { ApiService } from '@/services/api.service';
 import { WhatsappConnectionStatus } from '@/types/whatsapp';
 
@@ -11,42 +12,15 @@ const STATUS_LABEL: Record<WhatsappConnectionStatus, string> = {
   connected: 'Conectado',
 };
 
-const POLL_MS = 3000;
-
 // Conexión REAL a WhatsApp vía Baileys (backend), independiente del motor basado en el DOM que
 // usa el resto del panel en web.whatsapp.com. Requiere estar logueado (la sesión es "por
-// usuario" del lado del backend).
+// usuario" del lado del backend). El estado en sí vive en WhatsappStatusContext (compartido con
+// el ícono del header real de WhatsApp y la alerta de conexión/desconexión), así que sigue
+// actualizándose aunque este panel esté cerrado.
 export const WhatsappConnectionSection: React.FC = () => {
   const { user } = useAuth();
-  const [status, setStatus] = useState<WhatsappConnectionStatus>('disconnected');
-  const [qr, setQr] = useState<string | null>(null);
+  const { status, qr, refresh } = useWhatsappStatus();
   const [busy, setBusy] = useState(false);
-  const pollRef = useRef<number | null>(null);
-
-  const poll = async () => {
-    try {
-      const res = await ApiService.whatsappStatus();
-      setStatus(res.status);
-      if (res.status === 'qr_ready') {
-        const qrRes = await ApiService.whatsappQr().catch(() => null);
-        if (qrRes) setQr(qrRes.qr);
-      } else {
-        setQr(null);
-      }
-    } catch (err) {
-      console.error('[WhatsappConnectionSection] Error al consultar el estado:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (!user) return;
-    poll();
-    pollRef.current = window.setInterval(poll, POLL_MS);
-    return () => {
-      if (pollRef.current) window.clearInterval(pollRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
 
   if (!user) {
     return (
@@ -60,7 +34,7 @@ export const WhatsappConnectionSection: React.FC = () => {
     setBusy(true);
     try {
       await ApiService.whatsappConnect();
-      await poll();
+      await refresh();
     } catch (err) {
       console.error('[WhatsappConnectionSection] Error al conectar:', err);
     } finally {
@@ -72,7 +46,7 @@ export const WhatsappConnectionSection: React.FC = () => {
     setBusy(true);
     try {
       await ApiService.whatsappDisconnect();
-      await poll();
+      await refresh();
     } catch (err) {
       console.error('[WhatsappConnectionSection] Error al desconectar:', err);
     } finally {

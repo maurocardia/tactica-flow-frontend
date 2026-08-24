@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useAppState } from '@/state/AppStateContext';
 import { useModal } from '@/state/ModalContext';
 import { useAuth } from '@/state/AuthContext';
+import { useWhatsappStatus } from '@/state/WhatsappStatusContext';
 import { useActiveChat } from '@/hooks/useActiveChat';
 import { ApiService } from '@/services/api.service';
 import { ModalId } from '@/config/modals';
@@ -18,6 +19,7 @@ export const ExternalBridge: React.FC = () => {
   const { config, setConfig, scheduledMessages, sequences } = useAppState();
   const { activeModal, openModal } = useModal();
   const { user } = useAuth();
+  const { status: waStatus } = useWhatsappStatus();
   const { activeContact } = useActiveChat();
 
   useEffect(() => {
@@ -59,9 +61,11 @@ export const ExternalBridge: React.FC = () => {
     const pendingCount = scheduledMessages.filter((m) => m.contactName === activeContact && m.active).length;
     const sequenceCount = sequences.filter((s) => s.contactName === activeContact && s.active).length;
     window.dispatchEvent(
-      new CustomEvent(STATUS_UPDATE_EVENT, { detail: { pendingCount, sequenceCount, botEnabled: config.botEnabled } })
+      new CustomEvent(STATUS_UPDATE_EVENT, {
+        detail: { pendingCount, sequenceCount, botEnabled: config.botEnabled, waStatus },
+      })
     );
-  }, [scheduledMessages, sequences, activeContact, config.botEnabled]);
+  }, [scheduledMessages, sequences, activeContact, config.botEnabled, waStatus]);
 
   return null;
 };
