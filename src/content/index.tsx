@@ -13,7 +13,7 @@ const PANEL_WIDTH = 360;
 const TOGGLE_EVENT = 'tactica-flow:toggle-panel';
 const MODAL_STATE_EVENT = 'tactica-flow:modal-state';
 
-let panelOpen = true;
+let panelOpen = false;
 // Si un modal se abrió desde los íconos inyectados en el header real de WhatsApp (ver
 // waHeaderStatus.ts) mientras el panel estaba cerrado, necesitamos poder interactuar con ese
 // modal aunque el panel siga "cerrado" — ver updatePointerEvents().
@@ -52,9 +52,6 @@ function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: bool
 
 function injectSidebar() {
     if (document.getElementById('tactica-flow-host')) return;
-
-    // 1. Redimensionar el cuerpo de WhatsApp Web
-    setAppLayoutWidth(true);
 
     // 2. Crear contenedor principal en el DOM
     const hostDiv = document.createElement('div');
@@ -102,6 +99,11 @@ function injectSidebar() {
     launcherIcon.style.cssText = 'width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 50% !important;';
     launcher.appendChild(launcherIcon);
     document.body.appendChild(launcher);
+
+    // Arranca cerrado: aplica de una el estado "cerrado" (right negativo, pointer-events:none,
+    // launcher visible, ancho completo para WhatsApp) en vez de nacer abierto y tener que
+    // cerrarlo a mano cada vez.
+    applyPanelState(hostDiv, launcher, false);
 
     // 4. Crear Shadow Root para aislar los estilos
     const shadowRoot = hostDiv.attachShadow({ mode: 'open' });
