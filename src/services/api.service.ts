@@ -3,10 +3,15 @@
 import { Conversation } from "@/types/conversation";
 import { KeywordRule, KeywordRuleInput } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
+import { AuthUser } from "@/types/auth";
+import { WhatsappStatusResponse } from "@/types/whatsapp";
 import { API_URL } from '../config/env';
+import { getStoredToken } from './authStorage.service';
 
 export const ApiService = {
     async sendBackgroundRequest<T>(endpoint: string, method = 'GET', body?: any): Promise<T> {
+        const token = await getStoredToken();
+
         return new Promise<T>((resolve, reject) => {
             if (!chrome.runtime?.id) {
                 return reject(new Error('Contexto de extensión no disponible'));
@@ -15,7 +20,7 @@ export const ApiService = {
             chrome.runtime.sendMessage(
                 {
                     type: 'FETCH_API',
-                    payload: { endpoint, method, body },
+                    payload: { endpoint, method, body, token },
                 },
                 (response) => {
                     if (chrome.runtime.lastError) {
@@ -29,6 +34,39 @@ export const ApiService = {
                 }
             );
         });
+    },
+
+    // === AUTENTICACIÓN (Google OAuth, Issue #6) ===
+
+    // El login en sí pasa por el mensaje GOOGLE_SIGN_IN (ver background/index.ts y
+    // services/googleAuth.service.ts) — necesita chrome.identity, que no existe en el content
+    // script. Este método queda para reconsultar el usuario actual con el JWT ya guardado.
+    async getMe(): Promise<AuthUser> {
+        return this.sendBackgroundRequest<AuthUser>('/auth/me');
+    },
+
+    // === WHATSAPP REAL (Baileys, por usuario autenticado) ===
+
+    async whatsappConnect(): Promise<{ status: string }> {
+        return this.sendBackgroundRequest<{ status: string }>('/whatsapp/connect', 'POST');
+    },
+
+    async whatsappDisconnect(): Promise<{ status: string }> {
+        return this.sendBackgroundRequest<{ status: string }>('/whatsapp/disconnect', 'POST');
+    },
+
+    async whatsappStatus(): Promise<WhatsappStatusResponse> {
+        return this.sendBackgroundRequest<WhatsappStatusResponse>('/whatsapp/status');
+    },
+
+    async whatsappQr(): Promise<{ qr: string }> {
+        return this.sendBackgroundRequest<{ qr: string }>('/whatsapp/qr');
+    },
+
+    // Switch "Habilitar bot" del panel: apaga/enciende el auto-responder también para la sesión
+    // real de Baileys (ver botEnabled en whatsapp.service.ts) — no solo el motor por DOM.
+    async setBotEnabled(enabled: boolean): Promise<{ botEnabled: boolean }> {
+        return this.sendBackgroundRequest<{ botEnabled: boolean }>('/whatsapp/bot-enabled', 'PUT', { enabled });
     },
 
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===

@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { useAppState } from '@/state/AppStateContext';
 import { useModal } from '@/state/ModalContext';
+import { useAuth } from '@/state/AuthContext';
 import { useActiveChat } from '@/hooks/useActiveChat';
+import { ApiService } from '@/services/api.service';
 import { ModalId } from '@/config/modals';
 
 const OPEN_MODAL_EVENT = 'tactica-flow:open-modal';
@@ -14,6 +16,7 @@ const STATUS_UPDATE_EVENT = 'tactica-flow:status-update';
 export const ExternalBridge: React.FC = () => {
   const { config, setConfig, scheduledMessages, sequences } = useAppState();
   const { openModal } = useModal();
+  const { user } = useAuth();
   const { activeContact } = useActiveChat();
 
   useEffect(() => {
@@ -21,7 +24,19 @@ export const ExternalBridge: React.FC = () => {
       const detail = (e as CustomEvent<{ id: ModalId; payload?: unknown }>).detail;
       if (detail?.id) openModal(detail.id, detail.payload);
     };
-    const onToggleBot = () => setConfig((c) => ({ ...c, botEnabled: !c.botEnabled }));
+    const onToggleBot = () => {
+      setConfig((c) => {
+        const botEnabled = !c.botEnabled;
+        // Igual que el switch del panel: si hay sesión, esto también apaga/prende la sesión
+        // real de Baileys en el backend, no solo el motor por DOM (ver ChatbotModule.tsx).
+        if (user) {
+          ApiService.setBotEnabled(botEnabled).catch((err) => {
+            console.error('[ExternalBridge] No se pudo sincronizar el estado del bot con el backend:', err);
+          });
+        }
+        return { ...c, botEnabled };
+      });
+    };
 
     window.addEventListener(OPEN_MODAL_EVENT, onOpenModal);
     window.addEventListener(TOGGLE_BOT_EVENT, onToggleBot);
@@ -29,7 +44,7 @@ export const ExternalBridge: React.FC = () => {
       window.removeEventListener(OPEN_MODAL_EVENT, onOpenModal);
       window.removeEventListener(TOGGLE_BOT_EVENT, onToggleBot);
     };
-  }, [openModal, setConfig]);
+  }, [openModal, setConfig, user]);
 
   useEffect(() => {
     const pendingCount = scheduledMessages.filter((m) => m.contactName === activeContact && m.active).length;

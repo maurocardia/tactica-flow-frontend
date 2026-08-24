@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Sidebar } from '../components/Sidebar';
 import { AppStateProvider } from '../state/AppStateContext';
 import { ModalProvider } from '../state/ModalContext';
+import { AuthProvider } from '../state/AuthContext';
 import { mountWaHeaderStatus } from './waHeaderStatus';
 import indexCss from '../index.css?inline';
 
@@ -63,7 +64,6 @@ function injectSidebar() {
     const launcher = document.createElement('button');
     launcher.id = 'tactica-flow-launcher';
     launcher.title = 'Abrir TACTICA · WA Sync';
-    launcher.textContent = 'T';
     launcher.style.cssText = `
     display: none;
     position: fixed !important;
@@ -71,19 +71,22 @@ function injectSidebar() {
     bottom: 16px !important;
     width: 48px !important;
     height: 48px !important;
+    padding: 0 !important;
     border-radius: 50% !important;
     border: none !important;
-    background: #9e1114 !important;
-    color: #ffffff !important;
-    font-family: sans-serif !important;
-    font-weight: 700 !important;
-    font-size: 18px !important;
+    background: #ffffff !important;
     align-items: center;
     justify-content: center;
     cursor: pointer !important;
     box-shadow: 0 4px 16px rgba(0,0,0,0.35) !important;
     z-index: 2147483647 !important;
+    overflow: hidden;
   `;
+    const launcherIcon = document.createElement('img');
+    launcherIcon.src = chrome.runtime.getURL('icons/icon.png');
+    launcherIcon.alt = 'TACTICA';
+    launcherIcon.style.cssText = 'width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 50% !important;';
+    launcher.appendChild(launcherIcon);
     document.body.appendChild(launcher);
 
     // 4. Crear Shadow Root para aislar los estilos
@@ -104,11 +107,13 @@ function injectSidebar() {
     const root = createRoot(reactRootDiv);
     root.render(
         <React.StrictMode>
-            <AppStateProvider>
-                <ModalProvider>
-                    <Sidebar />
-                </ModalProvider>
-            </AppStateProvider>
+            <AuthProvider>
+                <AppStateProvider>
+                    <ModalProvider>
+                        <Sidebar />
+                    </ModalProvider>
+                </AppStateProvider>
+            </AuthProvider>
         </React.StrictMode>
     );
 

@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, X, Loader2, Sparkles } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
 import { useKnowledgeBases } from '@/hooks/useKnowledgeBases';
 import { useModal } from '@/state/ModalContext';
 import { useAppState } from '@/state/AppStateContext';
+import { useAuth } from '@/state/AuthContext';
+import { ApiService } from '@/services/api.service';
 import { Toggle } from '@/components/ui/Toggle';
 import { BotFlowModal } from './BotFlowModal';
 
 const ChatbotModule: React.FC = () => {
   const { config, setConfig } = useAppState();
+  const { user } = useAuth();
   const enabled = config.botEnabled;
-  const setEnabled = (v: boolean) => setConfig((c) => ({ ...c, botEnabled: v }));
+
+  // Al loguearse, el estado real del bot (que también rige la sesión de Baileys en el backend)
+  // manda sobre lo que hubiera guardado localmente — solo una vez por sesión de usuario, para no
+  // pisar un toggle que el usuario acaba de hacer con la respuesta de un login viejo.
+  const syncedUserId = useRef<number | null>(null);
+  useEffect(() => {
+    if (user && syncedUserId.current !== user.id) {
+      syncedUserId.current = user.id;
+      setConfig((c) => ({ ...c, botEnabled: user.botEnabled }));
+    }
+  }, [user, setConfig]);
+
+  const setEnabled = (v: boolean) => {
+    setConfig((c) => ({ ...c, botEnabled: v }));
+    if (user) {
+      ApiService.setBotEnabled(v).catch((err) => {
+        console.error('[ChatbotModule] No se pudo sincronizar el estado del bot con el backend:', err);
+      });
+    }
+  };
   const [aiFallbackEnabled, setAiFallbackEnabled] = useState(false);
   const [showFlowModal, setShowFlowModal] = useState(false);
   const { bases } = useKnowledgeBases();

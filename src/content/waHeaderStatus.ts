@@ -101,8 +101,13 @@ export function mountWaHeaderStatus() {
         if (existing) applyStatus(existing, lastStatus);
     }) as EventListener);
 
-    const tryInject = (main: Element) => {
-        const header = main.querySelector('header');
+    // A propósito NO guarda una referencia al `#main`/`header` de un momento dado: al cambiar de
+    // chat varias veces seguidas, WhatsApp a veces reemplaza el nodo `#main` entero (no solo sus
+    // hijos) — un observer atado a esa referencia vieja queda escuchando un nodo muerto para
+    // siempre y los íconos dejaban de reaparecer. Acá se vuelve a buscar todo desde cero en cada
+    // chequeo, así que no importa si el nodo de abajo cambió.
+    const tryInject = () => {
+        const header = document.querySelector('#main header');
         if (!header || header.querySelector(`#${CONTAINER_ID}`)) return;
         const { el, refs } = buildContainer();
         containerRefs.set(el, refs);
@@ -110,24 +115,15 @@ export function mountWaHeaderStatus() {
         applyStatus(el, lastStatus);
     };
 
-    const attach = (main: Element) => {
-        tryInject(main);
-        // WhatsApp reemplaza el header entero al cambiar de chat — hay que reinyectar cada vez.
-        const observer = new MutationObserver(() => tryInject(main));
-        observer.observe(main, { childList: true, subtree: true });
-    };
+    tryInject();
 
-    const existingMain = document.querySelector('#main');
-    if (existingMain) {
-        attach(existingMain);
-        return;
-    }
+    // Observa un contenedor estable (el `body`, que WhatsApp nunca reemplaza) en vez de `#main`
+    // directo — así el observer sigue vivo aunque `#main` se reemplace entero.
+    const observer = new MutationObserver(() => tryInject());
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    const retry = window.setInterval(() => {
-        const found = document.querySelector('#main');
-        if (found) {
-            window.clearInterval(retry);
-            attach(found);
-        }
-    }, 500);
+    // Red de seguridad barata además del observer: si por lo que sea se pierde alguna transición
+    // (el observer no dispara, o dispara antes de que el nuevo header termine de armarse), este
+    // polling de baja frecuencia igual termina reinyectando los íconos.
+    window.setInterval(tryInject, 2000);
 }
