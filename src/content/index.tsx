@@ -4,13 +4,19 @@ import { Sidebar } from '../components/Sidebar';
 import { AppStateProvider } from '../state/AppStateContext';
 import { ModalProvider } from '../state/ModalContext';
 import { AuthProvider } from '../state/AuthContext';
+import { KnowledgeBaseProvider } from '../state/KnowledgeBaseContext';
 import { mountWaHeaderStatus } from './waHeaderStatus';
 import indexCss from '../index.css?inline';
 
 const PANEL_WIDTH = 360;
 const TOGGLE_EVENT = 'tactica-flow:toggle-panel';
+const MODAL_STATE_EVENT = 'tactica-flow:modal-state';
 
 let panelOpen = true;
+// Si un modal se abrió desde los íconos inyectados en el header real de WhatsApp (ver
+// waHeaderStatus.ts) mientras el panel estaba cerrado, necesitamos poder interactuar con ese
+// modal aunque el panel siga "cerrado" — ver updatePointerEvents().
+let modalOpen = false;
 
 function setAppLayoutWidth(shrink: boolean) {
     const appLayout = (document.querySelector('#app > div') || document.querySelector('#app')) as HTMLElement | null;
@@ -24,6 +30,13 @@ function setAppLayoutWidth(shrink: boolean) {
     appLayout.style.float = 'left';
 }
 
+// El host completo (panel + cualquier modal que renderice adentro) solo debe interceptar clics
+// cuando hace falta: con el panel abierto siempre, y con el panel cerrado únicamente si hay un
+// modal abierto encima (si no, `pointer-events: none` deja pasar los clics hacia WhatsApp).
+function updatePointerEvents(hostDiv: HTMLElement) {
+    hostDiv.style.pointerEvents = panelOpen || modalOpen ? 'auto' : 'none';
+}
+
 function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: boolean) {
     panelOpen = open;
     // `right` en vez de `transform`: un ancestro con `transform` pasa a ser el "containing
@@ -31,7 +44,7 @@ function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: bool
     // modales usan `fixed inset-0`) — quedaban encerrados en la franja de 360px del panel en
     // vez de cubrir toda la pantalla. `right` no tiene ese efecto secundario.
     hostDiv.style.right = open ? '0' : `-${PANEL_WIDTH}px`;
-    hostDiv.style.pointerEvents = open ? 'auto' : 'none';
+    updatePointerEvents(hostDiv);
     launcher.style.display = open ? 'none' : 'flex';
     setAppLayoutWidth(open);
 }
@@ -109,9 +122,11 @@ function injectSidebar() {
         <React.StrictMode>
             <AuthProvider>
                 <AppStateProvider>
-                    <ModalProvider>
-                        <Sidebar />
-                    </ModalProvider>
+                    <KnowledgeBaseProvider>
+                        <ModalProvider>
+                            <Sidebar />
+                        </ModalProvider>
+                    </KnowledgeBaseProvider>
                 </AppStateProvider>
             </AuthProvider>
         </React.StrictMode>
@@ -121,6 +136,14 @@ function injectSidebar() {
     //    cerrar (el Header vive dentro del Shadow DOM, así que no puede tocar `launcher` directo).
     launcher.addEventListener('click', () => applyPanelState(hostDiv, launcher, true));
     window.addEventListener(TOGGLE_EVENT, () => applyPanelState(hostDiv, launcher, !panelOpen));
+
+    // Un modal abierto desde los íconos del header real de WhatsApp (ver waHeaderStatus.ts)
+    // necesita poder tocarse/cerrarse aunque el panel esté cerrado — ver ExternalBridge.tsx,
+    // que avisa acá cada vez que cambia si hay un modal activo.
+    window.addEventListener(MODAL_STATE_EVENT, (e) => {
+        modalOpen = !!(e as CustomEvent<{ open: boolean }>).detail?.open;
+        updatePointerEvents(hostDiv);
+    });
 
     import('../config/env').then(({ IS_CLOUD_DEV, IS_LOCAL_DEV, API_URL }) => {
         console.log(`🚀 [Táctica Flow] Sidebar renderizado en Shadow DOM. API: ${API_URL} (Cloud: ${IS_CLOUD_DEV}, Local: ${IS_LOCAL_DEV})`);

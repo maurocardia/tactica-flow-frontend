@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, X, Loader2, Sparkles } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
-import { useKnowledgeBases } from '@/hooks/useKnowledgeBases';
+import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 import { useModal } from '@/state/ModalContext';
 import { useAppState } from '@/state/AppStateContext';
 import { useAuth } from '@/state/AuthContext';

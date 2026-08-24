@@ -12,11 +12,15 @@ export const AccountSection: React.FC = () => {
       <h4 className="text-[10.5px] font-bold uppercase tracking-wide text-slate-500">Cuenta</h4>
       {user ? (
         <div className="flex items-center gap-2">
-          {user.avatarUrl ? (
-            <img src={user.avatarUrl} className="w-8 h-8 rounded-full shrink-0" alt="" />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-slate-200 shrink-0" />
-          )}
+          <img
+            src={user.avatarUrl || chrome.runtime.getURL('icons/user.png')}
+            className="w-8 h-8 rounded-full shrink-0 object-cover bg-slate-200"
+            alt=""
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = chrome.runtime.getURL('icons/user.png');
+            }}
+          />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-slate-800 truncate">{user.name}</p>
             <p className="text-[10.5px] text-slate-500 truncate">{user.email}</p>
