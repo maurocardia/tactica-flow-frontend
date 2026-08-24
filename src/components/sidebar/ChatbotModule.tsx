@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, X, Loader2, Sparkles } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
-import { useKnowledgeBases } from '@/hooks/useKnowledgeBases';
+import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 import { useModal } from '@/state/ModalContext';
 import { useAppState } from '@/state/AppStateContext';
 import { useAuth } from '@/state/AuthContext';
@@ -14,15 +14,25 @@ const ChatbotModule: React.FC = () => {
   const { user } = useAuth();
   const enabled = config.botEnabled;
 
-  // Al loguearse, el estado real del bot (que también rige la sesión de Baileys en el backend)
-  // manda sobre lo que hubiera guardado localmente — solo una vez por sesión de usuario, para no
-  // pisar un toggle que el usuario acaba de hacer con la respuesta de un login viejo.
+  // Al loguearse (o al reabrir el panel con la sesión ya hidratada), consulta el estado real del
+  // switch directo al backend en vez de confiar en el `user` cacheado en AuthContext — ese objeto
+  // puede quedar desactualizado si `bot_enabled` cambió por otra vía. Se hace una sola vez por
+  // sesión de usuario para no pisar un toggle que el usuario acaba de hacer acá mismo.
   const syncedUserId = useRef<number | null>(null);
   useEffect(() => {
-    if (user && syncedUserId.current !== user.id) {
-      syncedUserId.current = user.id;
-      setConfig((c) => ({ ...c, botEnabled: user.botEnabled }));
-    }
+    if (!user || syncedUserId.current === user.id) return;
+    syncedUserId.current = user.id;
+    let cancelled = false;
+    ApiService.getMe()
+      .then((freshUser) => {
+        if (!cancelled) setConfig((c) => ({ ...c, botEnabled: freshUser.botEnabled }));
+      })
+      .catch((err) => {
+        console.error('[ChatbotModule] No se pudo consultar el estado real del bot:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user, setConfig]);
 
   const setEnabled = (v: boolean) => {

@@ -9,13 +9,14 @@ import { ModalId } from '@/config/modals';
 const OPEN_MODAL_EVENT = 'tactica-flow:open-modal';
 const TOGGLE_BOT_EVENT = 'tactica-flow:toggle-bot';
 const STATUS_UPDATE_EVENT = 'tactica-flow:status-update';
+const MODAL_STATE_EVENT = 'tactica-flow:modal-state';
 
 // Puente entre los íconos inyectados directo en el header real de WhatsApp Web (fuera del
 // Shadow DOM, ver content/waHeaderStatus.ts) y el estado/los modales de acá adentro. No renderiza
 // nada — solo escucha/emite eventos en `window`, el único canal entre ambos árboles de DOM.
 export const ExternalBridge: React.FC = () => {
   const { config, setConfig, scheduledMessages, sequences } = useAppState();
-  const { openModal } = useModal();
+  const { activeModal, openModal } = useModal();
   const { user } = useAuth();
   const { activeContact } = useActiveChat();
 
@@ -45,6 +46,14 @@ export const ExternalBridge: React.FC = () => {
       window.removeEventListener(TOGGLE_BOT_EVENT, onToggleBot);
     };
   }, [openModal, setConfig, user]);
+
+  // El host del Shadow DOM pone pointer-events: none cuando el panel está cerrado (para no
+  // interceptar clics sobre WhatsApp) — sin este aviso, un modal abierto desde los íconos del
+  // header real (que sigue vivo aunque el panel esté cerrado) quedaba visible pero sin poder
+  // tocarse ni cerrarse hasta reabrir el panel. Ver content/index.tsx.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(MODAL_STATE_EVENT, { detail: { open: activeModal !== null } }));
+  }, [activeModal]);
 
   useEffect(() => {
     const pendingCount = scheduledMessages.filter((m) => m.contactName === activeContact && m.active).length;

@@ -36,10 +36,11 @@ no existen, cada módulo cae en una de dos categorías, sin mezclarse: **real** 
   token, el backend lo verifica (`/api/auth/google`) y devuelve un JWT que se guarda en
   `chrome.storage.local`.
 - **Conexión real de WhatsApp vía Baileys** (Configuración → "WhatsApp (conexión real)", requiere
-  login): conectar/desconectar, ver el código QR para vincular, estado en vivo. **Ojo**: es una
-  sesión de WhatsApp *separada* del motor por DOM que usa el resto del panel — no están
-  coordinadas todavía (riesgo de respuesta duplicada si ambas quedan activas a la vez sobre el
-  mismo número, ver `BACKEND_REQUERIDO.md` sección 1.b).
+  login): conectar/desconectar, ver el código QR para vincular, estado en vivo. Es una sesión de
+  WhatsApp *separada* del DOM que usa el resto del panel, pero ya coordinada para el auto-reply:
+  el switch "Habilitar bot" apaga/prende la sesión de Baileys de verdad, y el auto-responder
+  automático por DOM quedó deshabilitado a propósito para no duplicar respuestas — Baileys es el
+  único que contesta solo ante un mensaje entrante (ver `BACKEND_REQUERIDO.md` sección 1.b).
 
 Lo único que **no** está incluido acá pero suena parecido: "Transcribir audios" (botón del módulo
 de IA) sigue siendo un botón de prototipo — no lee audios reales todavía.

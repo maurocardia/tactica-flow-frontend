@@ -3,7 +3,7 @@ import { Plus, Loader2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Field, fieldInputClass } from '@/components/ui/Field';
-import { useKnowledgeBases } from '@/hooks/useKnowledgeBases';
+import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 import { KbCard } from './KbCard';
 
 export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {

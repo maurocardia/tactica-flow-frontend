@@ -28,9 +28,9 @@ export const Sidebar: React.FC = () => {
             <div className="w-full p-3 flex flex-col gap-3 box-border">
                 {visible.contactCard && <ContactCard contactName={activeContact} />}
                 {visible.aiModule && <AiModule />}
+                {visible.chatbot && <ChatbotModule />}
                 {visible.selectMessages && <SelectMessagesCard />}
                 {visible.ficha360 && <Ficha360 />}
-                {visible.chatbot && <ChatbotModule />}
                 {visible.toolsGrid && <ToolsGrid />}
             </div>
 
