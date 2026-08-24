@@ -1,5 +1,7 @@
 import React from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { AccountSection } from './AccountSection';
+import { WhatsappConnectionSection } from './WhatsappConnectionSection';
 import { WhatsAppModeSection } from './WhatsAppModeSection';
 import { AiEngineSection } from './AiEngineSection';
 import { BehaviorSection } from './BehaviorSection';
@@ -12,6 +14,8 @@ export const ConfigModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
       Listo
     </button>
   }>
+    <AccountSection />
+    <WhatsappConnectionSection />
     <WhatsAppModeSection />
     <AiEngineSection />
     <BehaviorSection />

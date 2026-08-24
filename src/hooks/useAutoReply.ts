@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DOMService } from '@/services/dom.service';
 import { ApiService } from '@/services/api.service';
 import { KeywordRule } from '@/types/bot';
+import { formatForWhatsApp } from '@/lib/waFormat';
 
 const BASE_DELAY_MS = 3000;
 const JITTER_MS = 0;
@@ -60,7 +61,10 @@ export function useAutoReply(enabled: boolean, aiFallbackEnabled: boolean = fals
     clearPending();
   };
 
-  const scheduleReply = (source: string, replyText: string) => {
+  const scheduleReply = (source: string, rawReplyText: string) => {
+    // Limpia tablas/negrita en formato Markdown antes de insertarlo: WhatsApp no las renderiza
+    // (las muestra con las barras y guiones sueltos) — ver src/lib/waFormat.ts.
+    const replyText = formatForWhatsApp(rawReplyText);
     console.log(`[useAutoReply] "${source}" respondió. Preparando auto-respuesta.`);
     DOMService.insertMessage(replyText);
 

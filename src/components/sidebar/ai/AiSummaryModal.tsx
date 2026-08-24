@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Download } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { DOMService } from '@/services/dom.service';
 import { ApiService } from '@/services/api.service';
@@ -47,6 +47,24 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     };
   }, []);
 
+  // Descarga el resumen como .txt real — a diferencia de "Guardar en historial" (que necesitaría
+  // un endpoint que todavía no existe), esto no depende de ningún backend: arma el archivo en el
+  // navegador y dispara la descarga con un <a download> temporal.
+  const handleDownload = () => {
+    const fecha = new Date().toLocaleString('es-AR');
+    const contenido = `Resumen IA de la conversación con ${contactName}\n${fecha}\n\n${summary}`;
+    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const safeName = contactName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `resumen-${safeName || 'chat'}-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Modal
       title="Resumen IA de la conversación"
@@ -63,6 +81,13 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
             className="bg-purple-600/40 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-not-allowed"
           >
             Guardar en historial
+          </button>
+          <button
+            onClick={handleDownload}
+            disabled={status !== 'done'}
+            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-2 rounded-lg"
+          >
+            <Download className="w-3.5 h-3.5" /> Descargar
           </button>
         </>
       }

@@ -25,40 +25,33 @@ export interface VisibleMessage {
 }
 
 export const DOMService = {
+    /**
+     * Lee el nombre del contacto/grupo del chat abierto. Verificado a mano en consola (ago-2026):
+     * el nombre es un <span> sin `title` y sin clases con significado (todo atómico), y es el
+     * PRIMER span-hoja del header — el único otro span-hoja con texto es la línea de estado
+     * ("último. vez...", "en línea", "escribiendo...") y esa sí trae las clases
+     * `selectable-text copyable-text`. Antes se buscaba por `span[title]`, pero el nombre no
+     * siempre tiene ese atributo (solo lo agrega WhatsApp cuando el texto se trunca) — por eso a
+     * veces se leía la línea de estado en vez del nombre.
+     */
     getChatTitle(): string | null {
-        const selectors = [
-            '#main header div[role="button"] span[title]',
-            '#main header span[title]',
-            '#main header h2 span',
-            '#main header div._amoi span[title]',
-            '#main header div span[dir="auto"]'
-        ];
+        try {
+            const header = document.querySelector('#main header');
+            if (!header) return null;
 
-        for (const selector of selectors) {
-            // 1. Guardrail: Ignorar selectores inválidos o vacíos
-            if (!selector || selector.trim() === '#') continue;
+            const nameSpan = Array.from(header.querySelectorAll('span')).find((el) => {
+                if (el.children.length > 0) return false; // solo nodos hoja (sin íconos adentro)
+                const text = el.textContent?.trim();
+                if (!text) return false;
+                if (/selectable-text|copyable-text/.test(el.className)) return false; // línea de estado
+                return true;
+            });
 
-            try {
-                const el = document.querySelector(selector);
-                if (el) {
-                    const titleAttr = el.getAttribute('title');
-                    const textContent = el.textContent?.trim();
-
-                    if (titleAttr && titleAttr.length > 0) return titleAttr;
-                    if (
-                        textContent &&
-                        textContent.length > 0 &&
-                        !textContent.includes(':') &&
-                        textContent.toLowerCase() !== 'en línea'
-                    ) {
-                        return textContent;
-                    }
-                }
-            } catch (err) {
-                console.warn(`[DOMService] Selector no válido omitido: "${selector}"`, err);
-            }
+            return nameSpan?.textContent?.trim() || null;
+        } catch (err) {
+            console.warn('[DOMService] Error al leer el título del chat:', err);
+            return null;
         }
-        return null;
     },
 
     insertMessage(text: string): boolean {
@@ -66,7 +59,18 @@ export const DOMService = {
             const messageBox = document.querySelector('#main footer div[contenteditable="true"]') as HTMLElement;
             if (messageBox) {
                 messageBox.focus();
-                document.execCommand('insertText', false, text);
+
+                // Insertar el texto completo de una sola vez con un '\n' suelto NO genera un salto
+                // de línea real en un contenteditable — el navegador lo colapsa en un espacio (por
+                // eso un mensaje con varios renglones llegaba pegado en un solo párrafo). Hay que
+                // insertar línea por línea y meter un salto real (`insertLineBreak`, el mismo que
+                // dispara Shift+Enter) entre cada una.
+                const lines = text.split('\n');
+                lines.forEach((line, i) => {
+                    if (i > 0) document.execCommand('insertLineBreak');
+                    if (line) document.execCommand('insertText', false, line);
+                });
+
                 // Algunas versiones de WhatsApp Web sólo habilitan el botón de enviar cuando
                 // detectan un evento 'input' real sobre el compositor (React controla el estado
                 // internamente). execCommand ya dispara uno en la mayoría de los navegadores,

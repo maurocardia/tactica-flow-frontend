@@ -32,6 +32,14 @@ no existen, cada módulo cae en una de dos categorías, sin mezclarse: **real** 
   conversación, así que el texto no promete algo que el motor no hace.
 - **Lectura del contacto activo**: nombre del chat abierto, actualizado en vivo.
 - **Abrir/cerrar el panel lateral**: real, 100% local, sin backend — ver sección 7.
+- **Login con Google** (Configuración → "Cuenta"): `chrome.identity.launchWebAuthFlow` pide el
+  token, el backend lo verifica (`/api/auth/google`) y devuelve un JWT que se guarda en
+  `chrome.storage.local`.
+- **Conexión real de WhatsApp vía Baileys** (Configuración → "WhatsApp (conexión real)", requiere
+  login): conectar/desconectar, ver el código QR para vincular, estado en vivo. **Ojo**: es una
+  sesión de WhatsApp *separada* del motor por DOM que usa el resto del panel — no están
+  coordinadas todavía (riesgo de respuesta duplicada si ambas quedan activas a la vez sobre el
+  mismo número, ver `BACKEND_REQUERIDO.md` sección 1.b).
 
 Lo único que **no** está incluido acá pero suena parecido: "Transcribir audios" (botón del módulo
 de IA) sigue siendo un botón de prototipo — no lee audios reales todavía.
@@ -225,4 +233,15 @@ src/
 3. Cargar `dist/` como extensión descomprimida en `chrome://extensions`.
 4. Abrir `web.whatsapp.com` (refrescar la pestaña si ya estaba abierta).
 5. El engranaje del header abre Configuración; el ícono de cerrar panel lo oculta (botón flotante
-   "T" para reabrirlo); los íconos 📅⏰🤖🔁 aparecen en el header de la conversación de WhatsApp.
+   con el logo para reabrirlo); los íconos 📅⏰🤖🔁 aparecen en el header de la conversación de WhatsApp.
+
+## 10. Pendiente antes de lanzar
+
+- **La IA vuelca el documento completo de la Base de Conocimiento en vez de responder puntual**:
+  al preguntar algo puntual (ej. "qué productos tienen") con un documento cargado en la Base de
+  Conocimiento, a veces la respuesta es el catálogo/documento entero en vez de una respuesta
+  acotada a lo preguntado. No es algo que se pueda arreglar desde el frontend — el frontend solo
+  muestra/inserta el texto que ya generó la IA. El fix real es en el **backend**
+  (`ai.service.ts`): agregarle al `SYSTEM_PROMPT` una instrucción explícita de que la Base de
+  Conocimiento es solo referencia y que debe responder puntual, no volcar el documento completo
+  salvo pedido explícito. Bloqueante para un lanzamiento real con catálogos/documentos largos.
