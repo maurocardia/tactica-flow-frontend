@@ -36,6 +36,10 @@ export interface AppConfig {
   // Estado real del chatbot (no prototipo): lo lee/escribe tanto ChatbotModule como el ícono de
   // estado en ContactCard, así que vive acá en vez de en un useState local de un solo componente.
   botEnabled: boolean;
+  // Switch "Responder con IA" (mismo patrón que botEnabled): con el bot habilitado, si ninguna
+  // regla de palabra clave matchea, decide si se cae al agente de IA o si no se manda ninguna
+  // respuesta automática (solo chatbot manual). Ver PUT /api/whatsapp/ai-fallback-enabled.
+  aiFallbackEnabled: boolean;
 
   ficha360Tabs: Ficha360TabVisibility;
   moduleVisibility: ModuleVisibility;

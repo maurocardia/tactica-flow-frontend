@@ -19,6 +19,7 @@ export const INITIAL_CONFIG: AppConfig = {
   autoSummarizeOnOpen: false,
   autoTranscribe: true,
   botEnabled: true,
+  aiFallbackEnabled: true,
 
   ficha360Tabs: {
     historial: true,
