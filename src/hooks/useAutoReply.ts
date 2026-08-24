@@ -119,7 +119,6 @@ export function useAutoReply(enabled: boolean, aiFallbackEnabled: boolean = fals
       return;
     }
 
-    let stopWatcher: () => void = () => { };
     let cancelled = false;
     let refreshInterval: number | null = null;
 
@@ -136,20 +135,15 @@ export function useAutoReply(enabled: boolean, aiFallbackEnabled: boolean = fals
       await loadRules();
       if (cancelled) return;
 
-      // Refresca periódicamente: si el usuario activa/desactiva o edita una regla desde el editor
-      // mientras el bot sigue prendido, el motor tenía una copia vieja en memoria y nunca se
-      // enteraba del cambio hasta apagar y prender el chatbot de nuevo.
+      // Refresca periódicamente: las reglas se siguen usando acá para la prueba manual
+      // (testWithLastMessage) aunque ya no haya watcher automático — ver nota abajo.
       refreshInterval = window.setInterval(loadRules, RULES_REFRESH_MS);
 
-      stopWatcher = DOMService.startIncomingMessageWatcher((text) => {
-        const rule = findMatchingRule(rulesRef.current, text);
-        if (rule) {
-          scheduleReply(rule.name, rule.replyText);
-          return;
-        }
-        console.log('[useAutoReply] Mensaje entrante sin regla que matchee:', text);
-        if (aiFallbackRef.current) runAiFallback(text);
-      });
+      // El watcher automático por DOM (DOMService.startIncomingMessageWatcher) queda
+      // deshabilitado a propósito: el mismo switch "Habilitar bot" ya prende también la sesión
+      // real de Baileys en el backend, y con los dos motores escuchando el mismo mensaje
+      // entrante terminaba respondiendo dos veces. Baileys es ahora el único motor de
+      // auto-respuesta automática; acá sólo queda la prueba manual ("Probar").
     };
 
     setup();
@@ -157,7 +151,6 @@ export function useAutoReply(enabled: boolean, aiFallbackEnabled: boolean = fals
     return () => {
       cancelled = true;
       if (refreshInterval) window.clearInterval(refreshInterval);
-      stopWatcher();
       clearPending();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

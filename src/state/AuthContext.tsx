@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthUser } from '@/types/auth';
 import { signInWithGoogle } from '@/services/googleAuth.service';
 import { getStoredToken, getStoredUser, setStoredAuth, clearStoredAuth } from '@/services/authStorage.service';
+import { ApiService } from '@/services/api.service';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -42,6 +43,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    // Desconecta también la sesión real de WhatsApp (Baileys) de este usuario — si no, queda
+    // colgada en el backend y el próximo "Conectar" falla en vez de pedir un QR nuevo. Se hace
+    // antes de borrar el token guardado porque necesita mandarlo en el pedido.
+    try {
+      await ApiService.whatsappDisconnect();
+    } catch (err) {
+      console.error('[AuthContext] No se pudo desconectar WhatsApp al cerrar sesión:', err);
+    }
     await clearStoredAuth();
     setUser(null);
   };

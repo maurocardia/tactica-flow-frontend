@@ -29,12 +29,15 @@ Backend (mergeado a `main`) + frontend, completo:
   `background/index.ts` agrega `Authorization: Bearer <token>` en cada pedido). UI real en
   Configuración → "WhatsApp (conexión real)": conectar/desconectar, ver el QR, y el estado se
   actualiza solo (polling cada 3s).
-- **Ojo, esto es una sesión de WhatsApp *distinta* a la que usa el resto del panel**: el motor de
-  auto-respuesta/reglas sigue actuando sobre el DOM de `web.whatsapp.com` (la pestaña abierta);
-  esta conexión de Baileys es un "dispositivo vinculado" aparte que corre en el backend. Todavía
-  no están unificados — si ambos quedan conectados al mismo número, podrían generar respuestas
-  duplicadas (mismo riesgo ya documentado en `../tactica-flow-backend/BAILEYS_WHATSAPP.md`,
-  sección 6, sin resolver).
+- **Esto es una sesión de WhatsApp *distinta* a la que usa el resto del panel**: sigue siendo un
+  "dispositivo vinculado" aparte que corre en el backend, separado del DOM de `web.whatsapp.com`
+  que usa el resto del panel (Ficha 360°, herramientas, etc.). **Coordinación resuelta del lado
+  del auto-responder**: `useAutoReply.ts` ya no dispara el watcher automático por DOM
+  (`DOMService.startIncomingMessageWatcher`) — Baileys es ahora el único motor que responde solo
+  ante un mensaje entrante real; el DOM solo se sigue usando para la prueba manual ("Probar") y
+  para insertar/enviar mensajes que el usuario arma a mano (Redactar con IA, plantillas, etc.).
+  Sigue pendiente unificar el resto (Ficha 360°, etiquetas, historial) para que no dependan de
+  tener la pestaña de WhatsApp Web abierta.
 - **Pendiente**: el backend emite `whatsapp_status_updated` por Socket.io además del polling — el
   frontend hoy solo usa polling (más simple, no agrega `socket.io-client` como dependencia nueva).
   Se podría cambiar a sockets más adelante si el polling cada 3s resulta insuficiente.
@@ -75,8 +78,8 @@ Backend (mergeado a `main`) + frontend, completo:
 
 1. Prompt de la IA (rápido, alto impacto, ya diagnosticado).
 2. ~~Frontend: login + UI de Baileys~~ — hecho (ver 1.b).
-3. Decidir la coordinación entre el motor por DOM y Baileys (sección 1.b, riesgo de duplicados) —
-   antes de que alguien conecte los dos a la vez con un número real.
+3. ~~Decidir la coordinación entre el motor por DOM y Baileys~~ — hecho: se deshabilitó el
+   auto-responder automático por DOM, Baileys es el único que responde solo (ver 1.b).
 4. Scheduler/cola en el backend para Programados y secuencias (ya no bloqueado por "no se puede
    mandar sin el chat abierto" — Baileys resuelve esa parte).
 5. Modelo de equipo/roles (más allá del login individual) — desbloquea Reasignar, Derivación,
