@@ -14,10 +14,11 @@ const ChatbotModule: React.FC = () => {
   const { user } = useAuth();
   const enabled = config.botEnabled;
 
-  // Al loguearse (o al reabrir el panel con la sesión ya hidratada), consulta el estado real del
-  // switch directo al backend en vez de confiar en el `user` cacheado en AuthContext — ese objeto
-  // puede quedar desactualizado si `bot_enabled` cambió por otra vía. Se hace una sola vez por
-  // sesión de usuario para no pisar un toggle que el usuario acaba de hacer acá mismo.
+  // Al loguearse (o al reabrir el panel con la sesión ya hidratada), consulta el estado real de
+  // los switches directo al backend en vez de confiar en el `user` cacheado en AuthContext — ese
+  // objeto puede quedar desactualizado si `bot_enabled`/`ai_fallback_enabled` cambiaron por otra
+  // vía. Se hace una sola vez por sesión de usuario para no pisar un toggle que el usuario acaba
+  // de hacer acá mismo.
   const syncedUserId = useRef<number | null>(null);
   useEffect(() => {
     if (!user || syncedUserId.current === user.id) return;
@@ -25,7 +26,13 @@ const ChatbotModule: React.FC = () => {
     let cancelled = false;
     ApiService.getMe()
       .then((freshUser) => {
-        if (!cancelled) setConfig((c) => ({ ...c, botEnabled: freshUser.botEnabled }));
+        if (!cancelled) {
+          setConfig((c) => ({
+            ...c,
+            botEnabled: freshUser.botEnabled,
+            aiFallbackEnabled: freshUser.aiFallbackEnabled,
+          }));
+        }
       })
       .catch((err) => {
         console.error('[ChatbotModule] No se pudo consultar el estado real del bot:', err);
@@ -43,7 +50,17 @@ const ChatbotModule: React.FC = () => {
       });
     }
   };
-  const [aiFallbackEnabled, setAiFallbackEnabled] = useState(false);
+
+  const aiFallbackEnabled = config.aiFallbackEnabled;
+  const setAiFallbackEnabled = (v: boolean) => {
+    setConfig((c) => ({ ...c, aiFallbackEnabled: v }));
+    if (user) {
+      ApiService.setAiFallbackEnabled(v).catch((err) => {
+        console.error('[ChatbotModule] No se pudo sincronizar el fallback de IA con el backend:', err);
+      });
+    }
+  };
+
   const [showFlowModal, setShowFlowModal] = useState(false);
   const { bases } = useKnowledgeBases();
   const { openModal } = useModal();

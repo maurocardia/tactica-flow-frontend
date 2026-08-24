@@ -69,6 +69,13 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ botEnabled: boolean }>('/whatsapp/bot-enabled', 'PUT', { enabled });
     },
 
+    // Switch "Responder con IA" del panel: si ninguna regla de palabra clave matchea, decide si
+    // el bot cae al agente de IA (true) o no manda ninguna respuesta automática (false) — ver
+    // aiFallbackEnabled en botEngine.service.ts.
+    async setAiFallbackEnabled(enabled: boolean): Promise<{ aiFallbackEnabled: boolean }> {
+        return this.sendBackgroundRequest<{ aiFallbackEnabled: boolean }>('/whatsapp/ai-fallback-enabled', 'PUT', { enabled });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     async getConversations(): Promise<Conversation[]> {

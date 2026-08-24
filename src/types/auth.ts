@@ -10,6 +10,7 @@ export interface AuthUser {
   aiProvider: string;
   aiModel: string;
   botEnabled: boolean;
+  aiFallbackEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
