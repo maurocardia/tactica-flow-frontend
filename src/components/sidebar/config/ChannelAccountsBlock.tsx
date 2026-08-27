@@ -22,19 +22,19 @@ export const ChannelAccountsBlock: React.FC<{ channel: ChannelDefinition }> = ({
     ]);
 
   return (
-    <div className="border border-slate-200 rounded-lg p-2.5">
+    <div className="bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 flex flex-col gap-2.5 shadow-2xs">
       <div className="flex items-center gap-2">
-        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 ${channel.color}`}>{channel.shortLabel}</span>
-        <span className="font-bold text-[12px] text-slate-700">{channel.label}</span>
+        <span className={`text-[10px] font-extrabold rounded-full px-2.5 py-0.5 shadow-2xs ${channel.color}`}>{channel.shortLabel}</span>
+        <span className="font-extrabold text-[12.5px] text-slate-900 dark:text-slate-100 tracking-tight">{channel.label}</span>
         <button
           onClick={addAccount}
-          className="ml-auto flex items-center gap-1 text-[10.5px] font-semibold text-red-700 border border-slate-200 rounded-md px-2 py-1 hover:bg-red-50"
+          className="ml-auto flex items-center gap-1 text-[11px] font-bold text-red-700 dark:text-red-400 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-1 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs"
         >
-          <Plus className="w-3 h-3" /> Agregar
+          <Plus className="w-3.5 h-3.5" /> Agregar
         </button>
       </div>
-      <div className="flex flex-col gap-2 mt-2">
-        {channelAccounts.length === 0 && <p className="text-[11px] text-slate-400 py-1">Sin cuentas cargadas.</p>}
+      <div className="flex flex-col gap-2 mt-1">
+        {channelAccounts.length === 0 && <p className="text-xs text-slate-600 dark:text-slate-400 font-medium py-1">Sin cuentas cargadas.</p>}
         {channelAccounts.map((acc) => (
           <AccountRow key={acc.id} account={acc} />
         ))}

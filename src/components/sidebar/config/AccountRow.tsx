@@ -17,21 +17,21 @@ export const AccountRow: React.FC<{ account: ChannelAccount }> = ({ account }) =
   const remove = () => setAccounts((prev) => prev.filter((a) => a.id !== account.id));
 
   return (
-    <div className="border border-slate-100 rounded-lg p-2 bg-slate-50/60 flex flex-col gap-2">
-      <div className="flex items-center gap-1.5">
+    <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl p-2.5 bg-white dark:bg-slate-800/80 flex flex-col gap-2.5 shadow-2xs">
+      <div className="flex items-center gap-2">
         <input
-          className="flex-1 border border-slate-300 rounded-md px-2 py-1 text-xs bg-white text-slate-800 [color-scheme:light]"
+          className="flex-1 border border-slate-300 dark:border-slate-600 rounded-xl px-2.5 py-1.5 text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] font-semibold focus:outline-none focus:border-red-500"
           value={account.name}
           onChange={(e) => update({ name: e.target.value })}
           placeholder={`Nombre de la cuenta de ${def.label}`}
         />
-        <button onClick={remove} className="border border-slate-200 bg-white rounded-md p-1 text-slate-400 hover:text-red-600 shrink-0">
-          <Trash2 className="w-3.5 h-3.5" />
+        <button onClick={remove} className="border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 shrink-0 transition-colors cursor-pointer" title="Eliminar cuenta">
+          <Trash2 className="w-4 h-4" />
         </button>
       </div>
 
       {account.channel === 'wa' && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <select
             className={fieldInputClass}
             value={account.waMode ?? 'web'}
@@ -51,9 +51,9 @@ export const AccountRow: React.FC<{ account: ChannelAccount }> = ({ account }) =
       )}
 
       {account.channel === 'li' && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           <ConnectButton account={account} />
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             <Field label="Invit./día">
               <input
                 type="number"
