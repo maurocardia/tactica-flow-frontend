@@ -17,6 +17,7 @@ interface AudioItem {
   status: 'idle' | 'transcribing' | 'done' | 'error';
   transcription?: string;
   selected: boolean;
+  timestamp?: string;  // hora/fecha visible del mensaje, ej: "2:15 a.m."
 }
 
 export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, contactName }) => {
@@ -194,7 +195,7 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
       .filter((a) => a.status === 'done' && a.transcription)
       .map(
         (a) =>
-          `[Audio ${a.sender === 'them' ? 'Cliente' : 'Asesor'} - ${a.duration}]:\n"${a.transcription}"`
+          `[Audio ${a.sender === 'them' ? 'Cliente' : 'Asesor'}${a.timestamp ? ` - ${a.timestamp}` : ''} - ${a.duration}]:\n"${a.transcription}"`
       )
       .join('\n\n');
 
@@ -309,6 +310,11 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
                       <span className="text-[10px] text-slate-400 font-medium">
                         ⏱ {audio.duration}
                       </span>
+                      {audio.timestamp && (
+                        <span className="text-[10px] text-slate-400 font-medium border-l border-slate-200 pl-1.5">
+                          📅 {audio.timestamp}
+                        </span>
+                      )}
                     </div>
                   </div>
 

@@ -324,13 +324,13 @@ export const DOMService = {
     /**
      * Detecta notas de voz y audios visibles en la conversación activa.
      */
-    getVisibleAudios(): { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] {
+    getVisibleAudios(): { id: string; sender: 'me' | 'them'; duration: string; src: string | null; timestamp?: string }[] {
         try {
             const container = document.querySelector(WA_SELECTORS.MAIN_CHAT) || document.querySelector('#main');
             if (!container) return [];
 
             const rows = container.querySelectorAll('div[data-id], div[role="row"], div.message-in, div.message-out');
-            const audios: { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] = [];
+            const audios: { id: string; sender: 'me' | 'them'; duration: string; src: string | null; timestamp?: string }[] = [];
             const processedIds = new Set<string>();
 
             rows.forEach((row, index) => {
@@ -352,8 +352,39 @@ export const DOMService = {
                         !!row.querySelector('.message-out');
 
                     // Extraer duración visible si existe (formato mm:ss)
+                    // WhatsApp muestra el tiempo de mensaje en elementos con data-pre-plain-text, aria-label con hora,
+                    // o directamente en span con clase de timestamp
                     const durationMatch = row.textContent?.match(/(\d{1,2}:\d{2})/);
                     const durationText = durationMatch ? durationMatch[1] : '0:15';
+
+                    // Extraer fecha/hora del timestamp del mensaje (no la duración del audio)
+                    // WhatsApp Web pone el timestamp en distintos atributos según versión
+                    let timestamp: string | undefined;
+                    const tsEl = row.querySelector(
+                        '[data-pre-plain-text], [aria-label*="Hoy"], span[class*="time"], span[class*="Time"], [data-testid*="msg-meta"] span, ._amk6 span, ._ao3e'
+                    );
+                    if (tsEl) {
+                        // data-pre-plain-text tiene formato "[HH:MM, DD/MM/YYYY] Nombre:"
+                        const prePlain = tsEl.getAttribute('data-pre-plain-text');
+                        if (prePlain) {
+                            const m = prePlain.match(/\[([^\]]+)\]/);
+                            if (m) timestamp = m[1];
+                        } else {
+                            // fallback: leer texto visible del elemento de hora
+                            const t = tsEl.textContent?.trim();
+                            if (t && t.length < 30) timestamp = t;
+                        }
+                    }
+                    // Último fallback: extraer hora del data-id del mensaje (formato epoch en el ID de Baileys)
+                    if (!timestamp && rowId && rowId.includes('_')) {
+                        const parts = rowId.split('_');
+                        const epochMs = parseInt(parts[parts.length - 1], 10);
+                        if (!isNaN(epochMs) && epochMs > 1_000_000_000_000) {
+                            timestamp = new Date(epochMs).toLocaleString('es-AR', {
+                                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                            });
+                        }
+                    }
 
                     const audioSrc =
                         audioElement?.currentSrc ||
@@ -365,7 +396,8 @@ export const DOMService = {
                         id: rowId,
                         sender: isOutgoing ? 'me' : 'them',
                         duration: durationText,
-                        src: audioSrc
+                        src: audioSrc,
+                        timestamp
                     });
                 }
             });
@@ -376,6 +408,7 @@ export const DOMService = {
             return [];
         }
     },
+
 
     /**
      * Convierte una URL de blob de audio del navegador a base64 para enviarla al backend.
