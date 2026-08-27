@@ -56,16 +56,91 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
     );
 
     try {
-      let transcriptionText: string | null = null;
+      // Los audios db_audio_ ya tienen transcripción almacenada por Baileys — no re-transcribir
+      if (item.id.startsWith('db_audio_')) {
+        throw new Error('Este audio ya fue procesado por Baileys. Actualizá la lista para ver la transcripción.');
+      }
 
-      // Captura directa y silenciosa del audio desde el DOM del navegador
-      const base64 = await DOMService.getAudioBase64(item.id);
+      // NOTA: no intentamos pedirle el audio a Baileys por data-id — es imposible por diseño.
+      // WhatsApp cifra los adjuntos de punta a punta; para descifrarlos hace falta la mediaKey
+      // que viajó en el mensaje original, y no hay forma de "recuperarla" después a partir de
+      // solo el remoteJid + id del mensaje.
+      //
+      // Tampoco hay ningún <audio> HTML que espiar: confirmado en vivo que WhatsApp Web moderno
+      // reproduce las notas de voz con la Web Audio API — document.querySelectorAll('audio') da
+      // vacío incluso con un audio sonando. El único lugar donde pasa el audio ya descifrado es
+      // el argumento de AudioContext.decodeAudioData(); src/content/audioCapture.ts lo intercepta
+      // desde el mundo principal de la página (world: MAIN en manifest.json) y nos avisa acá con
+      // un CustomEvent en window. Solo hace falta clickear Play para que WhatsApp dispare esa
+      // llamada.
+      let base64: string | null =
+        item.src && item.src.startsWith('blob:') ? await DOMService.convertBlobUrlToBase64(item.src) : null;
+
+      if (!base64) {
+        const findRow = (): Element | null => {
+          if (item.id.startsWith('audio_')) {
+            // Sin data-id real: único caso donde hay que ubicarla por posición (fallback).
+            const mainArea = document.querySelector('#main');
+            const allRows = mainArea?.querySelectorAll('div[data-id]');
+            const idx = parseInt(item.id.replace('audio_', ''), 10);
+            return !isNaN(idx) && allRows ? allRows[idx] || null : null;
+          }
+          return document.querySelector(`[data-id="${item.id}"]`);
+        };
+
+        const row = findRow();
+        console.log(`[AiTranscribeModal] id=${item.id} — fila encontrada:`, !!row);
+
+        const playBtn = row?.querySelector(
+          'button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], [data-icon*="ptt"], [data-icon*="play"], [data-testid*="ptt"], [data-testid*="audio-play"]'
+        ) as HTMLElement | null;
+        console.log('[AiTranscribeModal] Botón de play encontrado:', !!playBtn);
+
+        if (playBtn) {
+          base64 = await new Promise<string | null>((resolve) => {
+            const onCaptured = (e: Event) => {
+              const detail = (e as CustomEvent).detail as { base64: string; byteLength: number } | undefined;
+              console.log('[AiTranscribeModal] Audio capturado vía decodeAudioData, bytes:', detail?.byteLength);
+              clearTimeout(timeoutId);
+              window.removeEventListener('tactica-audio-captured', onCaptured);
+              resolve(detail?.base64 || null);
+            };
+
+            const timeoutId = setTimeout(() => {
+              window.removeEventListener('tactica-audio-captured', onCaptured);
+              console.warn('[AiTranscribeModal] Se agotaron los 8s sin capturar audio vía decodeAudioData.');
+              resolve(null);
+            }, 8000);
+
+            window.addEventListener('tactica-audio-captured', onCaptured);
+            console.log('[AiTranscribeModal] Click en Play disparado, esperando captura de audio...');
+            playBtn.click();
+
+            // Pausa apenas se captura, para no dejar sonando una nota que el usuario no pidió
+            // escuchar — decodeAudioData ya corrió para entonces, así que no afecta la captura.
+            setTimeout(() => {
+              const liveRow = findRow();
+              const pauseBtn = liveRow?.querySelector(
+                '[data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
+              ) as HTMLElement | null;
+              if (pauseBtn) pauseBtn.click();
+            }, 600);
+          });
+        } else {
+          console.warn('[AiTranscribeModal] No se encontró ningún botón de play para esta fila — revisar selectores, puede que WhatsApp haya cambiado el DOM.');
+        }
+      }
+
+      if (!base64) {
+        throw new Error('⚠️ No se pudo capturar el audio. Dale Play manualmente a la nota de voz en WhatsApp y volvé a intentar.');
+      }
+
       const res = await ApiService.transcribeAudio(base64);
-      transcriptionText = res.transcription || '(Audio sin voz detectable o inteligible)';
+      const transcriptionText = res.transcription || '(Audio vacío o sin voz inteligible)';
 
       setAudios((prev) =>
         prev.map((a, i) =>
-          i === index ? { ...a, status: 'done', transcription: transcriptionText! } : a
+          i === index ? { ...a, status: 'done', transcription: transcriptionText } : a
         )
       );
     } catch (err: any) {
