@@ -29,19 +29,25 @@ export const AiSummaryConfigModal: React.FC<{ onClose: () => void }> = ({ onClos
       onClose={onClose}
       headerColor="bg-purple-600"
       footer={
-        <>
-          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg">
+        <div className="flex items-center justify-end w-full gap-2">
+          <button
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shadow-2xs"
+          >
             Cancelar
           </button>
-          <button onClick={handleSave} className="bg-red-600 hover:bg-red-700 text-white font-semibold text-xs px-4 py-2 rounded-lg">
+          <button
+            onClick={handleSave}
+            className="bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs cursor-pointer transition-colors"
+          >
             Guardar
           </button>
-        </>
+        </div>
       }
     >
       <Field label="Prompt del sistema (instrucciones para resumir)">
         <textarea
-          className={`${fieldInputClass} resize-none`}
+          className={`${fieldInputClass} resize-none min-h-[90px] leading-relaxed`}
           rows={4}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -70,7 +76,7 @@ export const AiSummaryConfigModal: React.FC<{ onClose: () => void }> = ({ onClos
         </Field>
       </div>
 
-      <p className="text-[10.5px] text-slate-500 bg-slate-50 rounded-lg p-2.5">
+      <p className="text-xs text-slate-700 dark:text-slate-300 bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3 leading-relaxed font-medium">
         Este prompt se usa cuando presionás "Resumir charla". Si elegís una base de conocimiento, sus documentos se
         agregan como referencia extra. Se puede cambiar en cualquier momento.
       </p>
