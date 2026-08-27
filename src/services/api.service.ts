@@ -191,16 +191,6 @@ export const ApiService = {
         });
     },
 
-    /**
-     * Transcribe un audio histórico de WhatsApp directamente vía Baileys en el backend.
-     * Recibe el data-id del DOM de WhatsApp Web (no necesita blob del navegador).
-     */
-    async transcribeAudioByDataId(dataId: string): Promise<{ success: boolean; transcription: string }> {
-        return this.sendBackgroundRequest<{ success: boolean; transcription: string }>('/whatsapp/transcribe-audio', 'POST', {
-            dataId
-        });
-    },
-
     // === MENSAJES PROGRAMADOS (Feature #5) ===
 
     async getScheduledJobs(): Promise<any[]> {

@@ -39,6 +39,17 @@
         "content-loader.js"
       ],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "audio-capture-loader.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "match_origin_as_fallback": true
     }
   ],
   "web_accessible_resources": [
