@@ -36,20 +36,60 @@ function injectWaGlobalStyles() {
     const style = document.createElement('style');
     style.id = 'tactica-flow-wa-styles';
     style.textContent = `
-        /* Asegurar que los menús desplegables contextuales de WhatsApp Web se vean por encima del panel */
+        /* Asegurar que los menús desplegables contextuales de WhatsApp Web se vean con sombra limpia */
         div[role="menu"],
         div[data-animate-dropdown-item],
-        div[data-js-context-menu],
-        div[role="dialog"],
-        div[data-floating-ui-portal],
-        div._ak8l,
-        div._ak72,
-        div:has(> div[role="menu"]),
-        div:has(> div[data-animate-dropdown-item]) {
-            z-index: 2147483646 !important;
+        div[data-js-context-menu] {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
         }
     `;
     document.head.appendChild(style);
+}
+
+/**
+ * Reposiciona dinámicamente cualquier menú desplegable nativo de WhatsApp Web
+ * (menú del mensaje, selector de reacciones, adjuntos) si intenta abrirse hacia
+ * la derecha dentro de los 360px ocupados por el panel lateral.
+ */
+function observeAndRepositionWaDropdowns() {
+    const repositionElement = (el: HTMLElement) => {
+        if (!panelOpen) return;
+        const rect = el.getBoundingClientRect();
+        const maxRight = window.innerWidth - PANEL_WIDTH - 12;
+        if (rect.right > maxRight) {
+            const overflow = rect.right - maxRight;
+            const computedLeft = parseFloat(el.style.left) || rect.left;
+            const newLeft = Math.max(10, computedLeft - overflow - 8);
+            el.style.setProperty('left', `${newLeft}px`, 'important');
+        }
+    };
+
+    const scanAndShift = () => {
+        if (!panelOpen) return;
+        const menus = document.querySelectorAll(
+            'div[role="menu"], div[data-animate-dropdown-item], div[aria-label*="Reacc"], div[data-js-context-menu], div._ak8l'
+        );
+        menus.forEach((m) => {
+            const el = (m.closest('div[style*="position: absolute"], div[style*="position: fixed"]') || m) as HTMLElement;
+            repositionElement(el);
+        });
+    };
+
+    // 1. Escuchar mutaciones del DOM cuando WhatsApp monta un menú
+    const observer = new MutationObserver(() => {
+        if (!panelOpen) return;
+        scanAndShift();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // 2. Escuchar clics en el chat para ajustar en el frame exacto de apertura
+    document.addEventListener('click', () => {
+        if (!panelOpen) return;
+        requestAnimationFrame(scanAndShift);
+        setTimeout(scanAndShift, 10);
+        setTimeout(scanAndShift, 50);
+        setTimeout(scanAndShift, 150);
+    }, true);
 }
 
 // El host completo (panel + cualquier modal que renderice adentro) solo debe interceptar clics
@@ -76,6 +116,7 @@ function injectSidebar() {
     if (document.getElementById('tactica-flow-host')) return;
 
     injectWaGlobalStyles();
+    observeAndRepositionWaDropdowns();
 
     // 2. Crear contenedor principal en el DOM
     const hostDiv = document.createElement('div');
