@@ -50,11 +50,11 @@ const Ficha360: React.FC = () => {
     return (
         <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-3">
             {/* Header Ficha 360 */}
-            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-800 uppercase tracking-wider">
-                <div className="w-6 h-6 rounded-lg bg-red-500/15 text-[#9e1114] flex items-center justify-center shadow-2xs">
+            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+                <div className="w-6 h-6 rounded-lg bg-red-500/15 dark:bg-red-950/80 text-[#9e1114] dark:text-red-400 flex items-center justify-center shadow-2xs">
                     <User className="w-3.5 h-3.5" />
                 </div>
-                <span className="font-extrabold text-slate-900">FICHA 360° · TACTICA</span>
+                <span className="font-extrabold text-slate-900 dark:text-slate-100">FICHA 360° · TACTICA</span>
             </div>
 
             <PrototypeNotice text="Próximamente: todavía no trae datos reales de Táctica ERP." />

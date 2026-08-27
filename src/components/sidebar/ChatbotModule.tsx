@@ -86,17 +86,17 @@ const ChatbotModule: React.FC = () => {
     <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-3">
       {autoReplyBanner}
       {/* Header con Switch */}
-      <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+      <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-lg bg-red-500/15 text-[#9e1114] flex items-center justify-center shadow-2xs">
+          <div className="w-6 h-6 rounded-lg bg-red-500/15 dark:bg-red-950/80 text-[#9e1114] dark:text-red-400 flex items-center justify-center shadow-2xs">
             <Bot className="w-3.5 h-3.5" />
           </div>
-          <span className="font-extrabold text-slate-900">CHATBOT / AUTOATENCIÓN</span>
+          <span className="font-extrabold text-slate-900 dark:text-slate-100">CHATBOT / AUTOATENCIÓN</span>
         </div>
         {/* Toggle Switch */}
         <button
           onClick={() => setEnabled(!enabled)}
-          className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ${enabled ? 'bg-[#9e1114] justify-end shadow-xs' : 'bg-slate-300 justify-start'}`}
+          className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ${enabled ? 'bg-[#9e1114] justify-end shadow-xs' : 'bg-slate-300 dark:bg-slate-700 justify-start'}`}
         >
           <span className="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform" />
         </button>
@@ -104,11 +104,11 @@ const ChatbotModule: React.FC = () => {
 
       {/* Selector de Base de conocimiento */}
       <div className="flex items-center justify-between text-xs gap-2">
-        <span className="text-slate-800 font-bold text-[11px] leading-tight">
+        <span className="text-slate-800 dark:text-slate-200 font-bold text-[11px] leading-tight">
           Base activa para el bot
         </span>
         <div className="relative">
-          <select className="appearance-none glass-pill text-xs font-bold px-3 py-1.5 pr-6 text-slate-800 focus:outline-none [color-scheme:light] rounded-xl cursor-pointer" disabled={bases.length === 0}>
+          <select className="appearance-none glass-pill text-xs font-bold px-3 py-1.5 pr-6 text-slate-800 dark:text-slate-100 dark:bg-slate-800/90 focus:outline-none [color-scheme:light] rounded-xl cursor-pointer" disabled={bases.length === 0}>
             {bases.length === 0 ? (
               <option>Sin bases cargadas</option>
             ) : (
@@ -119,14 +119,14 @@ const ChatbotModule: React.FC = () => {
               )
             )}
           </select>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-2 top-2.5 pointer-events-none" />
+          <ChevronDown className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
         </div>
       </div>
 
       {/* Fallback a IA cuando ninguna regla matchea */}
-      <div className="flex items-center justify-between gap-2 bg-purple-500/10 border border-purple-200/60 rounded-xl px-3 py-2 backdrop-blur-xs">
-        <span className="flex items-center gap-1.5 text-[11px] text-purple-950 font-bold">
-          <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+      <div className="flex items-center justify-between gap-2 bg-purple-500/10 dark:bg-purple-950/40 border border-purple-200/60 dark:border-purple-800/70 rounded-xl px-3 py-2 backdrop-blur-xs">
+        <span className="flex items-center gap-1.5 text-[11px] text-purple-950 dark:text-purple-200 font-bold">
+          <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
           Responder con IA
         </span>
         <Toggle size="sm" checked={aiFallbackEnabled} onChange={setAiFallbackEnabled} />
@@ -136,13 +136,13 @@ const ChatbotModule: React.FC = () => {
       <div className="grid grid-cols-2 gap-2 mt-0.5">
         <button
           onClick={() => openModal('bot-flow')}
-          className="glass-pill hover:bg-red-50/70 text-[#9e1114] font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 shadow-2xs text-center cursor-pointer hover:scale-[1.02]"
+          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center cursor-pointer hover:scale-[1.02]"
         >
           Editar flujo
         </button>
         <button
           onClick={() => openModal('knowledge-base')}
-          className="glass-pill hover:bg-red-50/70 text-[#9e1114] font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 shadow-2xs text-center leading-tight cursor-pointer hover:scale-[1.02]"
+          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center leading-tight cursor-pointer hover:scale-[1.02]"
         >
           Bases de conocimiento
         </button>

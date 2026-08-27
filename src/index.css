@@ -123,4 +123,24 @@ body {
   border-color: rgba(51, 65, 85, 0.8) !important;
   color: #f8fafc !important;
 }
+
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: #f8fafc !important;
+}
+
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .text-purple-950,
+.dark .text-purple-900 {
+  color: #e9d5ff !important;
+}
+
 

@@ -38,20 +38,20 @@ export default function ToolsGrid() {
     return (
         <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                     <span>🧰</span>
                     <span>HERRAMIENTAS</span>
                 </span>
                 <button
                     onClick={toggleReordering}
                     className={`flex items-center gap-1 text-[10.5px] font-extrabold px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
-                        reordering ? 'bg-[#9e1114] text-white border-[#9e1114] shadow-xs' : 'glass-pill text-slate-800 hover:bg-white'
+                        reordering ? 'bg-[#9e1114] text-white border-[#9e1114] shadow-xs' : 'glass-pill text-slate-800 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700'
                     }`}
                 >
                     <Shuffle className="w-3 h-3" /> {reordering ? 'Listo' : 'Reordenar'}
                 </button>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-[10.5px] font-extrabold text-slate-900">
+            <div className="grid grid-cols-3 gap-2 text-center text-[10.5px] font-extrabold text-slate-900 dark:text-slate-100">
                 {tools.map((tool, index) => {
                     const Icon = tool.icon;
                     return (
@@ -63,11 +63,11 @@ export default function ToolsGrid() {
                             onClick={() => !reordering && openModal(tool.modal)}
                             className={`flex flex-col items-center justify-center gap-1.5 p-2.5 border rounded-2xl transition-all cursor-pointer shadow-2xs ${
                                 reordering
-                                    ? `border-dashed cursor-move ${draggedIndex === index ? 'opacity-40 border-red-500 bg-red-50' : 'border-red-300 bg-white'}`
-                                    : 'glass-pill hover:bg-white text-slate-900 hover:border-red-300 hover:scale-[1.04]'
+                                    ? `border-dashed cursor-move ${draggedIndex === index ? 'opacity-40 border-red-500 bg-red-50 dark:bg-red-950/60' : 'border-red-300 bg-white dark:bg-slate-800'}`
+                                    : 'glass-pill hover:bg-white dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-red-300 dark:hover:border-red-800 hover:scale-[1.04]'
                             }`}
                         >
-                            <div className="w-7 h-7 rounded-xl bg-red-500/15 flex items-center justify-center text-[#9e1114] shadow-2xs">
+                            <div className="w-7 h-7 rounded-xl bg-red-500/15 dark:bg-red-950/80 flex items-center justify-center text-[#9e1114] dark:text-red-400 shadow-2xs">
                                 <Icon className="w-4 h-4" />
                             </div>
                             <span className="truncate w-full leading-tight">{tool.label}</span>

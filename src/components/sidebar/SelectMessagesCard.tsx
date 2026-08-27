@@ -47,9 +47,9 @@ export const SelectMessagesCard: React.FC = () => {
             <button
                 type="button"
                 onClick={() => setIsSelecting(true)}
-                className="w-full glass-card glass-card-hover text-slate-900 font-extrabold text-xs py-3 px-3.5 flex items-center justify-center gap-2.5 cursor-pointer"
+                className="w-full glass-card glass-card-hover text-slate-900 dark:text-slate-100 font-extrabold text-xs py-3 px-3.5 flex items-center justify-center gap-2.5 cursor-pointer"
             >
-                <div className="w-6 h-6 rounded-lg bg-red-500/15 text-[#9e1114] flex items-center justify-center shadow-2xs">
+                <div className="w-6 h-6 rounded-lg bg-red-500/15 dark:bg-red-950/80 text-[#9e1114] dark:text-red-400 flex items-center justify-center shadow-2xs">
                     <CheckSquare className="w-4 h-4" />
                 </div>
                 <span>Seleccionar mensajes del chat</span>
