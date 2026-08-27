@@ -86,7 +86,7 @@ export const SelectMessagesCard: React.FC = () => {
                     type="button"
                     onClick={handleSaveHistory}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
                 >
                     <Bookmark className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     <span>Historial</span>
@@ -96,7 +96,7 @@ export const SelectMessagesCard: React.FC = () => {
                     type="button"
                     onClick={handleScheduleActivity}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
                 >
                     <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Actividad</span>
@@ -106,7 +106,7 @@ export const SelectMessagesCard: React.FC = () => {
                     type="button"
                     onClick={handleReassign}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
                 >
                     <UserCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                     <span>Reasignar</span>
@@ -116,7 +116,7 @@ export const SelectMessagesCard: React.FC = () => {
                     type="button"
                     onClick={handleCopy}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-colors cursor-pointer shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 glass-pill hover:bg-white disabled:opacity-40 text-slate-900 font-bold text-[11px] py-2 px-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
                 >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-700" />}
                     <span>{copied ? '¡Copiado!' : 'Copiar'}</span>

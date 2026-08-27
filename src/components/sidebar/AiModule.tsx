@@ -25,7 +25,7 @@ export const AiModule: React.FC = () => {
             <div className="grid grid-cols-3 gap-2">
                 <button
                     onClick={() => openModal('ai-summary')}
-                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 dark:hover:bg-slate-800 text-purple-950 dark:text-purple-200 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 dark:border-purple-900/60 transition-colors text-center shadow-2xs cursor-pointer"
+                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 dark:hover:bg-slate-800 text-purple-950 dark:text-purple-200 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 dark:border-purple-900/60 transition-all text-center shadow-2xs hover:scale-[1.03] cursor-pointer"
                     title="Generar resumen ejecutivo de la conversación"
                 >
                     <div className="w-7 h-7 rounded-xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-purple-700 dark:text-purple-300 shadow-2xs">
@@ -36,7 +36,7 @@ export const AiModule: React.FC = () => {
 
                 <button
                     onClick={() => openModal('ai-draft')}
-                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 dark:hover:bg-slate-800 text-purple-950 dark:text-purple-200 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 dark:border-purple-900/60 transition-colors text-center shadow-2xs cursor-pointer"
+                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 dark:hover:bg-slate-800 text-purple-950 dark:text-purple-200 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 dark:border-purple-900/60 transition-all text-center shadow-2xs hover:scale-[1.03] cursor-pointer"
                     title="Redactar respuesta inteligente con tono y contexto"
                 >
                     <div className="w-7 h-7 rounded-xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-purple-700 dark:text-purple-300 shadow-2xs">
@@ -47,7 +47,7 @@ export const AiModule: React.FC = () => {
 
                 <button
                     onClick={() => openModal('ai-transcribe')}
-                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 dark:hover:bg-slate-800 text-purple-950 dark:text-purple-200 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 dark:border-purple-900/60 transition-colors text-center shadow-2xs cursor-pointer"
+                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 dark:hover:bg-slate-800 text-purple-950 dark:text-purple-200 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 dark:border-purple-900/60 transition-all text-center shadow-2xs hover:scale-[1.03] cursor-pointer"
                     title="Transcribir notas de voz del chat"
                 >
                     <div className="w-7 h-7 rounded-xl bg-purple-100 dark:bg-purple-950/80 flex items-center justify-center text-purple-700 dark:text-purple-300 shadow-2xs">
