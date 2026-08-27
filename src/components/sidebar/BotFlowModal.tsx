@@ -400,7 +400,7 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
           Cargando bloques de flujo...
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5 max-h-[360px] overflow-y-auto pr-0.5">
+        <div className="flex flex-col gap-3">
           {rules.length === 0 && (
             <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4 font-medium">Todavía no hay bloques cargados.</p>
           )}
@@ -410,11 +410,11 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
             return (
               <div
                 key={rule.id}
-                className="border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 bg-white dark:bg-slate-800/90 flex flex-col gap-2 shadow-2xs"
+                className="border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3.5 bg-white dark:bg-slate-800/90 flex flex-col gap-2.5 shadow-2xs"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold border ${meta.bg} ${meta.color} shrink-0`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold border ${meta.bg} ${meta.color} shrink-0`}>
                       <Icon className="w-3.5 h-3.5" />
                       {meta.label}
                     </span>
@@ -424,7 +424,7 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
                     <button
                       onClick={() => handleMove(idx, 'up')}
                       disabled={idx === 0}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 disabled:opacity-30 cursor-pointer"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 disabled:opacity-20 cursor-pointer"
                       title="Subir"
                     >
                       <ArrowUp className="w-3.5 h-3.5" />
@@ -432,7 +432,7 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
                     <button
                       onClick={() => handleMove(idx, 'down')}
                       disabled={idx === rules.length - 1}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 disabled:opacity-30 cursor-pointer"
+                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 disabled:opacity-20 cursor-pointer"
                       title="Bajar"
                     >
                       <ArrowDown className="w-3.5 h-3.5" />
@@ -453,7 +453,7 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
                     </button>
                     <button
                       onClick={() => handleToggleActive(rule)}
-                      className={`w-8 h-4.5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ${
+                      className={`w-8 h-4.5 flex items-center rounded-full p-0.5 transition-colors cursor-pointer ml-1 ${
                         rule.isActive ? 'bg-[#9e1114] justify-end' : 'bg-slate-300 dark:bg-slate-600 justify-start'
                       }`}
                       title={rule.isActive ? 'Desactivar' : 'Activar'}
@@ -463,11 +463,11 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {rule.keywords.map((kw) => (
                     <span
                       key={kw}
-                      className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2 py-0.5 rounded-lg"
+                      className="text-[10.5px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 px-2.5 py-0.5 rounded-lg"
                     >
                       {kw}
                     </span>
@@ -475,7 +475,7 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
                 </div>
 
                 {rule.replyText && (
-                  <p className="text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 text-xs font-medium leading-relaxed line-clamp-3">
+                  <p className="text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs font-medium leading-relaxed whitespace-pre-wrap">
                     {rule.replyText}
                   </p>
                 )}
@@ -488,7 +488,7 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
       {!form && (
         <button
           onClick={openNewForm}
-          className="flex items-center justify-center gap-2 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs py-3 rounded-xl transition-all shadow-xs cursor-pointer"
+          className="flex items-center justify-center gap-2 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs py-3 rounded-xl transition-all shadow-xs cursor-pointer mt-1 mb-1"
         >
           <Plus className="w-4 h-4" /> Agregar nuevo bloque
         </button>
