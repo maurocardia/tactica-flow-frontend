@@ -31,11 +31,33 @@ function setAppLayoutWidth(shrink: boolean) {
     appLayout.style.float = 'left';
 }
 
+function injectWaGlobalStyles() {
+    if (document.getElementById('tactica-flow-wa-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'tactica-flow-wa-styles';
+    style.textContent = `
+        /* Asegurar que los menús desplegables contextuales de WhatsApp Web se vean por encima del panel */
+        div[role="menu"],
+        div[data-animate-dropdown-item],
+        div[data-js-context-menu],
+        div[role="dialog"],
+        div[data-floating-ui-portal],
+        div._ak8l,
+        div._ak72,
+        div:has(> div[role="menu"]),
+        div:has(> div[data-animate-dropdown-item]) {
+            z-index: 2147483646 !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
 // El host completo (panel + cualquier modal que renderice adentro) solo debe interceptar clics
 // cuando hace falta: con el panel abierto siempre, y con el panel cerrado únicamente si hay un
 // modal abierto encima (si no, `pointer-events: none` deja pasar los clics hacia WhatsApp).
 function updatePointerEvents(hostDiv: HTMLElement) {
     hostDiv.style.pointerEvents = panelOpen || modalOpen ? 'auto' : 'none';
+    hostDiv.style.zIndex = modalOpen ? '2147483647' : '10000';
 }
 
 function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: boolean) {
@@ -53,6 +75,8 @@ function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: bool
 function injectSidebar() {
     if (document.getElementById('tactica-flow-host')) return;
 
+    injectWaGlobalStyles();
+
     // 2. Crear contenedor principal en el DOM
     const hostDiv = document.createElement('div');
     hostDiv.id = 'tactica-flow-host';
@@ -62,7 +86,7 @@ function injectSidebar() {
     right: 0 !important;
     width: ${PANEL_WIDTH}px !important;
     height: 100vh !important;
-    z-index: 2147483647 !important;
+    z-index: 10000 !important;
     background-color: #ffffff !important;
     box-shadow: -2px 0 8px rgba(0,0,0,0.15) !important;
     transition: right 0.2s ease !important;
