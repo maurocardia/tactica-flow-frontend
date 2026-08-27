@@ -75,6 +75,7 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
       // llamada.
       let base64: string | null =
         item.src && item.src.startsWith('blob:') ? await DOMService.convertBlobUrlToBase64(item.src) : null;
+      let capturedMimeType = 'audio/ogg';
 
       if (!base64) {
         const findRow = (): Element | null => {
@@ -99,8 +100,14 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
         if (playBtn) {
           base64 = await new Promise<string | null>((resolve) => {
             const onCaptured = (e: Event) => {
-              const detail = (e as CustomEvent).detail as { base64: string; byteLength: number } | undefined;
-              console.log('[AiTranscribeModal] Audio capturado vía decodeAudioData, bytes:', detail?.byteLength);
+              const detail = (e as CustomEvent).detail as
+                | { base64: string; byteLength: number; mimeType?: string }
+                | undefined;
+              console.log(
+                '[AiTranscribeModal] Audio capturado, bytes:', detail?.byteLength,
+                'mimeType:', detail?.mimeType
+              );
+              if (detail?.mimeType) capturedMimeType = detail.mimeType;
               clearTimeout(timeoutId);
               window.removeEventListener('tactica-audio-captured', onCaptured);
               resolve(detail?.base64 || null);
@@ -108,7 +115,7 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
 
             const timeoutId = setTimeout(() => {
               window.removeEventListener('tactica-audio-captured', onCaptured);
-              console.warn('[AiTranscribeModal] Se agotaron los 8s sin capturar audio vía decodeAudioData.');
+              console.warn('[AiTranscribeModal] Se agotaron los 8s sin capturar audio.');
               resolve(null);
             }, 8000);
 
@@ -117,14 +124,15 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
             playBtn.click();
 
             // Pausa apenas se captura, para no dejar sonando una nota que el usuario no pidió
-            // escuchar — decodeAudioData ya corrió para entonces, así que no afecta la captura.
+            // escuchar — el buffer ya quedó capturado en el momento del start(), así que pausar
+            // después no afecta la captura.
             setTimeout(() => {
               const liveRow = findRow();
               const pauseBtn = liveRow?.querySelector(
                 '[data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
               ) as HTMLElement | null;
               if (pauseBtn) pauseBtn.click();
-            }, 600);
+            }, 1000);
           });
         } else {
           console.warn('[AiTranscribeModal] No se encontró ningún botón de play para esta fila — revisar selectores, puede que WhatsApp haya cambiado el DOM.');
@@ -135,7 +143,7 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
         throw new Error('⚠️ No se pudo capturar el audio. Dale Play manualmente a la nota de voz en WhatsApp y volvé a intentar.');
       }
 
-      const res = await ApiService.transcribeAudio(base64);
+      const res = await ApiService.transcribeAudio(base64, capturedMimeType);
       const transcriptionText = res.transcription || '(Audio vacío o sin voz inteligible)';
 
       setAudios((prev) =>
