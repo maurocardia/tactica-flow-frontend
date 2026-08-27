@@ -17,9 +17,10 @@ export const Sidebar: React.FC = () => {
     const { activeContact } = useActiveChat();
     const { config } = useAppState();
     const visible = config.moduleVisibility;
+    const isDark = config.theme === 'dark';
 
     return (
-        <aside className="w-full h-full bg-slate-100/90 backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-y-auto font-sans">
+        <aside className={`w-full h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-y-auto font-sans transition-colors`}>
             {/* Header rojo moderno ocupando el 100% */}
             <Header />
 
@@ -39,4 +40,5 @@ export const Sidebar: React.FC = () => {
         </aside>
     );
 };
+
 

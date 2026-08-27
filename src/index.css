@@ -59,13 +59,13 @@ body {
   background: rgba(100, 116, 139, 0.6);
 }
 
-/* Glassmorphism Styles */
+/* Glassmorphism Styles - Light & Dark Mode */
 .glass-card {
-  background: rgba(255, 255, 255, 0.82) !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.6) !important;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02) !important;
   border-radius: 20px !important;
 }
 
@@ -73,21 +73,54 @@ body {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 .glass-card-hover:hover {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: #ffffff !important;
   box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04) !important;
   transform: translateY(-1px);
 }
 
 .glass-pill {
-  background: rgba(255, 255, 255, 0.65) !important;
+  background: rgba(248, 250, 252, 0.95) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  border: 1px solid rgba(203, 213, 225, 0.8) !important;
+  color: #0f172a !important;
 }
 
 .glass-header {
-  background: linear-gradient(135deg, rgba(158, 17, 20, 0.95) 0%, rgba(184, 21, 25, 0.92) 50%, rgba(128, 13, 16, 0.96) 100%) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
+  background: linear-gradient(135deg, #9e1114 0%, #b81519 50%, #800d10 100%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
-}
+}
+
+/* Dark Mode Theme */
+.dark aside {
+  background: #090d16 !important;
+  border-left-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(51, 65, 85, 0.7) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37) !important;
+  color: #f8fafc !important;
+}
+
+.dark .glass-card-hover:hover {
+  background: rgba(30, 41, 59, 0.95) !important;
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .glass-pill {
+  background: rgba(30, 41, 59, 0.85) !important;
+  border: 1px solid rgba(51, 65, 85, 0.8) !important;
+  color: #f8fafc !important;
+}
+
+.dark select,
+.dark input,
+.dark textarea {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+  color: #f8fafc !important;
+}
+

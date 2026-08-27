@@ -43,4 +43,5 @@ export interface AppConfig {
 
   ficha360Tabs: Ficha360TabVisibility;
   moduleVisibility: ModuleVisibility;
+  theme?: 'light' | 'dark';
 }

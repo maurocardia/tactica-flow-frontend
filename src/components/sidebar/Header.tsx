@@ -1,8 +1,9 @@
 import React from 'react';
-import { RefreshCw, Settings, PanelRightClose } from 'lucide-react';
+import { RefreshCw, Settings, PanelRightClose, Sun, Moon } from 'lucide-react';
 import { useModal } from '@/state/ModalContext';
 import { useAuth } from '@/state/AuthContext';
 import { useWhatsappStatus } from '@/state/WhatsappStatusContext';
+import { useAppState } from '@/state/AppStateContext';
 import { WhatsappConnectionStatus } from '@/types/whatsapp';
 
 interface HeaderProps {
@@ -32,6 +33,13 @@ export function Header({ onRefresh = () => {} }: HeaderProps) {
     const { openModal } = useModal();
     const { user } = useAuth();
     const { status } = useWhatsappStatus();
+    const { config, setConfig } = useAppState();
+    const isDark = config.theme === 'dark';
+
+    const toggleTheme = () => {
+        setConfig((c) => ({ ...c, theme: c.theme === 'dark' ? 'light' : 'dark' }));
+    };
+
     return (
         <div className="bg-gradient-to-r from-[#9e1114] via-[#b81519] to-[#800d10] text-white p-3.5 flex items-start justify-between shadow-md border-b border-white/10">
             <div>
@@ -64,6 +72,13 @@ export function Header({ onRefresh = () => {} }: HeaderProps) {
                 </div>
             </div>
             <div className="flex items-center gap-1 bg-black/15 p-1 rounded-xl border border-white/10 backdrop-blur-xs">
+                <button
+                    onClick={toggleTheme}
+                    className="text-white/90 hover:text-white hover:bg-white/15 transition p-1.5 rounded-lg"
+                    title={isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+                >
+                    {isDark ? <Sun className="w-4 h-4 text-amber-300" /> : <Moon className="w-4 h-4" />}
+                </button>
                 <button
                     onClick={onRefresh}
                     className="text-white/90 hover:text-white hover:bg-white/15 transition p-1.5 rounded-lg"

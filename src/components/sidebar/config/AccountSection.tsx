@@ -8,13 +8,13 @@ export const AccountSection: React.FC = () => {
   const { user, loading, error, login, logout } = useAuth();
 
   return (
-    <div className="border border-slate-200 rounded-lg p-2.5 flex flex-col gap-2.5">
-      <h4 className="text-[10.5px] font-bold uppercase tracking-wide text-slate-500">Cuenta</h4>
+    <div className="bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 flex flex-col gap-2.5 shadow-2xs">
+      <h4 className="text-[11px] font-extrabold uppercase tracking-wide text-slate-900 dark:text-slate-100">Cuenta</h4>
       {user ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 bg-white dark:bg-slate-800/80 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
           <img
             src={user.avatarUrl || chrome.runtime.getURL('icons/user.png')}
-            className="w-8 h-8 rounded-full shrink-0 object-cover bg-slate-200"
+            className="w-8 h-8 rounded-full shrink-0 object-cover bg-slate-200 ring-2 ring-red-500/20"
             alt=""
             onError={(e) => {
               e.currentTarget.onerror = null;
@@ -22,10 +22,10 @@ export const AccountSection: React.FC = () => {
             }}
           />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-800 truncate">{user.name}</p>
-            <p className="text-[10.5px] text-slate-500 truncate">{user.email}</p>
+            <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{user.name}</p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium truncate">{user.email}</p>
           </div>
-          <button onClick={logout} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-500 shrink-0" title="Cerrar sesión">
+          <button onClick={logout} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-red-700 shrink-0 transition-colors" title="Cerrar sesión">
             <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -34,12 +34,12 @@ export const AccountSection: React.FC = () => {
           <button
             onClick={login}
             disabled={loading}
-            className="flex items-center justify-center gap-1.5 bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-50 text-slate-700 font-semibold text-xs py-2 rounded-lg"
+            className="flex items-center justify-center gap-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/80 disabled:opacity-50 text-slate-900 dark:text-slate-100 font-bold text-xs py-2.5 rounded-xl shadow-2xs cursor-pointer transition-all"
           >
             {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
             Iniciar sesión con Google
           </button>
-          {error && <p className="text-[10.5px] text-red-600">{error}</p>}
+          {error && <p className="text-[11px] text-red-600 font-semibold">{error}</p>}
         </>
       )}
     </div>

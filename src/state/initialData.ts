@@ -37,6 +37,7 @@ export const INITIAL_CONFIG: AppConfig = {
     chatbot: true,
     toolsGrid: true,
   },
+  theme: 'light',
 };
 
 export const INITIAL_ACCOUNTS: ChannelAccount[] = [
