@@ -10,6 +10,7 @@ export interface VisibleMessage {
 let lastProcessedMessageId: string | null = null;
 let messagesObserver: MutationObserver | null = null;
 let watcherRetryInterval: number | null = null;
+let lastSeenChatTitle: string | null = null;
 const chatMessagesCache = new Map<string, { all: VisibleMessage[]; today: VisibleMessage[] }>();
 
 /** Última fila de mensaje ENTRANTE (con la "colita" tail-in) dentro del contenedor dado. */
@@ -225,6 +226,10 @@ export const DOMService = {
             if (!container) return [];
 
             const currentTitle = DOMService.getChatTitle() || 'default_chat';
+            if (lastSeenChatTitle && lastSeenChatTitle !== currentTitle) {
+                chatMessagesCache.delete(lastSeenChatTitle);
+            }
+            lastSeenChatTitle = currentTitle;
 
             const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
             const currentMessagesAll: VisibleMessage[] = [];

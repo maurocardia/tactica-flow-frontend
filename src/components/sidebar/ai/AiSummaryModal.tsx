@@ -22,9 +22,15 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
   const [summary, setSummary] = useState('');
   const [messageCount, setMessageCount] = useState<number>(0);
 
-  // Carga inicial: identifica el chat abierto
+  // Carga inicial: resetea estado e identifica el chat abierto
   useEffect(() => {
     let cancelled = false;
+
+    setSummary('');
+    setMessageCount(0);
+    setIndividualConversation(null);
+    setGroupConversations([]);
+    DOMService.clearChatCache();
 
     const run = async () => {
       const title = DOMService.getChatTitle() || contactName;
@@ -303,23 +309,13 @@ Estructura del resumen:
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setStatus('loading')}
-              disabled={status === 'loading' || isSyncing}
-              className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 px-2.5 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-              title="Volver a generar resumen"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${status === 'loading' ? 'animate-spin' : ''}`} />
-              Regenerar
-            </button>
-
-            <button
               onClick={handleSyncChat}
               disabled={status === 'loading' || isSyncing}
-              className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 px-2.5 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-              title="Sincroniza y limpia la base de datos con los mensajes actuales de la pantalla"
+              className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              title="Sincroniza con la pantalla y regenera el resumen actualizado"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-purple-600' : ''}`} />
-              {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+              <RefreshCw className={`w-3.5 h-3.5 ${status === 'loading' || isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Actualizar Resumen'}
             </button>
           </div>
 
