@@ -46,6 +46,105 @@ function injectWaGlobalStyles() {
     document.head.appendChild(style);
 }
 
+function injectMainWorldBridge() {
+    if (document.getElementById('tactica-flow-main-bridge')) return;
+    const script = document.createElement('script');
+    script.id = 'tactica-flow-main-bridge';
+    script.textContent = `
+        (function() {
+            window.__tactica_audio_blobs = window.__tactica_audio_blobs || new Map();
+            window.__tactica_last_audio_src = window.__tactica_last_audio_src || null;
+
+            // Interceptar createObjectURL para registrar en memoria los blobs de audio de WhatsApp
+            const origCreateObjectURL = URL.createObjectURL;
+            URL.createObjectURL = function(obj) {
+                const url = origCreateObjectURL.call(this, obj);
+                if (obj instanceof Blob && !obj.type.includes('html')) {
+                    window.__tactica_audio_blobs.set(url, obj);
+                }
+                return url;
+            };
+
+            // Interceptar reproducción de audio
+            const origPlay = HTMLAudioElement.prototype.play;
+            HTMLAudioElement.prototype.play = function() {
+                const src = this.currentSrc || this.src;
+                if (src && src.startsWith('blob:')) {
+                    window.__tactica_last_audio_src = src;
+                    window.dispatchEvent(new CustomEvent('tactica:audio-playing', { detail: { src } }));
+                }
+                return origPlay.call(this);
+            };
+
+            // Responder a peticiones de conversión de blob a base64
+            window.addEventListener('tactica:blob-request', async (e) => {
+                const { blobUrl, requestId } = e.detail || {};
+                if (!requestId) return;
+
+                try {
+                    let blob = (blobUrl && blobUrl.startsWith('blob:')) ? window.__tactica_audio_blobs.get(blobUrl) : null;
+                    if (!blob && blobUrl && blobUrl.startsWith('blob:')) {
+                        try {
+                            const res = await fetch(blobUrl);
+                            blob = await res.blob();
+                        } catch {}
+                    }
+
+                    if (!blob && window.__tactica_last_audio_src && window.__tactica_last_audio_src.startsWith('blob:')) {
+                        blob = window.__tactica_audio_blobs.get(window.__tactica_last_audio_src);
+                        if (!blob) {
+                            try {
+                                const res = await fetch(window.__tactica_last_audio_src);
+                                blob = await res.blob();
+                            } catch {}
+                        }
+                    }
+
+                    if (!blob) {
+                        // Buscar en todos los <audio> de la página que tengan blob
+                        const audios = Array.from(document.querySelectorAll('audio'));
+                        for (const a of audios) {
+                            const s = a.currentSrc || a.src;
+                            if (s && s.startsWith('blob:')) {
+                                try {
+                                    const res = await fetch(s);
+                                    const b = await res.blob();
+                                    if (b && !b.type.includes('html') && b.size > 100) {
+                                        blob = b;
+                                        break;
+                                    }
+                                } catch {}
+                            }
+                        }
+                    }
+
+                    if (!blob || blob.type.includes('html') || blob.size < 100) {
+                        throw new Error('No se pudo encontrar el blob de audio en el navegador. Por favor dale Play en WhatsApp Web.');
+                    }
+
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        window.dispatchEvent(new CustomEvent('tactica:blob-response', {
+                            detail: { requestId, base64: reader.result }
+                        }));
+                    };
+                    reader.onerror = (err) => {
+                        window.dispatchEvent(new CustomEvent('tactica:blob-response', {
+                            detail: { requestId, error: 'Error al leer blob: ' + (err?.message || 'Error') }
+                        }));
+                    };
+                    reader.readAsDataURL(blob);
+                } catch (err) {
+                    window.dispatchEvent(new CustomEvent('tactica:blob-response', {
+                        detail: { requestId, error: err?.message || 'Error al procesar audio' }
+                    }));
+                }
+            });
+        })();
+    `;
+    (document.head || document.documentElement).appendChild(script);
+}
+
 /**
  * Reposiciona dinámicamente cualquier menú desplegable nativo de WhatsApp Web
  * (menú del mensaje, selector de reacciones, adjuntos) si intenta abrirse hacia
@@ -116,6 +215,7 @@ function injectSidebar() {
     if (document.getElementById('tactica-flow-host')) return;
 
     injectWaGlobalStyles();
+    injectMainWorldBridge();
     observeAndRepositionWaDropdowns();
 
     // 2. Crear contenedor principal en el DOM
