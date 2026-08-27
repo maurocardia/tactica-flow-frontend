@@ -53,18 +53,42 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
     }
 
     const detected = DOMService.getVisibleAudios();
-    if (detected.length > 0) {
-      setAudios(
-        detected.map((a) => ({
-          ...a,
-          status: 'idle',
-          selected: true
-        }))
-      );
-    } else {
-      setAudios([]);
+    const detectedItems: AudioItem[] = detected.map((a) => ({
+      ...a,
+      status: 'idle',
+      selected: true
+    }));
+
+    // Cargar también audios/transcripciones persistidas por Baileys desde PostgreSQL
+    try {
+      const conversations = await ApiService.getConversations();
+      const matchConv = conversations.find((c) => c.name === title || c.phone === title);
+      if (matchConv) {
+        const msgs = await ApiService.getMessages(matchConv.id);
+        for (const m of msgs) {
+          if (m.text.includes('[🎙️ Audio]') || m.text.includes('[🎙️ Nota de voz]')) {
+            const match = m.text.match(/\[🎙️ Audio\]:\s*"?(.*?)"?$/);
+            const transcriptionText = match ? match[1] : '';
+            const exists = detectedItems.some((d) => d.id === `db_audio_${m.id}`);
+            if (!exists) {
+              detectedItems.unshift({
+                id: `db_audio_${m.id}`,
+                sender: m.sender === 'customer' ? 'them' : 'me',
+                duration: '0:30',
+                src: null,
+                status: transcriptionText ? 'done' : 'idle',
+                transcription: transcriptionText || undefined,
+                selected: true
+              });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[AiTranscribeModal] Error leyendo audios de la DB:', err);
     }
 
+    setAudios(detectedItems);
     setLoadingDetection(false);
     setIsSyncing(false);
   };

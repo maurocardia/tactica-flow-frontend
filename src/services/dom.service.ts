@@ -326,18 +326,18 @@ export const DOMService = {
      */
     getVisibleAudios(): { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] {
         try {
-            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
+            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT) || document.querySelector('#main');
             if (!container) return [];
 
-            const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
+            const rows = container.querySelectorAll('div[data-id], div[role="row"], div.message-in, div.message-out');
             const audios: { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] = [];
             const processedIds = new Set<string>();
 
             rows.forEach((row, index) => {
-                // Buscar elemento audio o reproductor PTT
+                // Buscar elemento audio, waveform o reproductor PTT con cualquier selector de WhatsApp Web
                 const audioElement = row.querySelector('audio') as HTMLAudioElement | null;
                 const pttContainer = row.querySelector(
-                    '[data-testid="audio-player"], [data-testid="ptt-player"], [data-icon="ptt-play"], [data-icon="audio-play"], [data-icon="ptt-pause"], [data-icon="audio-pause"]'
+                    '[data-testid*="audio"], [data-testid*="ptt"], [data-testid*="waveform"], [data-icon*="ptt"], [data-icon*="audio"], [data-icon*="play"], button[aria-label*="reproducir" i], button[aria-label*="play" i], button[aria-label*="nota de voz" i]'
                 );
 
                 if (audioElement || pttContainer) {
