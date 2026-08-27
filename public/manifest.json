@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Táctica Flow",
   "version": "1.2.1",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtX7ip30cvUDLsMWEW0zWsW90GEyG/MxGBpLXeBgjpkBxv83qZx73nOOxh5LS2iPCP5SDMrDETpxIW32oms1dzjJrJvhErISx12wj/umcdRL3KbtVE7HtTlih9Z4eMjv5tOT46z/hPPYhOFl/3DvAHgmfayBAOL4lM/vq4ZBdJCi3AGa342d64M3nFq/f723i1Qz1HT+C0n94sYDJ88QX4AKFAXYXPJ7ziuMSByTuyvXWXTLB2yXuFY8If0/jEQo2rR8ReG2sUNDDlnTx1vIpoHRkMBLXumTbJskqofAlJKYEVRoL2a7ppL806ZibyhIXFnW7IzpYoVQf/cI1UXj0TwIDAQAB",
   "description": "Panel lateral para WhatsApp Web",
   "icons": {
     "16": "icons/icon.png",
