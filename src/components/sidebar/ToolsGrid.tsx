@@ -61,10 +61,10 @@ export default function ToolsGrid() {
                             onPointerEnter={() => enterDrag(index)}
                             onPointerUp={endDrag}
                             onClick={() => !reordering && openModal(tool.modal)}
-                            className={`flex flex-col items-center justify-center gap-1.5 p-2.5 border rounded-2xl transition-all cursor-pointer shadow-2xs ${
+                            className={`flex flex-col items-center justify-center gap-1.5 p-2.5 border rounded-2xl transition-colors cursor-pointer shadow-2xs ${
                                 reordering
                                     ? `border-dashed cursor-move ${draggedIndex === index ? 'opacity-40 border-red-500 bg-red-50 dark:bg-red-950/60' : 'border-red-300 bg-white dark:bg-slate-800'}`
-                                    : 'glass-pill hover:bg-white dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-red-300 dark:hover:border-red-800 hover:scale-[1.04]'
+                                    : 'glass-pill hover:bg-white dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-red-300 dark:hover:border-red-800'
                             }`}
                         >
                             <div className="w-7 h-7 rounded-xl bg-red-500/15 dark:bg-red-950/80 flex items-center justify-center text-[#9e1114] dark:text-red-400 shadow-2xs">

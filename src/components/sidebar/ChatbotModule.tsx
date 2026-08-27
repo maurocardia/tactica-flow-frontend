@@ -136,13 +136,13 @@ const ChatbotModule: React.FC = () => {
       <div className="grid grid-cols-2 gap-2 mt-0.5">
         <button
           onClick={() => openModal('bot-flow')}
-          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center cursor-pointer hover:scale-[1.02]"
+          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-colors border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center cursor-pointer"
         >
           Editar flujo
         </button>
         <button
           onClick={() => openModal('knowledge-base')}
-          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center leading-tight cursor-pointer hover:scale-[1.02]"
+          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-colors border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center leading-tight cursor-pointer"
         >
           Bases de conocimiento
         </button>
