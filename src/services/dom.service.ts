@@ -59,29 +59,70 @@ export const DOMService = {
 
     /**
      * Extrae el número de teléfono del chat abierto actualmente.
-     * Busca en los data-id de los mensajes de WhatsApp Web (formato: false_54911...@s.whatsapp.net_...)
-     * o en el encabezado del chat.
+     * Busca en:
+     * 1. URLs de avatares/fotos de perfil del header y lista (contienen u=NUMERO%40c.us)
+     * 2. Atributos data-id y data-item-id de mensajes (@c.us y @s.whatsapp.net)
+     * 3. Ítem activo del panel lateral (#pane-side)
+     * 4. Encabezado del chat con formato telefónico
      */
     getChatPhone(): string | null {
         try {
-            // 1. Buscar en data-id de los mensajes del chat activo (#main div[data-id])
-            const rows = document.querySelectorAll('#main div[data-id]');
-            for (const row of rows) {
-                const dataId = row.getAttribute('data-id') || '';
-                const match = dataId.match(/_(\d{8,16})@s\.whatsapp\.net/);
+            // 1. Buscar en la foto de perfil del header (#main header img src contiene u=NUMERO%40c.us)
+            const headerImgs = document.querySelectorAll('#main header img');
+            for (const img of headerImgs) {
+                const src = (img as HTMLImageElement).src || '';
+                const match = src.match(/[?&]u=(\d{8,18})%40/) || src.match(/[?&]u=(\d{8,18})@/);
                 if (match && match[1]) {
                     return match[1];
                 }
             }
 
-            // 2. Buscar en el header texto que coincida con formato telefónico (ej: +54 9 11 1234-5678)
+            // 2. Buscar en data-id / data-item-id de cualquier mensaje dentro de #main
+            // En WhatsApp Web data-id puede tener @c.us o @s.whatsapp.net (ej: false_573001234567@c.us_...)
+            const elementsWithDataId = document.querySelectorAll('#main [data-id], #main [data-item-id]');
+            for (const el of elementsWithDataId) {
+                const dataId = el.getAttribute('data-id') || el.getAttribute('data-item-id') || '';
+                const match = dataId.match(/(\d{8,18})@(c\.us|s\.whatsapp\.net)/);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+
+            // 3. Buscar en el panel lateral (#pane-side) el chat seleccionado o con foto
+            const activeChat = document.querySelector('#pane-side [aria-selected="true"], #pane-side [data-testid="cell-frame-container"]');
+            if (activeChat) {
+                const chatDataId = activeChat.getAttribute('data-id') || activeChat.querySelector('[data-id]')?.getAttribute('data-id') || '';
+                const match = chatDataId.match(/(\d{8,18})@(c\.us|s\.whatsapp\.net)/);
+                if (match && match[1]) {
+                    return match[1];
+                }
+                const sideImg = activeChat.querySelector('img') as HTMLImageElement | null;
+                if (sideImg && sideImg.src) {
+                    const imgMatch = sideImg.src.match(/[?&]u=(\d{8,18})%40/) || sideImg.src.match(/[?&]u=(\d{8,18})@/);
+                    if (imgMatch && imgMatch[1]) {
+                        return imgMatch[1];
+                    }
+                }
+            }
+
+            // 4. Buscar en cualquier imagen con src u=NUMERO en todo el documento
+            const allAvatarImgs = document.querySelectorAll('img[src*="u="]');
+            for (const img of allAvatarImgs) {
+                const src = (img as HTMLImageElement).src || '';
+                const match = src.match(/[?&]u=(\d{8,18})%40/) || src.match(/[?&]u=(\d{8,18})@/);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+
+            // 5. Buscar en el header texto con formato telefónico (ej: +54 9 11 1234-5678)
             const header = document.querySelector('#main header');
             if (header) {
                 const text = header.textContent || '';
                 const phoneMatch = text.match(/\+?(\d[\d\s\-()]{7,}\d)/);
                 if (phoneMatch) {
                     const clean = phoneMatch[0].replace(/[^0-9]/g, '');
-                    if (clean.length >= 8 && clean.length <= 16) {
+                    if (clean.length >= 8 && clean.length <= 18) {
                         return clean;
                     }
                 }
@@ -91,6 +132,7 @@ export const DOMService = {
         }
         return null;
     },
+
 
     insertMessage(text: string): boolean {
         try {
