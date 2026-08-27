@@ -2,10 +2,6 @@
 
 import { API_URL } from '../config/env';
 
-// Client ID de la credencial OAuth "Aplicación web" en Google Cloud Console, con
-// "https://<ID-de-la-extensión>.chromiumapp.org/" cargado como URI de redirección autorizada.
-const GOOGLE_CLIENT_ID = '960361389679-qibfdmr3vokgjd1en906niu9fql2gvvt.apps.googleusercontent.com';
-
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.type === 'FETCH_API') {
         const { endpoint, method = 'GET', body, token } = request.payload;
@@ -39,11 +35,29 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.type === 'GOOGLE_SIGN_IN') {
         (async () => {
             try {
+                // Obtener el Google Client ID dinámicamente desde el .env del backend (o fallback de build)
+                let googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+                try {
+                    const configRes = await fetch(`${API_URL}/auth/config`);
+                    if (configRes.ok) {
+                        const configData = await configRes.json();
+                        if (configData?.googleClientId) {
+                            googleClientId = configData.googleClientId;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Background] No se pudo obtener la config del backend, usando fallback local:', e);
+                }
+
+                if (!googleClientId) {
+                    throw new Error('GOOGLE_CLIENT_ID no configurado en el backend ni en el entorno.');
+                }
+
                 const redirectUri = chrome.identity.getRedirectURL();
                 const nonce = crypto.randomUUID();
 
                 const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-                authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+                authUrl.searchParams.set('client_id', googleClientId);
                 authUrl.searchParams.set('response_type', 'id_token');
                 authUrl.searchParams.set('redirect_uri', redirectUri);
                 authUrl.searchParams.set('scope', 'openid email profile');
