@@ -82,35 +82,56 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
     );
 
     try {
-      let transcriptionText = '';
-      if (item.src && item.src.startsWith('blob:')) {
-        const base64 = await DOMService.convertBlobUrlToBase64(item.src);
-        const res = await ApiService.transcribeAudio(base64);
-        transcriptionText = res.transcription;
-      } else {
-        // Simulación inteligente contextual si el blob de audio no es accesible directamente por CORS de WhatsApp
-        await new Promise((r) => setTimeout(r, 1200));
-        transcriptionText = index === 0
-          ? 'Hola, buenas tardes. Te consulto por el presupuesto de las 10 licencias que me mandaste ayer. ¿Tienen entrega inmediata y factura A?'
-          : 'Perfecto, entonces confirmame si me podés agendar la reunión con el equipo técnico para mañana a las 11:00 hs.';
+      let blobSrc = item.src;
+      if (!blobSrc || !blobSrc.startsWith('blob:')) {
+        // Buscar el elemento en el DOM en tiempo real
+        const row = document.querySelector(`[data-id="${item.id}"]`) || document.querySelector(`#main audio`);
+        const audioEl = row ? (row.tagName === 'AUDIO' ? (row as HTMLAudioElement) : row.querySelector('audio')) : null;
+        if (audioEl && (audioEl.currentSrc || audioEl.src)) {
+          blobSrc = audioEl.currentSrc || audioEl.src;
+        } else {
+          // Intentar hacer clic en el botón de reproducción para forzar la carga del blob de audio
+          const playBtn = row?.querySelector(
+            '[data-icon="ptt-play"], [data-icon="audio-play"], [data-testid="audio-player"]'
+          ) as HTMLElement | null;
+          if (playBtn) {
+            playBtn.click();
+            await new Promise((r) => setTimeout(r, 600));
+            const pauseBtn = row?.querySelector(
+              '[data-icon="ptt-pause"], [data-icon="audio-pause"]'
+            ) as HTMLElement | null;
+            if (pauseBtn) pauseBtn.click();
+            const reAudio = row?.querySelector('audio') as HTMLAudioElement | null;
+            if (reAudio && (reAudio.currentSrc || reAudio.src)) {
+              blobSrc = reAudio.currentSrc || reAudio.src;
+            }
+          }
+        }
       }
+
+      if (!blobSrc || !blobSrc.startsWith('blob:')) {
+        throw new Error('El audio aún no se ha descargado en WhatsApp. Dale play un segundo en el chat para que cargue.');
+      }
+
+      const base64 = await DOMService.convertBlobUrlToBase64(blobSrc);
+      const res = await ApiService.transcribeAudio(base64);
 
       setAudios((prev) =>
         prev.map((a, i) =>
           i === index
-            ? { ...a, status: 'done', transcription: transcriptionText }
+            ? { ...a, status: 'done', transcription: res.transcription || '(Audio vacío o sin voz inteligible)' }
             : a
         )
       );
     } catch (err: any) {
-      console.error('[AiTranscribeModal] Error:', err);
+      console.error('[AiTranscribeModal] Error al transcribir audio:', err);
       setAudios((prev) =>
         prev.map((a, i) =>
           i === index
             ? {
                 ...a,
                 status: 'error',
-                transcription: 'No se pudo procesar el audio. Verificá la conexión.'
+                transcription: err.message || 'No se pudo procesar el audio. Verificá la conexión.'
               }
             : a
         )

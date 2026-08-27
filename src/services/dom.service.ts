@@ -331,27 +331,41 @@ export const DOMService = {
 
             const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
             const audios: { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] = [];
+            const processedIds = new Set<string>();
 
             rows.forEach((row, index) => {
-                const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
-                const isOutgoing = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT);
-                if (!isIncoming && !isOutgoing) return;
-
                 // Buscar elemento audio o reproductor PTT
                 const audioElement = row.querySelector('audio') as HTMLAudioElement | null;
-                const pttContainer = row.querySelector('[data-testid="audio-player"], [data-testid="ptt-player"], [data-icon="ptt-play"], [data-icon="audio-play"]');
+                const pttContainer = row.querySelector(
+                    '[data-testid="audio-player"], [data-testid="ptt-player"], [data-icon="ptt-play"], [data-icon="audio-play"], [data-icon="ptt-pause"], [data-icon="audio-pause"]'
+                );
 
                 if (audioElement || pttContainer) {
                     const rowId = row.getAttribute('data-id') || `audio_${index}`;
-                    // Extraer duración visible si existe
-                    const durationEl = row.querySelector('div[dir="auto"], span[dir="auto"]');
-                    const durationText = durationEl?.textContent?.trim() || '0:15';
+                    if (processedIds.has(rowId)) return;
+                    processedIds.add(rowId);
+
+                    const isOutgoing =
+                        rowId.startsWith('true_') ||
+                        !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT) ||
+                        row.classList.contains('message-out') ||
+                        !!row.querySelector('.message-out');
+
+                    // Extraer duración visible si existe (formato mm:ss)
+                    const durationMatch = row.textContent?.match(/(\d{1,2}:\d{2})/);
+                    const durationText = durationMatch ? durationMatch[1] : '0:15';
+
+                    const audioSrc =
+                        audioElement?.currentSrc ||
+                        audioElement?.src ||
+                        audioElement?.querySelector('source')?.src ||
+                        null;
 
                     audios.push({
                         id: rowId,
-                        sender: isIncoming ? 'them' : 'me',
+                        sender: isOutgoing ? 'me' : 'them',
                         duration: durationText,
-                        src: audioElement?.src || null
+                        src: audioSrc
                     });
                 }
             });
@@ -368,6 +382,9 @@ export const DOMService = {
      */
     async convertBlobUrlToBase64(blobUrl: string): Promise<string> {
         const response = await fetch(blobUrl);
+        if (!response.ok) {
+            throw new Error(`Error al descargar blob de audio (HTTP ${response.status})`);
+        }
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
