@@ -4,7 +4,7 @@ import { API_URL } from '../config/env';
 
 // Client ID de la credencial OAuth "Aplicación web" en Google Cloud Console, con
 // "https://<ID-de-la-extensión>.chromiumapp.org/" cargado como URI de redirección autorizada.
-const GOOGLE_CLIENT_ID = '284213999650-kvbqp3bppi7vgb2bv84fta3vkk3lr505.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '960361389679-qibfdmr3vokgjd1en906niu9fql2gvvt.apps.googleusercontent.com';
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.type === 'FETCH_API') {
