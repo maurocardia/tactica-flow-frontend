@@ -68,7 +68,7 @@ const Ficha360: React.FC = () => {
                         className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all shrink-0 cursor-pointer ${
                             activeTab === tab
                                 ? 'bg-[#9e1114] text-white shadow-xs'
-                                : 'glass-pill hover:bg-white text-slate-800'
+                                : 'glass-pill hover:bg-white dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
                         }`}
                     >
                         {TAB_LABELS[tab]}
@@ -85,14 +85,14 @@ const Ficha360: React.FC = () => {
                         placeholder="Filtrar..."
                         value={filterText}
                         onChange={(e) => setFilterText(e.target.value)}
-                        className="w-full pl-8 pr-2 py-1.5 bg-slate-50/90 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-red-500 [color-scheme:light]"
+                        className="w-full pl-8 pr-2 py-1.5 bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-red-500 [color-scheme:light]"
                     />
                 </div>
 
                 <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="bg-slate-50/90 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none [color-scheme:light]"
+                    className="bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 font-semibold focus:outline-none [color-scheme:light]"
                 >
                     <option value="todos">Todos</option>
                     <option value="charla">Charlas</option>
