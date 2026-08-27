@@ -47,18 +47,20 @@ export const SelectMessagesCard: React.FC = () => {
             <button
                 type="button"
                 onClick={() => setIsSelecting(true)}
-                className="w-full bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 font-bold text-xs py-2.5 px-3 rounded-xl border border-slate-200 flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                className="w-full bg-white/90 hover:bg-white text-slate-800 hover:text-slate-950 font-bold text-xs py-3 px-3.5 rounded-[20px] border border-slate-200/90 flex items-center justify-center gap-2.5 shadow-sm hover:shadow-md transition-all cursor-pointer backdrop-blur-md"
             >
-                <CheckSquare className="w-4 h-4 text-[#9e1114]" />
+                <div className="w-6 h-6 rounded-lg bg-red-50 text-[#9e1114] flex items-center justify-center">
+                    <CheckSquare className="w-4 h-4" />
+                </div>
                 <span>Seleccionar mensajes del chat</span>
             </button>
         );
     }
 
     return (
-        <div className="w-full bg-[#9e1114]/5 border border-[#9e1114]/20 rounded-xl p-3 flex flex-col gap-2.5 shadow-sm text-xs animate-in fade-in duration-200">
+        <div className="w-full bg-gradient-to-br from-white/95 to-red-50/40 border border-red-200/80 rounded-[20px] p-3.5 flex flex-col gap-3 shadow-sm text-xs backdrop-blur-md animate-in fade-in duration-200">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-bold text-[#9e1114]">
+                <div className="flex items-center gap-1.5 font-bold text-[#9e1114] text-xs">
                     <CheckSquare className="w-4 h-4" />
                     <span>{selectedMessages.length} mensaje(s) seleccionado(s)</span>
                 </div>
@@ -68,33 +70,33 @@ export const SelectMessagesCard: React.FC = () => {
                         setIsSelecting(false);
                         setSelectedMessages([]);
                     }}
-                    className="p-1 text-slate-500 hover:text-slate-800 rounded-md hover:bg-slate-200/50"
+                    className="p-1 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
                     title="Salir del modo selección"
                 >
                     <X className="w-4 h-4" />
                 </button>
             </div>
 
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-slate-600 font-medium leading-relaxed">
                 Tilda los mensajes que deseas incluir para realizar acciones masivas.
             </p>
 
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
                 <button
                     type="button"
                     onClick={handleSaveHistory}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold text-[11px] py-1.5 px-2 rounded-lg border border-slate-200 shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 bg-white/90 hover:bg-white disabled:opacity-40 text-slate-800 font-bold text-[11px] py-2 px-2 rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
                 >
                     <Bookmark className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span>Guardar historial</span>
+                    <span>Historial</span>
                 </button>
 
                 <button
                     type="button"
                     onClick={handleScheduleActivity}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold text-[11px] py-1.5 px-2 rounded-lg border border-slate-200 shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 bg-white/90 hover:bg-white disabled:opacity-40 text-slate-800 font-bold text-[11px] py-2 px-2 rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
                 >
                     <Calendar className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>Actividad</span>
@@ -104,7 +106,7 @@ export const SelectMessagesCard: React.FC = () => {
                     type="button"
                     onClick={handleReassign}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold text-[11px] py-1.5 px-2 rounded-lg border border-slate-200 shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 bg-white/90 hover:bg-white disabled:opacity-40 text-slate-800 font-bold text-[11px] py-2 px-2 rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
                 >
                     <UserCheck className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                     <span>Reasignar</span>
@@ -114,7 +116,7 @@ export const SelectMessagesCard: React.FC = () => {
                     type="button"
                     onClick={handleCopy}
                     disabled={selectedMessages.length === 0}
-                    className="flex items-center justify-center gap-1.5 bg-white hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-semibold text-[11px] py-1.5 px-2 rounded-lg border border-slate-200 shadow-2xs"
+                    className="flex items-center justify-center gap-1.5 bg-white/90 hover:bg-white disabled:opacity-40 text-slate-800 font-bold text-[11px] py-2 px-2 rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
                 >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-600" />}
                     <span>{copied ? '¡Copiado!' : 'Copiar'}</span>

@@ -19,14 +19,12 @@ export const Sidebar: React.FC = () => {
     const visible = config.moduleVisibility;
 
     return (
-        // Usa w-full e items-stretch para obligar a todo a pegarse a los bordes
-        <aside className="w-full h-full bg-slate-100 border-l border-slate-200 flex flex-col items-stretch overflow-y-auto font-sans">
-            {/* Header rojo ocupando el 100% */}
+        <aside className="w-full h-full bg-slate-100/90 backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-y-auto font-sans">
+            {/* Header rojo moderno ocupando el 100% */}
             <Header />
 
-            {/* Contenedor del cuerpo con ancho completo. Orden: Contacto → IA → Seleccionar
-                mensajes → Ficha 360 → Chatbot → Herramientas (igual al mockup del cliente). */}
-            <div className="w-full p-3 flex flex-col gap-3 box-border">
+            {/* Contenedor del cuerpo con tarjetas redondeadas a 20px y efecto glass */}
+            <div className="w-full p-3 flex flex-col gap-3.5 box-border">
                 {visible.contactCard && <ContactCard contactName={activeContact} />}
                 {visible.aiModule && <AiModule />}
                 {visible.chatbot && <ChatbotModule />}
@@ -41,3 +39,4 @@ export const Sidebar: React.FC = () => {
         </aside>
     );
 };
+
