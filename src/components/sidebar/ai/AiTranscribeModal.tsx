@@ -60,35 +60,6 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
       selected: true
     }));
 
-    // Cargar también audios/transcripciones persistidas por Baileys desde PostgreSQL
-    try {
-      const conversations = await ApiService.getConversations();
-      const matchConv = conversations.find((c) => c.name === title || c.phone === title);
-      if (matchConv) {
-        const msgs = await ApiService.getMessages(matchConv.id);
-        for (const m of msgs) {
-          if (m.text.includes('[🎙️ Audio]') || m.text.includes('[🎙️ Nota de voz]')) {
-            const match = m.text.match(/\[🎙️ Audio\]:\s*"?(.*?)"?$/);
-            const transcriptionText = match ? match[1] : '';
-            const exists = detectedItems.some((d) => d.id === `db_audio_${m.id}`);
-            if (!exists) {
-              detectedItems.unshift({
-                id: `db_audio_${m.id}`,
-                sender: m.sender === 'customer' ? 'them' : 'me',
-                duration: '0:30',
-                src: null,
-                status: transcriptionText ? 'done' : 'idle',
-                transcription: transcriptionText || undefined,
-                selected: true
-              });
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[AiTranscribeModal] Error leyendo audios de la DB:', err);
-    }
-
     setAudios(detectedItems);
     setLoadingDetection(false);
     setIsSyncing(false);
@@ -109,71 +80,10 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
     try {
       let transcriptionText: string | null = null;
 
-      // Los audios db_audio_ ya tienen transcripción almacenada por Baileys — no re-transcribir
-      if (item.id.startsWith('db_audio_')) {
-        throw new Error('Este audio ya fue procesado por Baileys. Actualizá la lista para ver la transcripción.');
-      }
-
-      // ─── Intento 1: Baileys en el backend (no necesita Play en el navegador) ───
-      if (item.id && item.id.includes('_') && !item.id.startsWith('audio_')) {
-        try {
-          const res = await ApiService.transcribeAudioByDataId(item.id);
-          if (res.transcription) transcriptionText = res.transcription;
-        } catch (baileyErr: any) {
-          console.warn('[AiTranscribeModal] Baileys no pudo transcribir, intentando DOM blob:', baileyErr?.message);
-        }
-      }
-
-      // ─── Intento 2: DOM blob (requiere que el audio esté cargado en el navegador) ───
-      if (!transcriptionText) {
-        let blobSrc = item.src;
-
-        if (!blobSrc || !blobSrc.startsWith('blob:')) {
-          const row = document.querySelector(`[data-id="${item.id}"]`);
-          const audioEl = row
-            ? (row.tagName === 'AUDIO' ? (row as HTMLAudioElement) : row.querySelector('audio'))
-            : null;
-
-          if (audioEl && (audioEl.currentSrc || audioEl.src).startsWith('blob:')) {
-            blobSrc = audioEl.currentSrc || audioEl.src;
-          } else {
-            // Auto-click en el botón play para que WhatsApp cargue el blob
-            const mainArea = document.querySelector('#main');
-            const allRows = mainArea?.querySelectorAll('div[data-id]');
-            let targetRow: Element | null = row;
-            if (!targetRow && allRows) {
-              const idx = parseInt(item.id.replace('audio_', ''), 10);
-              if (!isNaN(idx)) targetRow = allRows[idx] || null;
-            }
-            const playBtn = (targetRow || mainArea)?.querySelector(
-              'button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], [data-icon*="ptt"], [data-icon*="play"], [data-testid*="ptt"], [data-testid*="audio-play"]'
-            ) as HTMLElement | null;
-            if (playBtn) {
-              playBtn.click();
-              for (let t = 0; t < 5; t++) {
-                await new Promise((r) => setTimeout(r, 500));
-                const reAudio = (targetRow || mainArea)?.querySelector('audio') as HTMLAudioElement | null;
-                if (reAudio && (reAudio.currentSrc || reAudio.src).startsWith('blob:')) {
-                  blobSrc = reAudio.currentSrc || reAudio.src;
-                  const pauseBtn = (targetRow || mainArea)?.querySelector(
-                    '[data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
-                  ) as HTMLElement | null;
-                  if (pauseBtn) pauseBtn.click();
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        if (!blobSrc || !blobSrc.startsWith('blob:')) {
-          throw new Error('⚠️ Baileys no pudo acceder a este audio y el navegador tampoco lo tiene cargado. Dale Play al audio en WhatsApp y volvé a intentar.');
-        }
-
-        const base64 = await DOMService.convertBlobUrlToBase64(blobSrc);
-        const res = await ApiService.transcribeAudio(base64);
-        transcriptionText = res.transcription || '(Audio vacío o sin voz inteligible)';
-      }
+      // Captura directa y silenciosa del audio desde el DOM del navegador
+      const base64 = await DOMService.getAudioBase64(item.id);
+      const res = await ApiService.transcribeAudio(base64);
+      transcriptionText = res.transcription || '(Audio sin voz detectable o inteligible)';
 
       setAudios((prev) =>
         prev.map((a, i) =>
