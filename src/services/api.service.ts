@@ -180,8 +180,8 @@ export const ApiService = {
         tone?: 'formal' | 'cordial' | 'directo';
         instruction?: string;
         userPrompt?: string;
-    }): Promise<{ success: boolean; draft: string }> {
-        return this.sendBackgroundRequest<{ success: boolean; draft: string }>('/ai/draft', 'POST', params);
+    }): Promise<{ success: boolean; draft: string; foundInKb?: boolean; sourceKbIds?: number[] }> {
+        return this.sendBackgroundRequest<{ success: boolean; draft: string; foundInKb?: boolean; sourceKbIds?: number[] }>('/ai/draft', 'POST', params);
     },
 
     async transcribeAudio(audioBase64: string, mimeType: string = 'audio/ogg'): Promise<{ success: boolean; transcription: string }> {

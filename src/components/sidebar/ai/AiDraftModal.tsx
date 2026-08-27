@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Send, Loader2, Plus, X, RefreshCw, Check } from 'lucide-react';
+import { Send, Loader2, Plus, X, RefreshCw, Check, AlertTriangle, BookOpen } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { DOMService } from '@/services/dom.service';
 import { ApiService } from '@/services/api.service';
@@ -28,6 +28,7 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({ onClose, contactName
   const [isAddingChip, setIsAddingChip] = useState(false);
   const [userPrompt, setUserPrompt] = useState('');
   const [draft, setDraft] = useState('');
+  const [foundInKb, setFoundInKb] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
@@ -36,6 +37,7 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({ onClose, contactName
     setLoading(true);
     setError(null);
     setInserted(false);
+    setFoundInKb(null);
 
     try {
       const messages = DOMService.getVisibleMessages();
@@ -57,6 +59,7 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({ onClose, contactName
           .replace(/{nombre}/gi, contactName || 'Estimado/a')
           .replace(/{empresa}/gi, 'su empresa');
         setDraft(formatted);
+        setFoundInKb(res.foundInKb ?? false);
       } else {
         setError('No se pudo obtener una respuesta de la IA.');
       }
@@ -269,6 +272,23 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({ onClose, contactName
           {error && (
             <div className="text-[11px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5 mb-2">
               {error}
+            </div>
+          )}
+
+          {draft && foundInKb === true && (
+            <div className="flex items-center gap-2 p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold mb-2">
+              <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Información respaldada por la Base de Conocimiento oficial de tu empresa.</span>
+            </div>
+          )}
+
+          {draft && foundInKb === false && (
+            <div className="flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl text-amber-900 dark:text-amber-200 text-[11px] leading-relaxed mb-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold block text-amber-950 dark:text-amber-100">No encontrado en la Base de Conocimiento</strong>
+                No se encontró información oficial sobre este tema en tus documentos. La IA redactó una respuesta general/cordial basada en el contexto del chat. <strong>Por favor revisá los datos antes de enviar</strong>.
+              </div>
             </div>
           )}
 
