@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
 import {
     Phone, ArrowUpRight, UserPlus, Receipt,
     Zap, FolderDown, CalendarClock, CalendarCheck,
-    Repeat, Tags, Megaphone, Inbox, Shuffle
+    Repeat, Tags, Megaphone, Inbox, Shuffle, Wrench
 } from 'lucide-react';
 import { ModalId } from '@/config/modals';
 import { useModal } from '@/state/ModalContext';
@@ -38,10 +37,12 @@ export default function ToolsGrid() {
     return (
         <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                    <span>🧰</span>
-                    <span>HERRAMIENTAS</span>
-                </span>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-red-500/15 dark:bg-red-950/80 text-[#9e1114] dark:text-red-400 flex items-center justify-center shadow-2xs">
+                        <Wrench className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100">HERRAMIENTAS</span>
+                </div>
                 <button
                     onClick={toggleReordering}
                     className={`flex items-center gap-1 text-[10.5px] font-extrabold px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
