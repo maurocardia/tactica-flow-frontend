@@ -48,38 +48,32 @@ const Ficha360: React.FC = () => {
     }
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm flex flex-col gap-2.5">
+        <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-3">
             {/* Header Ficha 360 */}
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide">
-                <User className="w-4 h-4 text-purple-700" />
-                <span>FICHA 360° · TACTICA</span>
+            <div className="flex items-center gap-2 text-[11px] font-bold text-slate-800 uppercase tracking-wider">
+                <div className="w-6 h-6 rounded-lg bg-red-500/15 text-[#9e1114] flex items-center justify-center shadow-2xs">
+                    <User className="w-3.5 h-3.5" />
+                </div>
+                <span className="font-extrabold text-slate-900">FICHA 360° · TACTICA</span>
             </div>
 
             <PrototypeNotice text="Próximamente: todavía no trae datos reales de Táctica ERP." />
 
-            {/* Tabs / Pestañas de Navegación con Scroll (visibilidad configurable desde Config) */}
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 text-xs no-scrollbar">
+            {/* Tabs / Pestañas de Navegación */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar">
                 {visibleTabs.map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-colors shrink-0 ${activeTab === tab
-                            ? 'bg-red-900 text-white shadow-sm'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                            }`}
+                        className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all shrink-0 cursor-pointer ${
+                            activeTab === tab
+                                ? 'bg-[#9e1114] text-white shadow-xs'
+                                : 'glass-pill hover:bg-white text-slate-800'
+                        }`}
                     >
                         {TAB_LABELS[tab]}
                     </button>
                 ))}
-            </div>
-
-            {/* Barra de desplazamiento indicadora */}
-            <div className="flex items-center justify-between text-slate-400 px-1">
-                <ChevronLeft className="w-3.5 h-3.5 cursor-pointer hover:text-slate-600" />
-                <div className="flex-1 h-1.5 bg-slate-200 rounded-full mx-2 overflow-hidden">
-                    <div className="w-1/3 h-full bg-slate-500 rounded-full"></div>
-                </div>
-                <ChevronRight className="w-3.5 h-3.5 cursor-pointer hover:text-slate-600" />
             </div>
 
             {/* Filtro de búsqueda y Selector */}
@@ -91,14 +85,14 @@ const Ficha360: React.FC = () => {
                         placeholder="Filtrar..."
                         value={filterText}
                         onChange={(e) => setFilterText(e.target.value)}
-                        className="w-full pl-8 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-emerald-500"
+                        className="w-full pl-8 pr-2 py-1.5 bg-slate-50/90 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-red-500 [color-scheme:light]"
                     />
                 </div>
 
                 <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none"
+                    className="bg-slate-50/90 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-semibold focus:outline-none [color-scheme:light]"
                 >
                     <option value="todos">Todos</option>
                     <option value="charla">Charlas</option>
@@ -112,7 +106,7 @@ const Ficha360: React.FC = () => {
                 {historyItems.map((item) => (
                     <div
                         key={item.id}
-                        className="py-2 flex items-center justify-between hover:bg-slate-50 px-1 rounded-lg transition-colors cursor-pointer"
+                        className="py-2.5 flex items-center justify-between hover:bg-slate-50/80 px-2 rounded-xl transition-colors cursor-pointer"
                     >
                         <div className="flex items-start gap-2">
                             {item.type === 'charla' && <MessageSquare className="w-3.5 h-3.5 text-purple-600 mt-0.5 shrink-0" />}

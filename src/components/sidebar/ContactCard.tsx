@@ -9,24 +9,25 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const isSelected = contactName !== 'Sin chat seleccionado';
 
     return (
-        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-sm">
-            <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-semibold text-xs shrink-0">
+        <div className="glass-card glass-card-hover p-3.5">
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-red-500/15 to-red-600/10 text-[#9e1114] border border-red-200/50 flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                     <User className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm text-slate-900 truncate">
+                    <div className="font-bold text-sm text-slate-900 truncate tracking-tight">
                         {contactName}
                     </div>
-                    <div className="text-xs text-slate-500 truncate">
-                        {isSelected ? 'Cliente Activo' : 'Ningún chat detectado'}
+                    <div className="text-xs text-slate-600 font-medium truncate flex items-center gap-1.5 mt-0.5">
+                        <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-emerald-500 ring-2 ring-emerald-200' : 'bg-slate-300'}`}></span>
+                        <span>{isSelected ? 'Cliente Activo' : 'Ningún chat detectado'}</span>
                     </div>
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-[#e8181e] font-semibold border border-red-100 shrink-0">
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-red-500/10 text-[#9e1114] font-bold border border-red-200/60 shrink-0 shadow-2xs backdrop-blur-xs">
                     Vinculado
                 </span>
             </div>
         </div>
     );
-}
+};
 export default ContactCard;
