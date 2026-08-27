@@ -8,7 +8,7 @@ import { useAppState } from '@/state/AppStateContext';
 import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 
 type Status = 'loading-chat' | 'selecting' | 'loading' | 'done' | 'error' | 'not-found';
-type ScopeFilter = 'today' | '24h' | '7d' | 'visible' | 'all';
+type ScopeFilter = 'today' | '24h' | '7d' | 'visible';
 
 export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string }> = ({ onClose, contactName }) => {
   const { config } = useAppState();
@@ -188,28 +188,6 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
           const visibleToday = DOMService.getVisibleMessages('today');
           lines = visibleToday.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
         }
-      } else {
-        // currentScope === 'all'
-        if (conversations.length > 0) {
-          const messagesByConversation = await Promise.all(
-            conversations.map(async (c) => ({
-              conversation: c,
-              messages: await ApiService.getMessages(c.id).catch(() => [])
-            }))
-          );
-
-          for (const { conversation, messages } of messagesByConversation) {
-            for (const m of messages) {
-              const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
-              lines.push(`${who}: ${m.text}`);
-            }
-          }
-        }
-
-        if (lines.length === 0) {
-          const visibleMessages = DOMService.getVisibleMessages('all');
-          lines = visibleMessages.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
-        }
       }
 
       if (lines.length === 0) {
@@ -243,8 +221,7 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
         today: 'de los mensajes del día de HOY',
         '24h': 'de las ÚLTIMAS 24 HORAS',
         '7d': 'de los ÚLTIMOS 7 DÍAS',
-        visible: 'de los mensajes VISIBLES en pantalla',
-        all: 'de TODO el historial disponible'
+        visible: 'de los mensajes VISIBLES en pantalla'
       };
 
       const prompt = `TAREA: Elaborar un resumen ejecutivo y fiel de la siguiente conversación de WhatsApp con ${contactName} enfocado en ${scopeTextMap[currentScope]}.
@@ -373,7 +350,7 @@ Estructura del resumen:
         <label className="text-[11px] font-extrabold uppercase tracking-wide text-slate-800 dark:text-slate-200">
           Alcance del resumen:
         </label>
-        <div className="grid grid-cols-5 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold">
+        <div className="grid grid-cols-4 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold">
           <button
             onClick={() => handleScopeChange('today')}
             className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
@@ -416,16 +393,6 @@ Estructura del resumen:
           >
             <Eye className="w-3 h-3 shrink-0" />
             <span>Pantalla</span>
-          </button>
-          <button
-            onClick={() => handleScopeChange('all')}
-            className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
-              scope === 'all'
-                ? 'bg-purple-600 text-white shadow-xs'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-            }`}
-          >
-            <span>Todo</span>
           </button>
         </div>
       </div>
