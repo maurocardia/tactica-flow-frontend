@@ -217,6 +217,39 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     }
   };
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleSyncChat = async () => {
+    setIsSyncing(true);
+    DOMService.clearChatCache();
+    const visibleMessages = DOMService.getVisibleMessages('all');
+    const title = DOMService.getChatTitle() || contactName;
+
+    try {
+      await ApiService.syncConversationMessages({
+        phone: individualConversation?.phone || title,
+        name: title,
+        groupName: groupConversations.length > 0 ? title : null,
+        messages: visibleMessages.map((m) => ({
+          sender: m.sender === 'them' ? 'customer' : 'agent',
+          text: m.text
+        })),
+        mode: 'replace' // Reemplaza en DB para que si se borró el chat quede 100% limpio
+      });
+
+      const updatedConversations = await ApiService.getConversations();
+      const updated = updatedConversations.find((c) => c.name === title || c.phone === title) || null;
+      if (updated) setIndividualConversation(updated);
+
+      generateSummary(updated ? [updated] : [], scope);
+    } catch (err) {
+      console.error('[AiSummaryModal] Error al sincronizar chat con DB:', err);
+      setStatus('error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleScopeChange = (newScope: ScopeFilter) => {
     setScope(newScope);
     setStatus('loading');
@@ -248,15 +281,27 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
       headerColor="bg-purple-600"
       footer={
         <div className="flex items-center justify-between w-full">
-          <button
-            onClick={() => setStatus('loading')}
-            disabled={status === 'loading'}
-            className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 px-3 py-2 rounded-xl transition-colors cursor-pointer"
-            title="Volver a generar resumen"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${status === 'loading' ? 'animate-spin' : ''}`} />
-            Regenerar
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setStatus('loading')}
+              disabled={status === 'loading' || isSyncing}
+              className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 px-2.5 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              title="Volver a generar resumen"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${status === 'loading' ? 'animate-spin' : ''}`} />
+              Regenerar
+            </button>
+
+            <button
+              onClick={handleSyncChat}
+              disabled={status === 'loading' || isSyncing}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-700/60 px-2.5 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              title="Sincroniza y limpia la base de datos con los mensajes actuales de la pantalla"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-purple-600' : ''}`} />
+              {isSyncing ? 'Sincronizando...' : 'Sincronizar'}
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <button

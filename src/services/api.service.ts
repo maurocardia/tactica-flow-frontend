@@ -215,4 +215,27 @@ export const ApiService = {
     async deleteScheduledJob(id: number): Promise<void> {
         return this.sendBackgroundRequest<void>(`/scheduled-jobs/${id}`, 'DELETE');
     },
+
+    // === SINCRONIZACIÓN Y LIMPIEZA DE CONVERSACIONES ===
+
+    async syncConversationMessages(params: {
+        phone: string;
+        name: string;
+        groupName?: string | null;
+        messages: { sender: 'customer' | 'agent' | 'bot'; text: string; createdAt?: string }[];
+        mode?: 'replace' | 'merge';
+    }): Promise<{ status: string; conversation: any; syncedCount: number }> {
+        return this.sendBackgroundRequest<{ status: string; conversation: any; syncedCount: number }>(
+            '/conversations/sync',
+            'POST',
+            params
+        );
+    },
+
+    async clearConversationMessages(conversationId: number): Promise<{ status: string; message: string }> {
+        return this.sendBackgroundRequest<{ status: string; message: string }>(
+            `/conversations/${conversationId}/messages`,
+            'DELETE'
+        );
+    },
 };
