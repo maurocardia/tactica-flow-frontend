@@ -95,7 +95,36 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
   };
 
   return (
-    <Modal title="Programados y secuencias" onClose={onClose} maxWidth="max-w-[480px]">
+    <Modal
+      title="Programados y secuencias"
+      onClose={onClose}
+      maxWidth="max-w-[480px]"
+      footer={
+        <div className="flex items-center justify-between w-full gap-2">
+          {tab === 'msgs' ? (
+            <button
+              onClick={() => openModal('schedule-message')}
+              className="flex items-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs cursor-pointer transition-all"
+            >
+              <Plus className="w-4 h-4" /> Programar mensaje
+            </button>
+          ) : (
+            <button
+              onClick={() => openModal('sequence-editor')}
+              className="flex items-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs cursor-pointer transition-all"
+            >
+              <Plus className="w-4 h-4" /> Nueva secuencia
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
+          >
+            Cerrar
+          </button>
+        </div>
+      }
+    >
       <Tabs
         tabs={[
           { id: 'msgs', label: 'Mensajes programados' },
@@ -106,7 +135,7 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
       />
 
       <select
-        className="self-start border border-slate-300 rounded-md px-2 py-1 text-[11px] bg-white text-slate-800 [color-scheme:light]"
+        className="self-start border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs [color-scheme:light] focus:outline-none focus:border-red-500"
         value={scope}
         onChange={(e) => setScope(e.target.value as Scope)}
       >
@@ -115,7 +144,7 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
       </select>
 
       {tab === 'msgs' ? (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-3">
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-6 text-slate-400 text-xs">
               <Loader2 className="w-4 h-4 animate-spin" /> Cargando mensajes programados...
@@ -123,23 +152,23 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
           ) : filteredJobs.length === 0 ? (
             <EmptyState>No hay mensajes programados en el servidor.</EmptyState>
           ) : (
-            <div className="flex flex-col gap-2 max-h-[320px] overflow-y-auto pr-0.5">
+            <div className="flex flex-col gap-2.5">
               {filteredJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="border border-slate-200 rounded-xl p-3 bg-white flex flex-col gap-1.5 shadow-sm"
+                  className="border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3.5 bg-white dark:bg-slate-800/90 flex flex-col gap-2 shadow-2xs"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs text-slate-800">{job.contact_name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">({job.phone})</span>
+                      <span className="font-bold text-xs text-slate-900 dark:text-slate-100">{job.contact_name}</span>
+                      <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono font-medium">({job.phone})</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       {getStatusBadge(job.status)}
                       {job.status === 'pending' && (
                         <button
                           onClick={() => handleCancelJob(job.id)}
-                          className="text-[10.5px] text-red-600 hover:text-red-700 font-semibold px-1.5 py-0.5 rounded hover:bg-red-50"
+                          className="text-[11px] text-red-600 dark:text-red-400 hover:text-red-700 font-bold px-2 py-0.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/60 cursor-pointer transition-colors"
                           title="Cancelar envío automático"
                         >
                           Cancelar
@@ -147,7 +176,7 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
                       )}
                       <button
                         onClick={() => handleDeleteJob(job.id)}
-                        className="text-slate-400 hover:text-red-500 p-1 rounded"
+                        className="text-slate-400 hover:text-red-500 dark:hover:text-red-400 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition-colors"
                         title="Eliminar registro"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -155,16 +184,16 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-700 bg-slate-50 border border-slate-100 rounded-lg p-2 leading-relaxed">
+                  <p className="text-xs text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 leading-relaxed font-medium">
                     "{job.message_text}"
                   </p>
 
-                  <div className="flex items-center justify-between text-[10.5px] text-slate-400">
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                     <span>
                       📅 Envío: {new Date(job.execute_at).toLocaleString('es-AR')} ({job.recurrence === 'once' ? 'Una vez' : job.recurrence})
                     </span>
                     {job.stop_on_reply && (
-                      <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-md">
                         Se detiene si responde
                       </span>
                     )}
@@ -173,16 +202,9 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
               ))}
             </div>
           )}
-
-          <button
-            onClick={() => openModal('schedule-message')}
-            className="flex items-center justify-center gap-1.5 border border-dashed border-red-300 hover:bg-red-50/50 text-[#9e1114] font-semibold text-xs py-2 rounded-lg transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" /> Programar nuevo mensaje
-          </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {seqs.length === 0 ? (
             <EmptyState>No hay secuencias activas.</EmptyState>
           ) : (
@@ -198,12 +220,6 @@ export const ScheduledModal: React.FC<{ onClose: () => void; contactName: string
               />
             ))
           )}
-          <button
-            onClick={() => openModal('sequence-editor')}
-            className="flex items-center justify-center gap-1.5 border border-dashed border-slate-300 hover:bg-slate-50 text-slate-600 font-semibold text-xs py-2 rounded-lg"
-          >
-            <Plus className="w-3.5 h-3.5" /> Nueva secuencia
-          </button>
         </div>
       )}
     </Modal>
