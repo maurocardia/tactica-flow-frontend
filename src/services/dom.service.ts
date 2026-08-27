@@ -231,39 +231,49 @@ export const DOMService = {
             }
             lastSeenChatTitle = currentTitle;
 
-            const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
+            const allElements = container.querySelectorAll('[data-id], [role="row"], div.focusable-list-item');
             const currentMessagesAll: VisibleMessage[] = [];
             const currentMessagesToday: VisibleMessage[] = [];
-            let currentSectionDate: 'today' | 'past' = 'past'; // Default past salvo que esté bajo 'HOY'
+            let currentSectionDate: 'today' | 'past' = 'past'; // Default past
 
-            rows.forEach((row) => {
-                const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
-                const isOutgoing = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT);
+            const processedMsgIds = new Set<string>();
 
-                // Separador de fecha de WhatsApp (no es mensaje entrante ni saliente)
-                if (!isIncoming && !isOutgoing) {
-                    const badgeText = row.textContent?.trim().toUpperCase() || '';
-                    if (badgeText.includes('HOY') || badgeText.includes('TODAY')) {
+            allElements.forEach((el) => {
+                const text = extractMessageText(el);
+
+                // Si NO tiene texto de mensaje seleccionable, comprobamos si es un badge/separador de fecha
+                if (!text) {
+                    const rawBadge = el.textContent?.trim().toUpperCase() || '';
+                    const firstWord = rawBadge.split('\n')[0].trim();
+                    if (/^(HOY|TODAY)$/i.test(firstWord) || firstWord === 'HOY' || firstWord === 'TODAY') {
                         currentSectionDate = 'today';
                     } else if (
-                        badgeText.includes('AYER') ||
-                        badgeText.includes('YESTERDAY') ||
-                        /\d{1,2}\/\d{1,2}/.test(badgeText) ||
-                        /LUNES|MARTES|MIÉRCOLES|JUEVES|VIERNES|SÁBADO|DOMINGO/i.test(badgeText)
+                        /^(AYER|YESTERDAY)$/i.test(firstWord) ||
+                        /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(firstWord) ||
+                        /^(LUNES|MARTES|MIÉRCOLES|MIERCOLES|JUEVES|VIERNES|SÁBADO|SABADO|DOMINGO)$/i.test(firstWord)
                     ) {
                         currentSectionDate = 'past';
                     }
                     return;
                 }
 
-                const text = extractMessageText(row);
-                if (!text) return;
+                // Es un mensaje real
+                const dataId = el.getAttribute('data-id') || el.closest('[data-id]')?.getAttribute('data-id') || '';
+                if (dataId && processedMsgIds.has(dataId)) return;
+                if (dataId) processedMsgIds.add(dataId);
+
+                const isOutgoing =
+                    dataId.startsWith('true_') ||
+                    !!el.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT) ||
+                    el.classList.contains('message-out') ||
+                    !!el.querySelector('.message-out');
 
                 const msg: VisibleMessage = {
-                    sender: isIncoming ? 'them' : 'me',
+                    sender: isOutgoing ? 'me' : 'them',
                     text,
                     dateCategory: currentSectionDate
                 };
+
                 currentMessagesAll.push(msg);
 
                 if (currentSectionDate === 'today') {
@@ -278,12 +288,10 @@ export const DOMService = {
                 chatMessagesCache.set(currentTitle, chatCache);
             }
 
-            // Función para fusionar sin duplicar conservando orden cronológico
             const mergeMessages = (cached: VisibleMessage[], current: VisibleMessage[]): VisibleMessage[] => {
                 const seen = new Set<string>();
                 const merged: VisibleMessage[] = [];
 
-                // 1. Agregar los que ya teníamos acumulados
                 for (const m of cached) {
                     const sig = `${m.sender}:${m.text.trim()}`;
                     if (!seen.has(sig)) {
@@ -292,7 +300,6 @@ export const DOMService = {
                     }
                 }
 
-                // 2. Agregar los nuevos que aparecieron en pantalla por scroll
                 for (const m of current) {
                     const sig = `${m.sender}:${m.text.trim()}`;
                     if (!seen.has(sig)) {

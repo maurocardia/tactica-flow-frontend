@@ -149,9 +149,7 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
           const visibleToday = DOMService.getVisibleMessages('today');
           lines = visibleToday.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
         }
-        // Si no hay mensajes de hoy, NO caer en mensajes de ayer
-      } else {
-        // Alcance 24h, 7d o all
+      } else if (currentScope === '24h' || currentScope === '7d') {
         if (conversations.length > 0) {
           const messagesByConversation = await Promise.all(
             conversations.map(async (c) => ({
@@ -163,6 +161,29 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
           for (const { conversation, messages } of messagesByConversation) {
             const filtered = filterBackendMessages(messages, currentScope);
             for (const m of filtered) {
+              const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
+              lines.push(`${who}: ${m.text}`);
+            }
+          }
+        }
+
+        // Si no hay en backend, en el DOM solo hoy/ayer para 24h
+        if (lines.length === 0 && currentScope === '24h') {
+          const visibleToday = DOMService.getVisibleMessages('today');
+          lines = visibleToday.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
+        }
+      } else {
+        // currentScope === 'all'
+        if (conversations.length > 0) {
+          const messagesByConversation = await Promise.all(
+            conversations.map(async (c) => ({
+              conversation: c,
+              messages: await ApiService.getMessages(c.id).catch(() => [])
+            }))
+          );
+
+          for (const { conversation, messages } of messagesByConversation) {
+            for (const m of messages) {
               const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
               lines.push(`${who}: ${m.text}`);
             }
