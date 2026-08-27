@@ -401,86 +401,84 @@ export const DOMService = {
             const container = document.querySelector(WA_SELECTORS.MAIN_CHAT) || document.querySelector('#main');
             if (!container) return [];
 
-            // Buscar todos los reproductores/botones de audio visibles
-            const audioElements = container.querySelectorAll(
-                'audio, [data-testid*="audio"], [data-testid*="ptt"], [data-testid*="waveform"], [data-icon*="ptt"], [data-icon*="audio"], [data-icon*="play"], button[aria-label*="reproducir" i], button[aria-label*="play" i], button[aria-label*="nota de voz" i], div._ak27, div._ak28, div._amjz, div._amjv'
-            );
+            // Buscar elementos de mensaje únicos (priorizando div[data-id] para evitar duplicados por anidamiento)
+            let rows = container.querySelectorAll('div[data-id]');
+            if (rows.length === 0) {
+                rows = container.querySelectorAll('div[role="row"]');
+            }
+            if (rows.length === 0) {
+                rows = container.querySelectorAll('div.message-in, div.message-out');
+            }
 
             const audios: { id: string; sender: 'me' | 'them'; duration: string; src: string | null; timestamp?: string }[] = [];
-            const processedRows = new Set<Element>();
             const processedIds = new Set<string>();
 
-            audioElements.forEach((el, index) => {
-                // Localizar el mensaje contenedor más cercano
-                const row = (
-                    el.closest('div[data-id]') ||
-                    el.closest('div[role="row"]') ||
-                    el.closest('div.message-in, div.message-out') ||
-                    el.closest('.copyable-text') ||
-                    el
-                ) as HTMLElement;
-
-                if (!row || processedRows.has(row)) return;
-                processedRows.add(row);
-
-                // Generar o leer ID único y estamparlo
-                const rawId = row.getAttribute('data-id');
-                const rowId = rawId || `audio_item_${index}_${Date.now()}`;
-                if (processedIds.has(rowId)) return;
-                processedIds.add(rowId);
-
-                row.setAttribute('data-tactica-audio-id', rowId);
-
-                const isOutgoing =
-                    rowId.startsWith('true_') ||
-                    !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT) ||
-                    row.classList.contains('message-out') ||
-                    !!row.closest('.message-out') ||
-                    !!row.querySelector('.message-out');
-
-                // Extraer duración visible si existe (formato mm:ss)
-                const durationMatch = row.textContent?.match(/(\d{1,2}:\d{2})/);
-                const durationText = durationMatch ? durationMatch[1] : '0:15';
-
-                // Extraer fecha/hora del timestamp del mensaje
-                let timestamp: string | undefined;
-                const tsEl = row.querySelector(
-                    '[data-pre-plain-text], [aria-label*="Hoy"], span[class*="time"], span[class*="Time"], [data-testid*="msg-meta"] span, ._amk6 span, ._ao3e'
+            rows.forEach((row, index) => {
+                const audioElement = row.querySelector('audio') as HTMLAudioElement | null;
+                const pttContainer = row.querySelector(
+                    '[data-testid*="audio"], [data-testid*="ptt"], [data-testid*="waveform"], [data-icon*="ptt"], [data-icon*="audio"], [data-icon*="play"], button[aria-label*="reproducir" i], button[aria-label*="play" i], button[aria-label*="nota de voz" i], div._ak27, div._ak28, div._amjz, div._amjv'
                 );
-                if (tsEl) {
-                    const prePlain = tsEl.getAttribute('data-pre-plain-text');
-                    if (prePlain) {
-                        const m = prePlain.match(/\[([^\]]+)\]/);
-                        if (m) timestamp = m[1];
-                    } else {
-                        const t = tsEl.textContent?.trim();
-                        if (t && t.length < 30) timestamp = t;
-                    }
-                }
-                if (!timestamp && rowId && rowId.includes('_')) {
-                    const parts = rowId.split('_');
-                    const epochMs = parseInt(parts[parts.length - 1], 10);
-                    if (!isNaN(epochMs) && epochMs > 1_000_000_000_000) {
-                        timestamp = new Date(epochMs).toLocaleString('es-AR', {
-                            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                        });
-                    }
-                }
 
-                const directAudio = row.querySelector('audio') as HTMLAudioElement | null;
-                const audioSrc =
-                    directAudio?.currentSrc ||
-                    directAudio?.src ||
-                    directAudio?.querySelector('source')?.src ||
-                    null;
+                if (audioElement || pttContainer) {
+                    const rowId = row.getAttribute('data-id') || `audio_item_${index}`;
+                    if (processedIds.has(rowId)) return;
+                    processedIds.add(rowId);
 
-                audios.push({
-                    id: rowId,
-                    sender: isOutgoing ? 'me' : 'them',
-                    duration: durationText,
-                    src: audioSrc,
-                    timestamp
-                });
+                    (row as HTMLElement).setAttribute('data-tactica-audio-id', rowId);
+
+                    const isOutgoing =
+                        rowId.startsWith('true_') ||
+                        !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT) ||
+                        row.classList.contains('message-out') ||
+                        !!row.closest('.message-out') ||
+                        !!row.querySelector('.message-out');
+
+                    // Extraer duración (formato mm:ss)
+                    const durationMatch = row.textContent?.match(/(\d{1,2}:\d{2})/);
+                    const durationText = durationMatch ? durationMatch[1] : '0:15';
+
+                    // Extraer hora/fecha exacta del mensaje
+                    let timestamp: string | undefined;
+                    const prePlainEl = row.querySelector('[data-pre-plain-text]');
+                    if (prePlainEl) {
+                        const prePlain = prePlainEl.getAttribute('data-pre-plain-text');
+                        if (prePlain) {
+                            const m = prePlain.match(/\[([^,\]]+)/);
+                            if (m) timestamp = m[1].trim();
+                        }
+                    }
+                    if (!timestamp) {
+                        const metaEl = row.querySelector('[data-testid="msg-meta"] span, [data-testid="meta"] span, ._amk6 span, ._ao3e');
+                        if (metaEl && metaEl.textContent) {
+                            const t = metaEl.textContent.trim();
+                            if (t && t.length < 20) timestamp = t;
+                        }
+                    }
+                    if (!timestamp && rowId.includes('_')) {
+                        const parts = rowId.split('_');
+                        const epochMs = parseInt(parts[parts.length - 1], 10);
+                        if (!isNaN(epochMs) && epochMs > 1_000_000_000_000) {
+                            timestamp = new Date(epochMs).toLocaleString('es-AR', {
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                        }
+                    }
+
+                    const directAudio = audioElement || (row.querySelector('audio') as HTMLAudioElement | null);
+                    const audioSrc =
+                        directAudio?.currentSrc ||
+                        directAudio?.src ||
+                        directAudio?.querySelector('source')?.src ||
+                        null;
+
+                    audios.push({
+                        id: rowId,
+                        sender: isOutgoing ? 'me' : 'them',
+                        duration: durationText,
+                        src: audioSrc,
+                        timestamp
+                    });
+                }
             });
 
             return audios;
@@ -528,7 +526,9 @@ export const DOMService = {
         }
 
         // 3. Si no está cargado, activar reproducción automática silenciosa para forzar la carga del blob
-        if (!blobUrl) {
+        if (!blobUrl && targetRow) {
+            targetRow.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+
             // Guardar blobs existentes antes del clic para detectar el nuevo
             const existingBlobs = new Set(
                 Array.from(document.querySelectorAll('audio'))
@@ -542,23 +542,42 @@ export const DOMService = {
             });
 
             // Localizar el botón de Play del mensaje
-            const playBtn = (targetRow || document.querySelector('#main'))?.querySelector(
-                'button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], button[aria-label*="voice" i], [data-icon="play"], [data-icon="audio-play"], [data-icon="ptt-play"], [data-icon="play-theme"], [data-testid*="audio-play"], [data-testid*="ptt-play"], [data-testid*="play"], [role="button"][aria-label*="reproducir" i], [role="button"][aria-label*="play" i]'
+            const playBtn = targetRow.querySelector(
+                'button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], button[aria-label*="voice" i], [data-icon*="play"], [data-icon*="ptt"], [data-testid*="play"], [data-testid*="ptt"], [role="button"][aria-label*="reproducir" i], [role="button"][aria-label*="play" i], div._ak27, div._ak28, button'
             ) as HTMLElement | null;
 
             if (playBtn) {
                 const clickable = (playBtn.closest('button, [role="button"]') || playBtn) as HTMLElement;
-                clickable.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-                clickable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
-                clickable.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
-                clickable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+                const rect = clickable.getBoundingClientRect();
+                const clientX = rect.left + rect.width / 2;
+                const clientY = rect.top + rect.height / 2;
+
+                clickable.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX, clientY, pointerType: 'mouse' }));
+                clickable.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX, clientY, view: window }));
+                clickable.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX, clientY, pointerType: 'mouse' }));
+                clickable.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, clientX, clientY, view: window }));
+                clickable.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX, clientY, view: window }));
                 clickable.click();
             }
 
-            // Esperar polling hasta que WhatsApp cargue el blob
+            // Escuchar evento de audio iniciado desde el main world
+            const audioPlayingPromise = new Promise<string>((resolve) => {
+                const onPlay = (e: any) => {
+                    if (e.detail && e.detail.src) {
+                        window.removeEventListener('tactica:audio-playing', onPlay);
+                        resolve(e.detail.src);
+                    }
+                };
+                window.addEventListener('tactica:audio-playing', onPlay);
+                setTimeout(() => {
+                    window.removeEventListener('tactica:audio-playing', onPlay);
+                }, maxWaitMs);
+            });
+
+            // Polling en el DOM en paralelo
             const startTime = Date.now();
-            while (Date.now() - startTime < maxWaitMs) {
-                await new Promise((r) => setTimeout(r, 150));
+            while (Date.now() - startTime < maxWaitMs && !blobUrl) {
+                await new Promise((r) => setTimeout(r, 100));
 
                 // Asegurar silencio
                 document.querySelectorAll('audio').forEach((a) => {
@@ -600,6 +619,17 @@ export const DOMService = {
                 }
             }
 
+            // Si no se encontró en el polling, esperar el evento de audio con un margen de 2s
+            if (!blobUrl) {
+                const eventSrc = await Promise.race([
+                    audioPlayingPromise,
+                    new Promise<string>((resolve) => setTimeout(() => resolve(''), 2000))
+                ]);
+                if (eventSrc && eventSrc.startsWith('blob:')) {
+                    blobUrl = eventSrc;
+                }
+            }
+
             // Pausar cualquier botón de pausa en el mensaje
             if (targetRow) {
                 const pauseBtn = targetRow.querySelector(
@@ -617,7 +647,7 @@ export const DOMService = {
         }
 
         if (!blobUrl || !blobUrl.startsWith('blob:')) {
-            throw new Error('No se pudo capturar el audio en el navegador. Por favor dale Play en WhatsApp Web y volvé a presionar Transcribir.');
+            throw new Error('No se pudo reproducir automáticamente este audio. Por favor dale Play en WhatsApp Web y volvé a presionar Transcribir.');
         }
 
         return await this.convertBlobUrlToBase64(blobUrl);
@@ -625,21 +655,57 @@ export const DOMService = {
 
     /**
      * Convierte una URL de blob de audio del navegador a base64 para enviarla al backend.
+     * Soporta Chrome MV3 con aislamiento de mundos mediante el bridge de la página principal.
      */
-    async convertBlobUrlToBase64(blobUrl: string): Promise<string> {
-        const response = await fetch(blobUrl);
-        if (!response.ok) {
-            throw new Error(`Error al descargar blob de audio (HTTP ${response.status})`);
+    async convertBlobUrlToBase64(blobUrl: string, timeoutMs: number = 8000): Promise<string> {
+        if (!blobUrl || !blobUrl.startsWith('blob:')) {
+            throw new Error('URL de audio inválida. Dale Play en WhatsApp Web y reintenta.');
         }
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                resolve(base64);
+
+        // 1. Intentar primero con fetch directo en el contexto actual
+        try {
+            const response = await fetch(blobUrl);
+            if (response.ok) {
+                const blob = await response.blob();
+                if (blob && !blob.type.includes('html') && blob.size > 100) {
+                    return await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                }
+            }
+        } catch {
+            // El fetch directo falló por aislamiento de contexto en Chrome MV3; usar el puente del Main World
+        }
+
+        // 2. Usar el bridge del Main World mediante CustomEvent
+        return new Promise<string>((resolve, reject) => {
+            const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+            const timer = setTimeout(() => {
+                window.removeEventListener('tactica:blob-response', handler as EventListener);
+                reject(new Error('No se pudo descargar el audio del navegador. Por favor dale Play en WhatsApp y reintenta.'));
+            }, timeoutMs);
+
+            const handler = (e: any) => {
+                if (e.detail && e.detail.requestId === requestId) {
+                    clearTimeout(timer);
+                    window.removeEventListener('tactica:blob-response', handler as EventListener);
+                    if (e.detail.error) {
+                        reject(new Error(e.detail.error));
+                    } else if (e.detail.base64 && !e.detail.base64.startsWith('data:text/html')) {
+                        resolve(e.detail.base64);
+                    } else {
+                        reject(new Error('Audio inválido retornado por el navegador'));
+                    }
+                }
             };
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
+
+            window.addEventListener('tactica:blob-response', handler as EventListener);
+            window.dispatchEvent(new CustomEvent('tactica:blob-request', {
+                detail: { blobUrl, requestId }
+            }));
         });
     },
 
