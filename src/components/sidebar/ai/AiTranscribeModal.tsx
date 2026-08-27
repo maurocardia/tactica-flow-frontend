@@ -107,36 +107,65 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
     );
 
     try {
+      // Los audios que vienen de la BD (Baileys) con prefijo db_audio_ ya tienen transcripción
+      // o simplemente no tienen src. No intentamos conseguir blob para ellos.
+      if (item.id.startsWith('db_audio_')) {
+        throw new Error(
+          'Este audio fue recibido antes de que Baileys estuviera activo. Solo los audios nuevos se transcriben automáticamente.'
+        );
+      }
+
       let blobSrc = item.src;
+
       if (!blobSrc || !blobSrc.startsWith('blob:')) {
-        // Buscar el elemento en el DOM en tiempo real
-        const row = document.querySelector(`[data-id="${item.id}"]`) || document.querySelector(`#main audio`);
-        const audioEl = row ? (row.tagName === 'AUDIO' ? (row as HTMLAudioElement) : row.querySelector('audio')) : null;
+        // 1. Buscar el elemento audio en el DOM en tiempo real por data-id
+        const row = document.querySelector(`[data-id="${item.id}"]`);
+        const audioEl = row
+          ? (row.tagName === 'AUDIO' ? (row as HTMLAudioElement) : row.querySelector('audio'))
+          : null;
+
         if (audioEl && (audioEl.currentSrc || audioEl.src)) {
           blobSrc = audioEl.currentSrc || audioEl.src;
         } else {
-          // Intentar hacer clic en el botón de reproducción para forzar la carga del blob de audio
-          const playBtn = row?.querySelector(
-            '[data-icon*="ptt"], [data-icon*="play"], [data-icon*="audio"], button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], [data-testid*="audio"], [data-testid*="ptt"]'
+          // 2. Intentar auto-click en el botón de reproducción para que WhatsApp cargue el blob
+          //    Buscamos en todo #main para mayor cobertura
+          const mainArea = document.querySelector('#main');
+          const allRows = mainArea?.querySelectorAll('div[data-id]');
+          let targetRow: Element | null = row;
+          if (!targetRow && allRows) {
+            // buscar por índice aproximado si no hay data-id
+            const idx = parseInt(item.id.replace('audio_', ''), 10);
+            if (!isNaN(idx)) targetRow = allRows[idx] || null;
+          }
+
+          const playBtn = (targetRow || mainArea)?.querySelector(
+            'button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], [data-icon*="ptt"], [data-icon*="play"], [data-testid*="ptt"], [data-testid*="audio-play"]'
           ) as HTMLElement | null;
+
           if (playBtn) {
             playBtn.click();
-            await new Promise((r) => setTimeout(r, 900));
-            // Buscar pausa después de reproducir para detenerlo
-            const pauseBtn = row?.querySelector(
-              '[data-icon*="ptt-pause"], [data-icon*="audio-pause"], [data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
-            ) as HTMLElement | null;
-            if (pauseBtn) pauseBtn.click();
-            const reAudio = row?.querySelector('audio') as HTMLAudioElement | null;
-            if (reAudio && (reAudio.currentSrc || reAudio.src)) {
-              blobSrc = reAudio.currentSrc || reAudio.src;
+            // Esperar hasta 2.5s a que el blob se cargue
+            for (let t = 0; t < 5; t++) {
+              await new Promise((r) => setTimeout(r, 500));
+              const reAudio = (targetRow || mainArea)?.querySelector('audio') as HTMLAudioElement | null;
+              if (reAudio && (reAudio.currentSrc || reAudio.src).startsWith('blob:')) {
+                blobSrc = reAudio.currentSrc || reAudio.src;
+                // Intentar pausar
+                const pauseBtn = (targetRow || mainArea)?.querySelector(
+                  '[data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
+                ) as HTMLElement | null;
+                if (pauseBtn) pauseBtn.click();
+                break;
+              }
             }
           }
         }
       }
 
       if (!blobSrc || !blobSrc.startsWith('blob:')) {
-        throw new Error('El audio aún no se ha descargado en WhatsApp. Dale play un segundo en el chat para que cargue.');
+        throw new Error(
+          '⚠️ No se pudo cargar el audio del chat. Dale Play manualmente en WhatsApp y volvé a intentar.'
+        );
       }
 
       const base64 = await DOMService.convertBlobUrlToBase64(blobSrc);
