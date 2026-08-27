@@ -19,11 +19,6 @@ function extractMessageText(row: Element): string | null {
     return textEl?.textContent?.trim() || null;
 }
 
-export interface VisibleMessage {
-    sender: 'me' | 'them';
-    text: string;
-}
-
 export const DOMService = {
     /**
      * Lee el nombre del contacto/grupo del chat abierto. Verificado a mano en consola (ago-2026):

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAppState } from '@/state/AppStateContext';
 import { useModal } from '@/state/ModalContext';
-import { Mic, MessageSquare, Sparkles } from 'lucide-react';
+import { Mic, MessageSquare, Sparkles, Settings } from 'lucide-react';
 
 export const AiModule: React.FC = () => {
     const { config } = useAppState();
@@ -16,9 +16,18 @@ export const AiModule: React.FC = () => {
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block shrink-0 shadow-xs"></span>
                     <span className="text-slate-900 dark:text-slate-100 font-extrabold">INTELIGENCIA ARTIFICIAL</span>
                 </div>
-                <span className="text-[10.5px] font-bold text-purple-800 dark:text-purple-300 bg-purple-100/70 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/80 px-2.5 py-0.5 rounded-full lowercase first-letter:uppercase backdrop-blur-xs">
-                    {config.aiProvider}
-                </span>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => openModal('ai-summary-config')}
+                        title="Configurar Resumen IA"
+                        className="p-1 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-950/80 rounded-lg transition-colors cursor-pointer"
+                    >
+                        <Settings className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[10.5px] font-bold text-purple-800 dark:text-purple-300 bg-purple-100/70 dark:bg-purple-950/60 border border-purple-200/80 dark:border-purple-800/80 px-2.5 py-0.5 rounded-full lowercase first-letter:uppercase backdrop-blur-xs">
+                        {config.aiProvider}
+                    </span>
+                </div>
             </div>
 
             {/* Grid de botones de IA */}

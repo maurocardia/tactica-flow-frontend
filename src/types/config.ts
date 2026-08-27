@@ -40,6 +40,16 @@ export interface AppConfig {
   // regla de palabra clave matchea, decide si se cae al agente de IA o si no se manda ninguna
   // respuesta automática (solo chatbot manual). Ver PUT /api/whatsapp/ai-fallback-enabled.
   aiFallbackEnabled: boolean;
+  // Switch "Responder también en grupos" (mismo patrón que botEnabled/aiFallbackEnabled): por
+  // default el bot solo autoresponde en chats individuales — ver
+  // PUT /api/whatsapp/bot-groups-enabled y WhatsappService.handleIncomingMessage.
+  botGroupsEnabled: boolean;
+  // Configuración de "Resumir charla" (gear junto al botón, ver AiSummaryConfigModal): prompt
+  // que se le manda a la IA y, opcionalmente, una base de conocimiento cuyos documentos se
+  // agregan como contexto extra al pedir el resumen. Solo frontend — no hay endpoint dedicado,
+  // se arma el mensaje completo del lado del cliente antes de llamar a /api/ai/chat.
+  aiSummaryPrompt: string;
+  aiSummaryKnowledgeBaseId: number | null;
 
   ficha360Tabs: Ficha360TabVisibility;
   moduleVisibility: ModuleVisibility;

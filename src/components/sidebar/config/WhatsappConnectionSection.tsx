@@ -86,9 +86,7 @@ export const WhatsappConnectionSection: React.FC = () => {
       )}
 
       <p className="text-[10.5px] text-slate-600 dark:text-slate-400 font-medium leading-tight">
-        Esta es una sesión de WhatsApp independiente de la extensión (Baileys corre en el
-        backend) — no reemplaza el motor de auto-respuesta basado en el DOM de{' '}
-        <code className="font-bold text-slate-800 dark:text-slate-200">web.whatsapp.com</code> que usa el resto del panel.
+        Con esto conectado, el asistente puede responder automáticamente en segundo plano aunque no tengas WhatsApp Web abierto.
       </p>
     </div>
   );

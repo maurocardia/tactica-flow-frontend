@@ -1,0 +1,81 @@
+import React, { useState } from 'react';
+import { Modal } from '@/components/ui/Modal';
+import { Field, fieldInputClass } from '@/components/ui/Field';
+import { useAppState } from '@/state/AppStateContext';
+import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
+
+// Configura el prompt que usa "Resumir charla" (ver AiSummaryModal) y, opcionalmente, una base
+// de conocimiento cuyos documentos se agregan como contexto extra — igual al mockup del cliente
+// ("Configurar Resumen IA"), pero honesto con lo que hay: el modelo es fijo (Gemini, lo único que
+// soporta el backend hoy) en vez de un dropdown con motores que no existen.
+export const AiSummaryConfigModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { config, setConfig } = useAppState();
+  const { bases } = useKnowledgeBases();
+  const [prompt, setPrompt] = useState(config.aiSummaryPrompt);
+  const [kbId, setKbId] = useState<number | null>(config.aiSummaryKnowledgeBaseId);
+
+  const handleSave = () => {
+    setConfig((c) => ({
+      ...c,
+      aiSummaryPrompt: prompt.trim() || c.aiSummaryPrompt,
+      aiSummaryKnowledgeBaseId: kbId,
+    }));
+    onClose();
+  };
+
+  return (
+    <Modal
+      title="Configurar Resumen IA"
+      onClose={onClose}
+      headerColor="bg-purple-600"
+      footer={
+        <>
+          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg">
+            Cancelar
+          </button>
+          <button onClick={handleSave} className="bg-red-600 hover:bg-red-700 text-white font-semibold text-xs px-4 py-2 rounded-lg">
+            Guardar
+          </button>
+        </>
+      }
+    >
+      <Field label="Prompt del sistema (instrucciones para resumir)">
+        <textarea
+          className={`${fieldInputClass} resize-none`}
+          rows={4}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+      </Field>
+
+      <div className="flex gap-2">
+        <Field label="Modelo">
+          <select className={fieldInputClass} disabled value="Gemini">
+            <option>Gemini</option>
+          </select>
+        </Field>
+        <Field label="Base de conocimiento">
+          <select
+            className={fieldInputClass}
+            value={kbId ?? ''}
+            onChange={(e) => setKbId(e.target.value ? Number(e.target.value) : null)}
+          >
+            <option value="">Sin base de conocimiento</option>
+            {bases.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.title}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <p className="text-[10.5px] text-slate-500 bg-slate-50 rounded-lg p-2.5">
+        Este prompt se usa cuando presionás "Resumir charla". Si elegís una base de conocimiento, sus documentos se
+        agregan como referencia extra. Se puede cambiar en cualquier momento.
+      </p>
+    </Modal>
+  );
+};
+
+export default AiSummaryConfigModal;

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, ChevronDown, X, Loader2, Sparkles } from 'lucide-react';
+import { Bot, ChevronDown, X, Loader2, Sparkles, Settings, Users } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
 import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 import { useModal } from '@/state/ModalContext';
@@ -30,6 +30,7 @@ const ChatbotModule: React.FC = () => {
             ...c,
             botEnabled: freshUser.botEnabled,
             aiFallbackEnabled: freshUser.aiFallbackEnabled,
+            botGroupsEnabled: freshUser.botGroupsEnabled,
           }));
         }
       })
@@ -56,6 +57,16 @@ const ChatbotModule: React.FC = () => {
     if (user) {
       ApiService.setAiFallbackEnabled(v).catch((err) => {
         console.error('[ChatbotModule] No se pudo sincronizar el fallback de IA con el backend:', err);
+      });
+    }
+  };
+
+  const botGroupsEnabled = config.botGroupsEnabled;
+  const setBotGroupsEnabled = (v: boolean) => {
+    setConfig((c) => ({ ...c, botGroupsEnabled: v }));
+    if (user) {
+      ApiService.setBotGroupsEnabled(v).catch((err) => {
+        console.error('[ChatbotModule] No se pudo sincronizar la respuesta en grupos con el backend:', err);
       });
     }
   };
@@ -129,7 +140,25 @@ const ChatbotModule: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
           Responder con IA
         </span>
-        <Toggle size="sm" checked={aiFallbackEnabled} onChange={setAiFallbackEnabled} />
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => openModal('ai-agent-config')}
+            title="Configurar Agente IA"
+            className="p-1 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/60 text-purple-600 dark:text-purple-300 cursor-pointer transition-colors"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+          <Toggle size="sm" checked={aiFallbackEnabled} onChange={setAiFallbackEnabled} />
+        </div>
+      </div>
+
+      {/* Aplicar el bot también a grupos de WhatsApp, no solo a chats individuales */}
+      <div className="flex items-center justify-between gap-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+        <span className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 font-bold">
+          <Users className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+          Responder en grupos
+        </span>
+        <Toggle size="sm" checked={botGroupsEnabled} onChange={setBotGroupsEnabled} />
       </div>
 
       {/* Botones inferiores */}

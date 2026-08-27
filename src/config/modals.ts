@@ -3,6 +3,8 @@
 export type ModalId =
   | 'config'
   | 'ai-summary'
+  | 'ai-summary-config'
+  | 'ai-agent-config'
   | 'knowledge-base'
   | 'campaigns'
   | 'templates'

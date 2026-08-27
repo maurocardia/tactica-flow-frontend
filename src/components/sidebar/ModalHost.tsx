@@ -23,6 +23,8 @@ import { AiSummaryModal } from './ai/AiSummaryModal';
 import { AiDraftModal } from './ai/AiDraftModal';
 import { AiTranscribeModal } from './ai/AiTranscribeModal';
 import { BotFlowModal } from './BotFlowModal';
+import { AiSummaryConfigModal } from './ai/AiSummaryConfigModal';
+import { AiAgentConfigModal } from './ai/AiAgentConfigModal';
 
 // Único punto que decide qué modal está montado. Nunca hay más de uno a la vez.
 export const ModalHost: React.FC = () => {
@@ -56,6 +58,10 @@ export const ModalHost: React.FC = () => {
       return <AiDraftModal onClose={closeModal} contactName={activeContact} />;
     case 'ai-transcribe':
       return <AiTranscribeModal onClose={closeModal} contactName={activeContact} />;
+    case 'ai-summary-config':
+      return <AiSummaryConfigModal onClose={closeModal} />;
+    case 'ai-agent-config':
+      return <AiAgentConfigModal onClose={closeModal} />;
     case 'config':
       return <ConfigModal onClose={closeModal} />;
     case 'bot-flow':
