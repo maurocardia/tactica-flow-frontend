@@ -22,6 +22,7 @@ import { LinkedInConnectModal } from './connections/LinkedInConnectModal';
 import { AiSummaryModal } from './ai/AiSummaryModal';
 import { AiDraftModal } from './ai/AiDraftModal';
 import { AiTranscribeModal } from './ai/AiTranscribeModal';
+import { BotFlowModal } from './BotFlowModal';
 
 // Único punto que decide qué modal está montado. Nunca hay más de uno a la vez.
 export const ModalHost: React.FC = () => {
@@ -57,6 +58,8 @@ export const ModalHost: React.FC = () => {
       return <AiTranscribeModal onClose={closeModal} contactName={activeContact} />;
     case 'config':
       return <ConfigModal onClose={closeModal} />;
+    case 'bot-flow':
+      return <BotFlowModal onClose={closeModal} />;
     case 'knowledge-base':
       return <KnowledgeBaseModal onClose={closeModal} />;
     case 'templates':

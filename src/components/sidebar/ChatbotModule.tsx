@@ -7,7 +7,6 @@ import { useAppState } from '@/state/AppStateContext';
 import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
 import { Toggle } from '@/components/ui/Toggle';
-import { BotFlowModal } from './BotFlowModal';
 
 const ChatbotModule: React.FC = () => {
   const { config, setConfig } = useAppState();
@@ -61,7 +60,6 @@ const ChatbotModule: React.FC = () => {
     }
   };
 
-  const [showFlowModal, setShowFlowModal] = useState(false);
   const { bases } = useKnowledgeBases();
   const { openModal } = useModal();
 
@@ -137,7 +135,7 @@ const ChatbotModule: React.FC = () => {
       {/* Botones inferiores */}
       <div className="grid grid-cols-2 gap-2 mt-0.5">
         <button
-          onClick={() => setShowFlowModal(true)}
+          onClick={() => openModal('bot-flow')}
           className="glass-pill hover:bg-red-50/70 text-[#9e1114] font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 shadow-2xs text-center cursor-pointer hover:scale-[1.02]"
         >
           Editar flujo
@@ -149,8 +147,6 @@ const ChatbotModule: React.FC = () => {
           Bases de conocimiento
         </button>
       </div>
-
-      {showFlowModal && <BotFlowModal onClose={() => setShowFlowModal(false)} onTest={testWithLastMessage} />}
     </div>
   );
 };

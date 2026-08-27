@@ -21,4 +21,5 @@ export type ModalId =
   | 'schedule-message'
   | 'sequence-editor'
   | 'ai-draft'
-  | 'ai-transcribe';
+  | 'ai-transcribe'
+  | 'bot-flow';
