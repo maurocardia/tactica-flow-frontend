@@ -253,12 +253,22 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
       onClose={onClose}
       maxWidth="max-w-[480px]"
       footer={
-        <button
-          onClick={onClose}
-          className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-5 py-2 rounded-xl transition-all cursor-pointer"
-        >
-          Cerrar
-        </button>
+        <div className="flex items-center justify-between w-full gap-2">
+          {!form ? (
+            <button
+              onClick={openNewForm}
+              className="flex items-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs cursor-pointer transition-all"
+            >
+              <Plus className="w-4 h-4" /> Agregar bloque
+            </button>
+          ) : <div />}
+          <button
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
+          >
+            Cerrar
+          </button>
+        </div>
       }
     >
       <div className="flex items-center justify-between bg-slate-50/90 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl p-3 gap-2 shadow-2xs">
@@ -483,15 +493,6 @@ export const BotFlowModal: React.FC<{ onClose: () => void; onTest?: () => { text
             );
           })}
         </div>
-      )}
-
-      {!form && (
-        <button
-          onClick={openNewForm}
-          className="flex items-center justify-center gap-2 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs py-3 rounded-xl transition-all shadow-xs cursor-pointer mt-1 mb-1"
-        >
-          <Plus className="w-4 h-4" /> Agregar nuevo bloque
-        </button>
       )}
     </Modal>
   );

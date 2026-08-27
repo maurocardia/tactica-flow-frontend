@@ -23,7 +23,29 @@ export const TemplatesModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
   };
 
   return (
-    <Modal title="Plantillas" onClose={onClose} maxWidth="max-w-[460px]">
+    <Modal
+      title="Plantillas"
+      onClose={onClose}
+      maxWidth="max-w-[460px]"
+      footer={
+        <div className="flex items-center justify-between w-full gap-2">
+          {!editing ? (
+            <button
+              onClick={() => setEditing('new')}
+              className="flex items-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs cursor-pointer transition-all"
+            >
+              <Plus className="w-4 h-4" /> Nueva plantilla
+            </button>
+          ) : <div />}
+          <button
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
+          >
+            Cerrar
+          </button>
+        </div>
+      }
+    >
       <PrototypeNotice text="Próximamente: el envío segmentado todavía no manda mensajes reales." />
       {editing ? (
         <TemplateEditor initial={editing === 'new' ? null : editing} onSave={handleSave} onCancel={() => setEditing(null)} />
@@ -39,12 +61,6 @@ export const TemplatesModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
               onDelete={(id) => setTemplates((prev) => prev.filter((t) => t.id !== id))}
             />
           )}
-          <button
-            onClick={() => setEditing('new')}
-            className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs py-2 rounded-lg"
-          >
-            <Plus className="w-3.5 h-3.5" /> Nueva plantilla
-          </button>
           {templates.length > 0 && <SegmentSender templates={templates} />}
         </>
       )}

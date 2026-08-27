@@ -40,8 +40,30 @@ export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose 
   };
 
   return (
-    <Modal title="Bases de conocimiento" onClose={onClose} maxWidth="max-w-[440px]">
-      {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">{error}</div>}
+    <Modal
+      title="Bases de conocimiento"
+      onClose={onClose}
+      maxWidth="max-w-[460px]"
+      footer={
+        <div className="flex items-center justify-between w-full gap-2">
+          {!creating ? (
+            <button
+              onClick={() => setCreating(true)}
+              className="flex items-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs cursor-pointer transition-all"
+            >
+              <Plus className="w-4 h-4" /> Nueva base
+            </button>
+          ) : <div />}
+          <button
+            onClick={onClose}
+            className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-5 py-2.5 rounded-xl transition-all cursor-pointer"
+          >
+            Cerrar
+          </button>
+        </div>
+      }
+    >
+      {error && <div className="text-xs font-bold text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">{error}</div>}
 
       {loading ? (
         <div className="flex items-center gap-2 text-slate-400 py-3 justify-center">
@@ -50,7 +72,7 @@ export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose 
       ) : (
         <>
           {bases.length === 0 && !creating && <EmptyState>Todavía no hay bases de conocimiento.</EmptyState>}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             {bases.map((base) => (
               <KbCard
                 key={base.id}
@@ -63,7 +85,7 @@ export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose 
         </>
       )}
 
-      {creating ? (
+      {creating && (
         <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3.5 bg-slate-50 dark:bg-slate-900/80 flex flex-col gap-2.5 shadow-2xs">
           {formError && <p className="text-xs font-bold text-red-600 dark:text-red-400">{formError}</p>}
           <Field label="Título">
@@ -85,13 +107,6 @@ export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose 
             </button>
           </div>
         </div>
-      ) : (
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center justify-center gap-2 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs py-3 rounded-xl shadow-xs cursor-pointer transition-all mt-1"
-        >
-          <Plus className="w-4 h-4" /> Nueva base
-        </button>
       )}
     </Modal>
   );
