@@ -20,12 +20,12 @@ export const Sidebar: React.FC = () => {
     const isDark = config.theme === 'dark';
 
     return (
-        <aside className={`w-full h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-y-auto font-sans transition-colors`}>
+        <aside className={`relative w-full h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-hidden font-sans transition-colors`}>
             {/* Header rojo moderno ocupando el 100% */}
             <Header />
 
-            {/* Contenedor del cuerpo con tarjetas redondeadas a 20px y efecto glass */}
-            <div className="w-full p-3 flex flex-col gap-3.5 box-border">
+            {/* Contenedor del cuerpo con scroll independiente */}
+            <div className="flex-1 w-full p-3 flex flex-col gap-3.5 box-border overflow-y-auto">
                 {visible.contactCard && <ContactCard contactName={activeContact} />}
                 {visible.aiModule && <AiModule />}
                 {visible.chatbot && <ChatbotModule />}

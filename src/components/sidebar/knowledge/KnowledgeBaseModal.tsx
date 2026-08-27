@@ -64,22 +64,22 @@ export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose 
       )}
 
       {creating ? (
-        <div className="border border-slate-200 rounded-lg p-2.5 flex flex-col gap-2">
-          {formError && <p className="text-[11px] text-red-600">{formError}</p>}
+        <div className="border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3.5 bg-slate-50 dark:bg-slate-900/80 flex flex-col gap-2.5 shadow-2xs">
+          {formError && <p className="text-xs font-bold text-red-600 dark:text-red-400">{formError}</p>}
           <Field label="Título">
-            <input className={fieldInputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej: Ventas" />
+            <input className={fieldInputClass} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ej: Ventas / Catálogo de Productos" />
           </Field>
           <Field label="Descripción">
             <input className={fieldInputClass} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Opcional" />
           </Field>
-          <div className="flex gap-2">
-            <button onClick={() => setCreating(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2 rounded-lg">
+          <div className="flex gap-2 mt-1">
+            <button onClick={() => setCreating(false)} className="flex-1 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 cursor-pointer transition-all">
               Cancelar
             </button>
             <button
               onClick={handleCreate}
               disabled={!title.trim() || saving}
-              className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold text-xs py-2 rounded-lg flex items-center justify-center gap-1.5"
+              className="flex-1 bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-50 text-white font-bold text-xs py-2.5 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-all"
             >
               {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Crear
             </button>
@@ -88,9 +88,9 @@ export const KnowledgeBaseModal: React.FC<{ onClose: () => void }> = ({ onClose 
       ) : (
         <button
           onClick={() => setCreating(true)}
-          className="flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs py-2 rounded-lg"
+          className="flex items-center justify-center gap-2 bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs py-3 rounded-xl shadow-xs cursor-pointer transition-all mt-1"
         >
-          <Plus className="w-3.5 h-3.5" /> Nueva base
+          <Plus className="w-4 h-4" /> Nueva base
         </button>
       )}
     </Modal>

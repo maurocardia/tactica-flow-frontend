@@ -25,7 +25,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+      className="fixed inset-0 w-full h-full bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden"
       style={{ zIndex: 2147483647 }}
       onClick={onClose}
     >
@@ -34,7 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
           isDark
             ? 'bg-[#0f172a] text-slate-100 border border-slate-700/80'
             : 'bg-white text-slate-900 border border-slate-200'
-        } rounded-[24px] w-full ${maxWidth} max-h-[85vh] flex flex-col overflow-hidden shadow-2xl transition-colors`}
+        } rounded-[24px] w-full ${maxWidth} max-h-[90vh] flex flex-col overflow-hidden shadow-2xl transition-colors`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className={`${headerColor} text-white px-4 py-3.5 flex items-center justify-between shrink-0 shadow-xs border-b border-white/10`}>
