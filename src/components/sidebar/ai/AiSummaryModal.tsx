@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Download, ChevronDown, Check } from 'lucide-react';
+import { Loader2, Download, ChevronDown, Check, Calendar, Clock, Eye, Sparkles, RefreshCw } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { DOMService } from '@/services/dom.service';
 import { ApiService } from '@/services/api.service';
@@ -8,32 +8,26 @@ import { useAppState } from '@/state/AppStateContext';
 import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 
 type Status = 'loading-chat' | 'selecting' | 'loading' | 'done' | 'error' | 'not-found';
+type ScopeFilter = 'today' | '24h' | '7d' | 'visible' | 'all';
 
-// Resume la charla usando datos REALES del backend (Postgres), no lo que esté cargado en
-// pantalla en ese momento — a diferencia del enfoque anterior (leer el DOM del chat abierto),
-// esto no depende de cuánto se scrolleó ni de atributos internos de WhatsApp Web que pueden
-// cambiar, y en un grupo identifica a cada participante por su conversación real (guardada por
-// número, ver WhatsappService.handleIncomingMessage), no por el nombre visible en pantalla.
-//
-// El único dato que sigue viniendo del DOM es el título del chat abierto (DOMService.getChatTitle,
-// ya usado en toda la extensión para saber "qué chat está abierto ahora") — con eso se busca la
-// conversación (o, si es un grupo, TODAS las conversaciones de sus participantes) en el backend.
 export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string }> = ({ onClose, contactName }) => {
   const { config } = useAppState();
   const { bases } = useKnowledgeBases();
   const [status, setStatus] = useState<Status>('loading-chat');
+  const [scope, setScope] = useState<ScopeFilter>('today');
   const [groupConversations, setGroupConversations] = useState<Conversation[]>([]);
   const [individualConversation, setIndividualConversation] = useState<Conversation | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
   const [summary, setSummary] = useState('');
+  const [messageCount, setMessageCount] = useState<number>(0);
 
-  // Busca en el backend la(s) conversación(es) que correspondan al chat abierto ahora mismo.
+  // Carga inicial: identifica el chat abierto
   useEffect(() => {
     let cancelled = false;
 
     const run = async () => {
-      const title = DOMService.getChatTitle();
+      const title = DOMService.getChatTitle() || contactName;
       if (!title) {
         if (!cancelled) setStatus('not-found');
         return;
@@ -51,15 +45,12 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
         }
 
         const individual = conversations.find((c) => c.name === title || c.phone === title) || null;
-        if (individual) {
-          setIndividualConversation(individual);
-          setStatus('loading');
-        } else {
-          setStatus('not-found');
-        }
+        setIndividualConversation(individual);
+        setStatus('loading');
       } catch (err) {
-        console.error('[AiSummaryModal] No se pudo consultar las conversaciones del backend:', err);
-        if (!cancelled) setStatus('not-found');
+        console.warn('[AiSummaryModal] Falló consulta al backend, usando mensajes del DOM:', err);
+        setIndividualConversation(null);
+        setStatus('loading');
       }
     };
 
@@ -67,15 +58,20 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [contactName]);
 
-  // Chat individual con conversación encontrada: arranca solo, no hay nada que elegir.
+  // Genera el resumen cuando cambia el scope o el estado inicial
   useEffect(() => {
-    if (status === 'loading' && individualConversation) {
-      generateSummary([individualConversation]);
+    if (status === 'loading') {
+      if (groupConversations.length > 0) {
+        const target = selected.size === 0 ? groupConversations : groupConversations.filter((c) => selected.has(c.id));
+        generateSummary(target, scope);
+      } else {
+        generateSummary(individualConversation ? [individualConversation] : [], scope);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, individualConversation]);
+  }, [status, scope]);
 
   const toggleParticipant = (id: number) => {
     setSelected((prev) => {
@@ -95,20 +91,52 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     return `${selected.size} participantes seleccionados`;
   }, [selected, groupConversations]);
 
-  const generateSummary = async (conversations: Conversation[]) => {
+  const filterBackendMessages = (messages: any[], filter: ScopeFilter) => {
+    const now = Date.now();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    return messages.filter((m) => {
+      const msgTime = m.created_at ? new Date(m.created_at).getTime() : now;
+      if (filter === 'today') return msgTime >= startOfToday.getTime();
+      if (filter === '24h') return msgTime >= now - 24 * 3600 * 1000;
+      if (filter === '7d') return msgTime >= now - 7 * 24 * 3600 * 1000;
+      return true; // 'all'
+    });
+  };
+
+  const generateSummary = async (conversations: Conversation[], currentScope: ScopeFilter) => {
     setStatus('loading');
     setPickerOpen(false);
 
     try {
-      const messagesByConversation = await Promise.all(
-        conversations.map(async (c) => ({ conversation: c, messages: await ApiService.getMessages(c.id) }))
-      );
+      let lines: string[] = [];
 
-      const lines: string[] = [];
-      for (const { conversation, messages } of messagesByConversation) {
-        for (const m of messages) {
-          const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
-          lines.push(`${who}: ${m.text}`);
+      // 1. Si el usuario pide lo visible en pantalla o si no hay conversación en backend, lee el DOM
+      if (currentScope === 'visible' || conversations.length === 0) {
+        const visibleMessages = DOMService.getVisibleMessages();
+        lines = visibleMessages.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
+      } else {
+        // 2. Lee del backend con filtro de fecha
+        const messagesByConversation = await Promise.all(
+          conversations.map(async (c) => ({
+            conversation: c,
+            messages: await ApiService.getMessages(c.id).catch(() => [])
+          }))
+        );
+
+        for (const { conversation, messages } of messagesByConversation) {
+          const filtered = filterBackendMessages(messages, currentScope);
+          for (const m of filtered) {
+            const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
+            lines.push(`${who}: ${m.text}`);
+          }
+        }
+
+        // Si el filtro de fecha no trajo nada del backend, intentar con los visibles en el DOM
+        if (lines.length === 0) {
+          const visibleMessages = DOMService.getVisibleMessages();
+          lines = visibleMessages.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
         }
       }
 
@@ -117,11 +145,10 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
         return;
       }
 
+      setMessageCount(lines.length);
       const transcript = lines.join('\n');
 
-      // Contexto extra opcional: si el usuario asignó una base de conocimiento en "Configurar
-      // Resumen IA", se agregan los previews de sus documentos (no el texto completo — eso solo
-      // lo tiene el backend, ver KnowledgeBaseService.getActiveContext()).
+      // Contexto extra opcional de la Base de Conocimiento asignada
       let kbContext = '';
       const selectedBase = config.aiSummaryKnowledgeBaseId
         ? bases.find((b) => b.id === config.aiSummaryKnowledgeBaseId)
@@ -135,11 +162,24 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
               docs.map((d) => `- ${d.filename}: ${d.preview}`).join('\n');
           }
         } catch (err) {
-          console.error('[AiSummaryModal] No se pudo cargar la base de conocimiento seleccionada:', err);
+          console.warn('[AiSummaryModal] No se pudo cargar KB para resumen:', err);
         }
       }
 
-      const response = await ApiService.aiChat(`${config.aiSummaryPrompt}\n\n${transcript}${kbContext}`);
+      const scopeTextMap: Record<ScopeFilter, string> = {
+        today: 'de los mensajes del día de HOY',
+        '24h': 'de las ÚLTIMAS 24 HORAS',
+        '7d': 'de los ÚLTIMOS 7 DÍAS',
+        visible: 'de los mensajes VISIBLES en pantalla',
+        all: 'de TODO el historial disponible'
+      };
+
+      const promptHeader = `Resume la siguiente conversación de WhatsApp con ${contactName} enfocado en ${scopeTextMap[currentScope]}. Extrae los temas clave, requerimientos del cliente, acuerdos y próximos pasos.`;
+
+      const response = await ApiService.aiChat(
+        `${promptHeader}\n\n${config.aiSummaryPrompt || ''}\n\n=== CONVERSACIÓN ===\n${transcript}\n=== FIN CONVERSACIÓN ===${kbContext}`
+      );
+
       setSummary(response.reply);
       setStatus('done');
     } catch (err) {
@@ -148,27 +188,24 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     }
   };
 
-  const handleResumirGrupo = () => {
-    const target = selected.size === 0 ? groupConversations : groupConversations.filter((c) => selected.has(c.id));
-    generateSummary(target);
+  const handleScopeChange = (newScope: ScopeFilter) => {
+    setScope(newScope);
+    setStatus('loading');
   };
 
-  // Descarga el resumen como .txt real — a diferencia de "Guardar en historial" (que necesitaría
-  // un endpoint que todavía no existe), esto no depende de ningún backend: arma el archivo en el
-  // navegador y dispara la descarga con un <a download> temporal.
   const handleDownload = () => {
     const fecha = new Date().toLocaleString('es-AR');
     const quien =
       selected.size > 0
         ? groupConversations.filter((c) => selected.has(c.id)).map((c) => c.name).join(', ')
         : contactName;
-    const contenido = `Resumen IA de la conversación con ${quien}\n${fecha}\n\n${summary}`;
+    const contenido = `Resumen IA de la conversación con ${quien}\nFecha de generación: ${fecha}\nAlcance: ${scope}\nMensajes analizados: ${messageCount}\n\n${summary}`;
     const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const safeName = quien.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resumen-${safeName || 'chat'}-${Date.now()}.txt`;
+    a.download = `resumen-${safeName || 'chat'}-${scope}-${Date.now()}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -181,50 +218,114 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
       onClose={onClose}
       headerColor="bg-purple-600"
       footer={
-        <>
-          <button onClick={onClose} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg">
-            Cerrar
-          </button>
+        <div className="flex items-center justify-between w-full">
           <button
-            disabled
-            title="Próximamente"
-            className="bg-purple-600/40 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-not-allowed"
+            onClick={() => setStatus('loading')}
+            disabled={status === 'loading'}
+            className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 px-3 py-2 rounded-xl transition-colors cursor-pointer"
+            title="Volver a generar resumen"
           >
-            Guardar en historial
+            <RefreshCw className={`w-3.5 h-3.5 ${status === 'loading' ? 'animate-spin' : ''}`} />
+            Regenerar
           </button>
-          <button
-            onClick={handleDownload}
-            disabled={status !== 'done'}
-            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-2 rounded-lg"
-          >
-            <Download className="w-3.5 h-3.5" /> Descargar
-          </button>
-        </>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shadow-2xs"
+            >
+              Cerrar
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={status !== 'done'}
+              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs px-4 py-2 rounded-xl transition-colors cursor-pointer shadow-xs"
+            >
+              <Download className="w-3.5 h-3.5" /> Descargar
+            </button>
+          </div>
+        </div>
       }
     >
-      <p className="text-slate-500 bg-slate-50 rounded-lg p-2.5">
-        {groupConversations.length > 0
-          ? 'Este chat es un grupo. Elegí a quién resumir.'
-          : `La IA resume la conversación real guardada con ${contactName}.`}
-      </p>
+      {/* Selector de Rango / Alcance */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-[11px] font-extrabold uppercase tracking-wide text-slate-800 dark:text-slate-200">
+          Alcance del resumen:
+        </label>
+        <div className="grid grid-cols-5 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-[10.5px] font-bold">
+          <button
+            onClick={() => handleScopeChange('today')}
+            className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+              scope === 'today'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Calendar className="w-3 h-3 shrink-0" />
+            <span>Hoy</span>
+          </button>
+          <button
+            onClick={() => handleScopeChange('24h')}
+            className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+              scope === '24h'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Clock className="w-3 h-3 shrink-0" />
+            <span>24h</span>
+          </button>
+          <button
+            onClick={() => handleScopeChange('7d')}
+            className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+              scope === '7d'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span>7 días</span>
+          </button>
+          <button
+            onClick={() => handleScopeChange('visible')}
+            className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+              scope === 'visible'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <Eye className="w-3 h-3 shrink-0" />
+            <span>Pantalla</span>
+          </button>
+          <button
+            onClick={() => handleScopeChange('all')}
+            className={`py-1.5 px-1 rounded-lg transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+              scope === 'all'
+                ? 'bg-purple-600 text-white shadow-xs'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            <span>Todo</span>
+          </button>
+        </div>
+      </div>
 
       {groupConversations.length > 0 && (
         <div className="relative">
           <button
             onClick={() => setPickerOpen((v) => !v)}
-            className="w-full flex items-center justify-between gap-2 border border-slate-300 rounded-md px-2.5 py-1.5 text-xs bg-white text-slate-700"
+            className="w-full flex items-center justify-between gap-2 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-bold"
           >
             <span className="truncate">{pickerLabel}</span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           </button>
 
           {pickerOpen && (
-            <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+            <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-48 overflow-y-auto">
               <button
                 onClick={() => setSelected(new Set())}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left hover:bg-slate-50 border-b border-slate-100 font-semibold text-slate-700"
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-slate-50 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-100"
               >
-                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected.size === 0 ? 'bg-red-600 border-red-600' : 'border-slate-300'}`}>
+                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected.size === 0 ? 'bg-purple-600 border-purple-600' : 'border-slate-300'}`}>
                   {selected.size === 0 && <Check className="w-2.5 h-2.5 text-white" />}
                 </span>
                 Todos los participantes
@@ -233,12 +334,12 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
                 <button
                   key={c.id}
                   onClick={() => toggleParticipant(c.id)}
-                  className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs text-left hover:bg-slate-50"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left hover:bg-slate-50 dark:hover:bg-slate-700 font-semibold text-slate-800 dark:text-slate-200"
                 >
-                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected.has(c.id) ? 'bg-red-600 border-red-600' : 'border-slate-300'}`}>
+                  <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${selected.has(c.id) ? 'bg-purple-600 border-purple-600' : 'border-slate-300'}`}>
                     {selected.has(c.id) && <Check className="w-2.5 h-2.5 text-white" />}
                   </span>
-                  <span className="truncate text-slate-700">{c.name}</span>
+                  <span className="truncate">{c.name}</span>
                 </button>
               ))}
             </div>
@@ -246,38 +347,45 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
         </div>
       )}
 
-      {status === 'selecting' && (
-        <button
-          onClick={handleResumirGrupo}
-          className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs py-2 rounded-lg"
-        >
-          Resumir
-        </button>
-      )}
-
       {(status === 'loading-chat' || status === 'loading') && (
-        <div className="flex items-center gap-2 text-slate-400 py-4 justify-center">
-          <Loader2 className="w-4 h-4 animate-spin" /> {status === 'loading-chat' ? 'Buscando la conversación...' : 'Generando resumen...'}
+        <div className="flex flex-col items-center gap-2 text-purple-700 dark:text-purple-300 py-8 justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-600 dark:text-purple-400" />
+          <span className="text-xs font-bold">Generando resumen ejecutivo con IA...</span>
         </div>
       )}
 
       {status === 'not-found' && (
-        <p className="text-slate-500 text-center py-4">
-          No encontré esta conversación registrada en el sistema (con mensajes reales). Asegurate de que el bot haya
-          recibido al menos un mensaje de este chat — si es un grupo, también que "Responder también en grupos" esté
-          activo.
-        </p>
+        <div className="text-center py-6 flex flex-col gap-2">
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+            No se encontraron mensajes en el rango seleccionado ({scope}).
+          </p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+            Probá seleccionando "Pantalla" o "Todo" para incluir más mensajes.
+          </p>
+        </div>
       )}
 
       {status === 'error' && (
-        <p className="text-red-600 bg-red-50 border border-red-100 rounded-lg p-2.5">
-          Hubo un error al pedirle el resumen a la IA. Puede ser un problema temporal del servicio — reintentá en un rato.
-        </p>
+        <div className="text-xs font-semibold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl p-3">
+          Hubo un error al procesar el resumen con IA. Verificá la conexión o probá de nuevo.
+        </div>
       )}
 
       {status === 'done' && (
-        <div className="bg-purple-50 border border-purple-100 rounded-lg p-3 text-slate-700 leading-relaxed whitespace-pre-wrap">
-          {summary}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between text-[10.5px] font-bold text-purple-800 dark:text-purple-300 px-1">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" />
+              Resumen ({messageCount} mensajes analizados)
+            </span>
+            <span className="bg-purple-100/80 dark:bg-purple-900/60 px-2 py-0.5 rounded-full uppercase">
+              {scope === 'today' ? 'Hoy' : scope === '24h' ? 'Últimas 24h' : scope === '7d' ? '7 Días' : scope === 'visible' ? 'Pantalla' : 'Todo'}
+            </span>
+          </div>
+
+          <div className="bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200/80 dark:border-purple-900/60 rounded-2xl p-3.5 text-xs text-slate-800 dark:text-slate-100 leading-relaxed whitespace-pre-wrap max-h-72 overflow-y-auto font-medium shadow-2xs">
+            {summary}
+          </div>
         </div>
       )}
     </Modal>
