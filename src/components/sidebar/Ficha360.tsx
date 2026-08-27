@@ -48,13 +48,13 @@ const Ficha360: React.FC = () => {
     }
 
     return (
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-[20px] p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col gap-3">
+        <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-3">
             {/* Header Ficha 360 */}
             <div className="flex items-center gap-2 text-[11px] font-bold text-slate-800 uppercase tracking-wider">
-                <div className="w-6 h-6 rounded-lg bg-red-50 text-[#9e1114] flex items-center justify-center">
+                <div className="w-6 h-6 rounded-lg bg-red-500/15 text-[#9e1114] flex items-center justify-center shadow-2xs">
                     <User className="w-3.5 h-3.5" />
                 </div>
-                <span>FICHA 360° · TACTICA</span>
+                <span className="font-extrabold text-slate-900">FICHA 360° · TACTICA</span>
             </div>
 
             <PrototypeNotice text="Próximamente: todavía no trae datos reales de Táctica ERP." />
@@ -65,10 +65,10 @@ const Ficha360: React.FC = () => {
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all shrink-0 cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl font-extrabold text-xs transition-all shrink-0 cursor-pointer ${
                             activeTab === tab
                                 ? 'bg-[#9e1114] text-white shadow-xs'
-                                : 'bg-slate-100/90 hover:bg-slate-200/90 text-slate-700'
+                                : 'glass-pill hover:bg-white text-slate-800'
                         }`}
                     >
                         {TAB_LABELS[tab]}

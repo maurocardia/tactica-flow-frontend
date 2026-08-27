@@ -9,14 +9,14 @@ export const AiModule: React.FC = () => {
     const { openModal } = useModal();
 
     return (
-        <div className="bg-gradient-to-br from-white/95 to-purple-50/40 backdrop-blur-md border border-purple-100/90 rounded-[20px] p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col gap-3">
+        <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-3">
             {/* Cabecera del módulo */}
             <div className="flex items-center justify-between text-[11px] font-bold tracking-wider uppercase">
                 <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-600 inline-block shrink-0 shadow-xs"></span>
-                    <span className="text-slate-900">INTELIGENCIA ARTIFICIAL</span>
+                    <span className="text-slate-900 font-extrabold">INTELIGENCIA ARTIFICIAL</span>
                 </div>
-                <span className="text-[10.5px] font-bold text-purple-700 bg-purple-100/70 border border-purple-200 px-2 py-0.5 rounded-full lowercase first-letter:uppercase">
+                <span className="text-[10.5px] font-bold text-purple-800 bg-purple-100/70 border border-purple-200/80 px-2.5 py-0.5 rounded-full lowercase first-letter:uppercase backdrop-blur-xs">
                     {config.aiProvider}
                 </span>
             </div>
@@ -25,10 +25,10 @@ export const AiModule: React.FC = () => {
             <div className="grid grid-cols-3 gap-2">
                 <button
                     onClick={() => openModal('ai-summary')}
-                    className="flex flex-col items-center justify-center gap-1.5 bg-white/90 hover:bg-purple-100/80 text-purple-950 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 transition-all text-center shadow-2xs hover:scale-[1.02] cursor-pointer"
+                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 text-purple-950 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 transition-all text-center shadow-2xs hover:scale-[1.03] cursor-pointer"
                     title="Generar resumen ejecutivo de la conversación"
                 >
-                    <div className="w-7 h-7 rounded-xl bg-purple-100/90 flex items-center justify-center text-purple-700">
+                    <div className="w-7 h-7 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-2xs">
                         <MessageSquare className="w-4 h-4" />
                     </div>
                     <span>Resumir</span>
@@ -36,10 +36,10 @@ export const AiModule: React.FC = () => {
 
                 <button
                     onClick={() => openModal('ai-draft')}
-                    className="flex flex-col items-center justify-center gap-1.5 bg-white/90 hover:bg-purple-100/80 text-purple-950 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 transition-all text-center shadow-2xs hover:scale-[1.02] cursor-pointer"
+                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 text-purple-950 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 transition-all text-center shadow-2xs hover:scale-[1.03] cursor-pointer"
                     title="Redactar respuesta inteligente con tono y contexto"
                 >
-                    <div className="w-7 h-7 rounded-xl bg-purple-100/90 flex items-center justify-center text-purple-700">
+                    <div className="w-7 h-7 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-2xs">
                         <Sparkles className="w-4 h-4" />
                     </div>
                     <span>Redactar</span>
@@ -47,10 +47,10 @@ export const AiModule: React.FC = () => {
 
                 <button
                     onClick={() => openModal('ai-transcribe')}
-                    className="flex flex-col items-center justify-center gap-1.5 bg-white/90 hover:bg-purple-100/80 text-purple-950 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 transition-all text-center shadow-2xs hover:scale-[1.02] cursor-pointer"
+                    className="flex flex-col items-center justify-center gap-1.5 glass-pill hover:bg-purple-50/90 text-purple-950 font-bold text-[11px] py-2.5 px-1 rounded-2xl border border-purple-200/70 transition-all text-center shadow-2xs hover:scale-[1.03] cursor-pointer"
                     title="Transcribir notas de voz del chat"
                 >
-                    <div className="w-7 h-7 rounded-xl bg-purple-100/90 flex items-center justify-center text-purple-700">
+                    <div className="w-7 h-7 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shadow-2xs">
                         <Mic className="w-4 h-4" />
                     </div>
                     <span>Audios</span>

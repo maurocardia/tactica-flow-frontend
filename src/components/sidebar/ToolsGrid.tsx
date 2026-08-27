@@ -36,22 +36,22 @@ export default function ToolsGrid() {
     const { reordering, draggedIndex, toggleReordering, startDrag, enterDrag, endDrag } = useReorder(tools, setTools);
 
     return (
-        <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-[20px] p-3.5 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5">
+        <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
                     <span>🧰</span>
                     <span>HERRAMIENTAS</span>
                 </span>
                 <button
                     onClick={toggleReordering}
-                    className={`flex items-center gap-1 text-[10.5px] font-bold px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
-                        reordering ? 'bg-[#9e1114] text-white border-[#9e1114] shadow-xs' : 'border-slate-200/80 bg-slate-50/80 text-slate-700 hover:bg-slate-100'
+                    className={`flex items-center gap-1 text-[10.5px] font-extrabold px-2.5 py-1 rounded-xl border transition-all cursor-pointer ${
+                        reordering ? 'bg-[#9e1114] text-white border-[#9e1114] shadow-xs' : 'glass-pill text-slate-800 hover:bg-white'
                     }`}
                 >
                     <Shuffle className="w-3 h-3" /> {reordering ? 'Listo' : 'Reordenar'}
                 </button>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-center text-[10.5px] font-bold text-slate-800">
+            <div className="grid grid-cols-3 gap-2 text-center text-[10.5px] font-extrabold text-slate-900">
                 {tools.map((tool, index) => {
                     const Icon = tool.icon;
                     return (
@@ -64,10 +64,10 @@ export default function ToolsGrid() {
                             className={`flex flex-col items-center justify-center gap-1.5 p-2.5 border rounded-2xl transition-all cursor-pointer shadow-2xs ${
                                 reordering
                                     ? `border-dashed cursor-move ${draggedIndex === index ? 'opacity-40 border-red-500 bg-red-50' : 'border-red-300 bg-white'}`
-                                    : 'border-slate-200/80 bg-white/90 hover:bg-red-50/60 hover:border-red-200/90 hover:scale-[1.03]'
+                                    : 'glass-pill hover:bg-white text-slate-900 hover:border-red-300 hover:scale-[1.04]'
                             }`}
                         >
-                            <div className="w-7 h-7 rounded-xl bg-slate-100/90 flex items-center justify-center text-[#9e1114]">
+                            <div className="w-7 h-7 rounded-xl bg-red-500/15 flex items-center justify-center text-[#9e1114] shadow-2xs">
                                 <Icon className="w-4 h-4" />
                             </div>
                             <span className="truncate w-full leading-tight">{tool.label}</span>
