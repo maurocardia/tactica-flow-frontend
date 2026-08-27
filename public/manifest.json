@@ -45,10 +45,11 @@
         "https://web.whatsapp.com/*"
       ],
       "js": [
-        "audio-capture.js"
+        "audio-capture-loader.js"
       ],
       "run_at": "document_start",
-      "world": "MAIN"
+      "all_frames": true,
+      "match_origin_as_fallback": true
     }
   ],
   "web_accessible_resources": [
