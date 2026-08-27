@@ -30,8 +30,8 @@ export const ScheduleMessageModal: React.FC<{ onClose: () => void; contactName: 
   // Auto-detectar teléfono del chat activo al abrir
   useEffect(() => {
     const detectPhone = async () => {
-      // 1. Detectar desde el DOM de WhatsApp Web (data-id de mensajes o header)
-      const domPhone = DOMService.getChatPhone();
+      // 1. Detectar desde el DOM de WhatsApp Web (data-id de mensajes, header o lista lateral)
+      const domPhone = DOMService.getChatPhone(contactName);
       if (domPhone) {
         setPhone(domPhone);
         return;
@@ -47,14 +47,26 @@ export const ScheduleMessageModal: React.FC<{ onClose: () => void; contactName: 
       // 3. Buscar en la base de datos de conversaciones sincronizadas
       try {
         const convs = await ApiService.getConversations();
-        const found = convs.find(
-          (c) =>
-            c.name?.toLowerCase() === (contactName || '').toLowerCase() ||
-            c.phone === contactName ||
-            (contactName && c.name && contactName.toLowerCase().includes(c.name.toLowerCase()))
-        );
-        if (found && found.phone) {
-          setPhone(found.phone.replace(/[^0-9]/g, ''));
+        const cleanName = (contactName || '').trim().toLowerCase();
+        if (cleanName) {
+          const found = convs.find((c) => {
+            const cName = (c.name || '').trim().toLowerCase();
+            const cPhone = (c.phone || '').trim();
+            return (
+              cName === cleanName ||
+              (cName.length > 2 && cName.includes(cleanName)) ||
+              (cleanName.length > 2 && cleanName.includes(cName)) ||
+              cPhone === cleanName ||
+              cPhone.includes(cleanName)
+            );
+          });
+          if (found && found.phone) {
+            const cleanP = found.phone.replace(/[^0-9]/g, '');
+            if (cleanP.length >= 8) {
+              setPhone(cleanP);
+              return;
+            }
+          }
         }
       } catch (err) {
         console.warn('[ScheduleMessageModal] No se pudo obtener teléfono de la DB:', err);
