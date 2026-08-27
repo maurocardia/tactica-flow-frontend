@@ -24,9 +24,34 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
   const [loadingDetection, setLoadingDetection] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isTranscribingAll, setIsTranscribingAll] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  useEffect(() => {
-    // Detectar audios visibles en WhatsApp Web
+  const loadAndSyncAudios = async () => {
+    setIsSyncing(true);
+    setLoadingDetection(true);
+
+    const title = DOMService.getChatTitle() || contactName;
+    const visibleMessages = DOMService.getVisibleMessages('all');
+
+    // Sincronización automática de pantalla a base de datos al abrir / refrescar
+    try {
+      await ApiService.syncConversationMessages({
+        phone: title,
+        name: title,
+        messages: visibleMessages.map((m) => ({
+          sender: m.sender === 'them' ? 'customer' : 'agent',
+          text: m.text,
+          createdAt:
+            m.dateCategory === 'past'
+              ? new Date(Date.now() - 3 * 86400 * 1000).toISOString()
+              : new Date().toISOString()
+        })),
+        mode: 'replace'
+      });
+    } catch (err) {
+      console.warn('[AiTranscribeModal] Auto-sync falló:', err);
+    }
+
     const detected = DOMService.getVisibleAudios();
     if (detected.length > 0) {
       setAudios(
@@ -37,28 +62,16 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
         }))
       );
     } else {
-      // Mock de respaldo con notas de voz de ejemplo si no hay audios visibles cargados en el DOM
-      setAudios([
-        {
-          id: 'audio_demo_1',
-          sender: 'them',
-          duration: '0:28',
-          src: null,
-          status: 'idle',
-          selected: true
-        },
-        {
-          id: 'audio_demo_2',
-          sender: 'them',
-          duration: '0:45',
-          src: null,
-          status: 'idle',
-          selected: true
-        }
-      ]);
+      setAudios([]);
     }
+
     setLoadingDetection(false);
-  }, []);
+    setIsSyncing(false);
+  };
+
+  useEffect(() => {
+    loadAndSyncAudios();
+  }, [contactName]);
 
   const handleTranscribeItem = async (index: number) => {
     const item = audios[index];
@@ -160,43 +173,49 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
       headerColor="bg-purple-600"
       maxWidth="max-w-[480px]"
       footer={
-        <>
+        <div className="flex items-center justify-between w-full">
           <button
-            onClick={onClose}
-            className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-lg"
+            onClick={loadAndSyncAudios}
+            disabled={loadingDetection || isSyncing || isTranscribingAll}
+            className="flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-100/60 dark:hover:bg-purple-950/60 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+            title="Sincroniza y busca nuevas notas de voz en el chat"
           >
-            Cerrar
+            <Loader2 className={`w-3.5 h-3.5 ${loadingDetection || isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Sincronizando...' : 'Actualizar Audios'}
           </button>
-          {doneCount > 0 && (
-            <button
-              onClick={handleDownload}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3 py-2 rounded-lg"
-            >
-              <Download className="w-3.5 h-3.5" /> Descargar .txt
-            </button>
-          )}
-          {doneCount > 0 && (
-            <button
-              onClick={handleCopyAll}
-              className="flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs px-3 py-2 rounded-lg border border-purple-200"
-            >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              {copied ? '¡Copiado!' : 'Copiar todo'}
-            </button>
-          )}
-          <button
-            onClick={handleTranscribeAllSelected}
-            disabled={isTranscribingAll || audios.length === 0}
-            className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded-lg"
-          >
-            {isTranscribingAll ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <Mic className="w-3.5 h-3.5" />
+
+          <div className="flex items-center gap-2">
+            {doneCount > 0 && (
+              <button
+                onClick={handleDownload}
+                className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-3 py-2 rounded-lg cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" /> Descargar .txt
+              </button>
             )}
-            {doneCount > 0 ? 'Transcribir restantes' : 'Transcribir seleccionados'}
-          </button>
-        </>
+            {doneCount > 0 && (
+              <button
+                onClick={handleCopyAll}
+                className="flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs px-3 py-2 rounded-lg border border-purple-200 cursor-pointer"
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? '¡Copiado!' : 'Copiar todo'}
+              </button>
+            )}
+            <button
+              onClick={handleTranscribeAllSelected}
+              disabled={isTranscribingAll || audios.length === 0}
+              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded-lg cursor-pointer shadow-xs"
+            >
+              {isTranscribingAll ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Mic className="w-3.5 h-3.5" />
+              )}
+              {doneCount > 0 ? 'Transcribir restantes' : 'Transcribir seleccionados'}
+            </button>
+          </div>
+        </div>
       }
     >
       <div className="flex flex-col gap-3 text-xs">
