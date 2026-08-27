@@ -1,73 +1,170 @@
 import React, { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Check } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Field, fieldInputClass } from '@/components/ui/Field';
-import { PrototypeNotice } from '@/components/ui/PrototypeNotice';
+import { ApiService } from '@/services/api.service';
 import { useAppState } from '@/state/AppStateContext';
 
-const REPETITIONS = ['Una vez', 'Diario', 'Semanal', 'Mensual'];
+const REPETITIONS: { label: string; value: 'once' | 'daily' | 'weekly' | 'monthly' }[] = [
+  { label: 'Una vez', value: 'once' },
+  { label: 'Diario', value: 'daily' },
+  { label: 'Semanal', value: 'weekly' },
+  { label: 'Mensual', value: 'monthly' }
+];
 
 export const ScheduleMessageModal: React.FC<{ onClose: () => void; contactName: string }> = ({ onClose, contactName }) => {
   const { setScheduledMessages } = useAppState();
   const [text, setText] = useState('');
-  const [datetime, setDatetime] = useState('');
-  const [repetition, setRepetition] = useState(REPETITIONS[0]);
+  const [phone, setPhone] = useState('');
+  const [datetime, setDatetime] = useState(() => {
+    const d = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos en el futuro por defecto
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
+  const [recurrence, setRecurrence] = useState<'once' | 'daily' | 'weekly' | 'monthly'>('once');
   const [stopIfReplies, setStopIfReplies] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
-  const save = () => {
+  const save = async () => {
+    if (!text.trim() || !datetime) {
+      setError('Por favor completa la fecha de envío y el mensaje.');
+      return;
+    }
+
     setSaving(true);
-    setTimeout(() => {
+    setError(null);
+
+    const targetPhone = phone.trim() || contactName.replace(/[^0-9]/g, '') || '5491100000000';
+
+    try {
+      const created = await ApiService.createScheduledJob({
+        contactName: contactName || 'Contacto',
+        phone: targetPhone,
+        messageText: text.trim(),
+        executeAt: new Date(datetime).toISOString(),
+        recurrence,
+        stopOnReply: stopIfReplies
+      });
+
+      // Sincronizar también con estado local
       setScheduledMessages((prev) => [
         {
-          id: `sched-${Date.now()}`,
-          contactName,
+          id: `sched-${created?.id || Date.now()}`,
+          contactName: contactName || 'Contacto',
           scope: 'este',
-          text,
-          datetimeLabel: datetime ? new Date(datetime).toLocaleString('es-AR') : 'Sin definir',
-          recurrenceLabel: repetition,
+          text: text.trim(),
+          datetimeLabel: new Date(datetime).toLocaleString('es-AR'),
+          recurrenceLabel: REPETITIONS.find((r) => r.value === recurrence)?.label || 'Una vez',
           active: true,
         },
         ...prev,
       ]);
-      onClose();
-    }, 700);
+
+      setSuccess(true);
+      setTimeout(() => {
+        onClose();
+      }, 700);
+    } catch (err: any) {
+      console.error('[ScheduleMessageModal] Error:', err);
+      setError(err.message || 'Error al programar el mensaje en el servidor.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Modal
-      title="Programar mensaje"
+      title="Programar mensaje de WhatsApp"
       onClose={onClose}
       footer={
         <button
           onClick={save}
-          disabled={!text || saving}
-          className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5"
+          disabled={!text || saving || success}
+          className="bg-[#9e1114] hover:bg-[#850f11] disabled:opacity-50 text-white font-semibold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5"
         >
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Programar
+          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {success && <Check className="w-3.5 h-3.5" />}
+          {success ? '¡Programado con éxito!' : 'Programar mensaje'}
         </button>
       }
     >
-      <PrototypeNotice text="Próximamente: el mensaje se guarda acá, pero todavía no se envía solo a la hora indicada." />
-      <Field label="Fecha y hora de envío">
-        <input type="datetime-local" className={fieldInputClass} value={datetime} onChange={(e) => setDatetime(e.target.value)} />
-      </Field>
-      <Field label="Repetición">
-        <select className={fieldInputClass} value={repetition} onChange={(e) => setRepetition(e.target.value)}>
-          {REPETITIONS.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Mensaje">
-        <textarea className={fieldInputClass} rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Texto a enviar..." />
-      </Field>
-      <label className="flex items-center gap-2 text-[11px] text-slate-600">
-        <input type="checkbox" checked={stopIfReplies} onChange={(e) => setStopIfReplies(e.target.checked)} />
-        Detener si el contacto responde antes
-      </label>
+      <div className="flex flex-col gap-3 text-xs">
+        <p className="text-slate-500 bg-slate-50 rounded-lg p-2.5">
+          El servidor de Tactica Flow enviará este mensaje automáticamente por WhatsApp a la fecha indicada, incluso si cerrás el navegador.
+        </p>
+
+        {error && (
+          <div className="text-[11px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">
+            {error}
+          </div>
+        )}
+
+        <Field label="Contacto / Destinatario">
+          <input
+            type="text"
+            className={fieldInputClass}
+            value={contactName}
+            disabled
+          />
+        </Field>
+
+        <Field label="Teléfono de destino (con código de país)">
+          <input
+            type="text"
+            className={fieldInputClass}
+            placeholder="Ej: 5491123456789"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </Field>
+
+        <Field label="Fecha y hora de envío">
+          <input
+            type="datetime-local"
+            className={fieldInputClass}
+            value={datetime}
+            onChange={(e) => setDatetime(e.target.value)}
+          />
+        </Field>
+
+        <Field label="Repetición periódica">
+          <select
+            className={fieldInputClass}
+            value={recurrence}
+            onChange={(e) => setRecurrence(e.target.value as any)}
+          >
+            {REPETITIONS.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Mensaje a enviar">
+          <textarea
+            className={fieldInputClass}
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Escribe el mensaje que se enviará automáticamente..."
+          />
+        </Field>
+
+        <label className="flex items-center gap-2 text-[11px] text-slate-700 font-medium cursor-pointer">
+          <input
+            type="checkbox"
+            checked={stopIfReplies}
+            onChange={(e) => setStopIfReplies(e.target.checked)}
+            className="rounded text-[#9e1114] focus:ring-[#9e1114]"
+          />
+          <span>Detener envío si el contacto responde un mensaje antes</span>
+        </label>
+      </div>
     </Modal>
   );
 };
 
 export default ScheduleMessageModal;
+

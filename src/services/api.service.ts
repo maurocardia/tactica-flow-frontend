@@ -158,4 +158,48 @@ export const ApiService = {
     async deleteKbDocument(knowledgeBaseId: number, documentId: number): Promise<void> {
         return this.sendBackgroundRequest<void>(`/knowledge-bases/${knowledgeBaseId}/documents/${documentId}`, 'DELETE');
     },
+
+    // === IA AVANZADA: REDACCIÓN Y TRANSCRIPCIÓN ===
+
+    async draftReply(params: {
+        conversationText: string;
+        contactName?: string;
+        tone?: 'formal' | 'cordial' | 'directo';
+        instruction?: string;
+        userPrompt?: string;
+    }): Promise<{ success: boolean; draft: string }> {
+        return this.sendBackgroundRequest<{ success: boolean; draft: string }>('/ai/draft', 'POST', params);
+    },
+
+    async transcribeAudio(audioBase64: string, mimeType: string = 'audio/ogg'): Promise<{ success: boolean; transcription: string }> {
+        return this.sendBackgroundRequest<{ success: boolean; transcription: string }>('/ai/transcribe', 'POST', {
+            audioBase64,
+            mimeType
+        });
+    },
+
+    // === MENSAJES PROGRAMADOS (Feature #5) ===
+
+    async getScheduledJobs(): Promise<any[]> {
+        return this.sendBackgroundRequest<any[]>('/scheduled-jobs');
+    },
+
+    async createScheduledJob(data: {
+        contactName: string;
+        phone: string;
+        messageText: string;
+        executeAt: string | Date;
+        recurrence?: 'once' | 'daily' | 'weekly' | 'monthly';
+        stopOnReply?: boolean;
+    }): Promise<any> {
+        return this.sendBackgroundRequest<any>('/scheduled-jobs', 'POST', data);
+    },
+
+    async cancelScheduledJob(id: number): Promise<any> {
+        return this.sendBackgroundRequest<any>(`/scheduled-jobs/${id}/cancel`, 'PUT');
+    },
+
+    async deleteScheduledJob(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/scheduled-jobs/${id}`, 'DELETE');
+    },
 };

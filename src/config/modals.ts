@@ -19,4 +19,6 @@ export type ModalId =
   | 'google-oauth'
   | 'linkedin-connect'
   | 'schedule-message'
-  | 'sequence-editor';
+  | 'sequence-editor'
+  | 'ai-draft'
+  | 'ai-transcribe';

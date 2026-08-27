@@ -235,6 +235,139 @@ export const DOMService = {
     },
 
     /**
+     * Detecta notas de voz y audios visibles en la conversación activa.
+     */
+    getVisibleAudios(): { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] {
+        try {
+            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
+            if (!container) return [];
+
+            const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
+            const audios: { id: string; sender: 'me' | 'them'; duration: string; src: string | null }[] = [];
+
+            rows.forEach((row, index) => {
+                const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
+                const isOutgoing = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT);
+                if (!isIncoming && !isOutgoing) return;
+
+                // Buscar elemento audio o reproductor PTT
+                const audioElement = row.querySelector('audio') as HTMLAudioElement | null;
+                const pttContainer = row.querySelector('[data-testid="audio-player"], [data-testid="ptt-player"], [data-icon="ptt-play"], [data-icon="audio-play"]');
+
+                if (audioElement || pttContainer) {
+                    const rowId = row.getAttribute('data-id') || `audio_${index}`;
+                    // Extraer duración visible si existe
+                    const durationEl = row.querySelector('div[dir="auto"], span[dir="auto"]');
+                    const durationText = durationEl?.textContent?.trim() || '0:15';
+
+                    audios.push({
+                        id: rowId,
+                        sender: isIncoming ? 'them' : 'me',
+                        duration: durationText,
+                        src: audioElement?.src || null
+                    });
+                }
+            });
+
+            return audios;
+        } catch (err) {
+            console.error('[DOMService] Error al detectar audios:', err);
+            return [];
+        }
+    },
+
+    /**
+     * Convierte una URL de blob de audio del navegador a base64 para enviarla al backend.
+     */
+    async convertBlobUrlToBase64(blobUrl: string): Promise<string> {
+        const response = await fetch(blobUrl);
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64 = reader.result as string;
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    },
+
+    /**
+     * Activa el modo de selección inyectando checkboxes en cada mensaje visible de WhatsApp Web.
+     */
+    enableMessageSelectionMode(onSelectionChange: (selectedMessages: { id: string; text: string; sender: 'me' | 'them' }[]) => void): () => void {
+        const selectedMap = new Map<string, { id: string; text: string; sender: 'me' | 'them' }>();
+        const injectedCheckboxes: HTMLElement[] = [];
+
+        const attachCheckboxes = () => {
+            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
+            if (!container) return;
+
+            const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
+            rows.forEach((row) => {
+                const messageId = row.getAttribute('data-id');
+                if (!messageId || row.querySelector('.tf-msg-select-checkbox')) return;
+
+                const text = extractMessageText(row);
+                if (!text) return;
+
+                const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
+
+                // Crear checkbox flotante al costado del mensaje
+                const cbContainer = document.createElement('div');
+                cbContainer.className = 'tf-msg-select-checkbox';
+                cbContainer.style.cssText = `
+                    position: absolute !important;
+                    left: -28px !important;
+                    top: 50% !important;
+                    transform: translateY(-50%) !important;
+                    z-index: 100 !important;
+                    cursor: pointer !important;
+                `;
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = selectedMap.has(messageId);
+                checkbox.style.cssText = `
+                    width: 18px !important;
+                    height: 18px !important;
+                    accent-color: #9e1114 !important;
+                    cursor: pointer !important;
+                `;
+
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    if (checkbox.checked) {
+                        selectedMap.set(messageId, { id: messageId, text, sender: isIncoming ? 'them' : 'me' });
+                    } else {
+                        selectedMap.delete(messageId);
+                    }
+                    onSelectionChange(Array.from(selectedMap.values()));
+                });
+
+                cbContainer.appendChild(checkbox);
+                (row as HTMLElement).style.position = 'relative';
+                row.appendChild(cbContainer);
+                injectedCheckboxes.push(cbContainer);
+            });
+        };
+
+        attachCheckboxes();
+        const observer = new MutationObserver(() => attachCheckboxes());
+        const main = document.querySelector(WA_SELECTORS.MAIN_CHAT);
+        if (main) observer.observe(main, { childList: true, subtree: true });
+
+        return () => {
+            observer.disconnect();
+            injectedCheckboxes.forEach((cb) => cb.remove());
+            document.querySelectorAll('.tf-msg-select-checkbox').forEach((el) => el.remove());
+            selectedMap.clear();
+            onSelectionChange([]);
+        };
+    },
+
+    /**
      * Lee los contactos visibles hoy en la lista de chats de WhatsApp Web (barra izquierda).
      * Sólo devuelve lo que ya está cargado en el DOM — si hay muchos chats y no se scrolleó
      * la lista completa, no van a aparecer todos acá.

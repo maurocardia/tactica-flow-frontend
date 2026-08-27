@@ -20,6 +20,8 @@ import { IncomingLeadsModal } from './leads/IncomingLeadsModal';
 import { GoogleOAuthModal } from './connections/GoogleOAuthModal';
 import { LinkedInConnectModal } from './connections/LinkedInConnectModal';
 import { AiSummaryModal } from './ai/AiSummaryModal';
+import { AiDraftModal } from './ai/AiDraftModal';
+import { AiTranscribeModal } from './ai/AiTranscribeModal';
 
 // Único punto que decide qué modal está montado. Nunca hay más de uno a la vez.
 export const ModalHost: React.FC = () => {
@@ -49,6 +51,10 @@ export const ModalHost: React.FC = () => {
       return <ScheduleMessageModal onClose={closeModal} contactName={activeContact} />;
     case 'ai-summary':
       return <AiSummaryModal onClose={closeModal} contactName={activeContact} />;
+    case 'ai-draft':
+      return <AiDraftModal onClose={closeModal} contactName={activeContact} />;
+    case 'ai-transcribe':
+      return <AiTranscribeModal onClose={closeModal} contactName={activeContact} />;
     case 'config':
       return <ConfigModal onClose={closeModal} />;
     case 'knowledge-base':
