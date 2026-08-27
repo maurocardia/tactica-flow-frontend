@@ -19,11 +19,6 @@ function extractMessageText(row: Element): string | null {
     return textEl?.textContent?.trim() || null;
 }
 
-export interface VisibleMessage {
-    sender: 'me' | 'them';
-    text: string;
-}
-
 export const DOMService = {
     /**
      * Lee el nombre del contacto/grupo del chat abierto. Verificado a mano en consola (ago-2026):
@@ -199,39 +194,6 @@ export const DOMService = {
             messagesObserver?.disconnect();
             messagesObserver = null;
         };
-    },
-
-    /**
-     * Lee los mensajes con texto que estén cargados en el DOM del chat abierto ahora mismo, en
-     * orden cronológico. Limitación real: WhatsApp Web virtualiza la lista de mensajes — solo
-     * devuelve lo que ya está renderizado en pantalla (lo visible + lo que quedó cargado por
-     * scroll previo), no la charla completa si nunca se scrolleó hacia arriba. Los mensajes sin
-     * texto (audio, imagen sin caption) se omiten, no se inventan.
-     */
-    getVisibleMessages(): VisibleMessage[] {
-        try {
-            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
-            if (!container) return [];
-
-            const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
-            const messages: VisibleMessage[] = [];
-
-            rows.forEach((row) => {
-                const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
-                const isOutgoing = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT);
-                if (!isIncoming && !isOutgoing) return; // separador de fecha, sistema, etc.
-
-                const text = extractMessageText(row);
-                if (!text) return; // audio/imagen sin texto, o placeholder virtualizado sin renderizar
-
-                messages.push({ sender: isIncoming ? 'them' : 'me', text });
-            });
-
-            return messages;
-        } catch (err) {
-            console.error('[DOMService] Error al leer los mensajes visibles del chat:', err);
-            return [];
-        }
     },
 
     /**

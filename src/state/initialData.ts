@@ -20,6 +20,10 @@ export const INITIAL_CONFIG: AppConfig = {
   autoTranscribe: true,
   botEnabled: true,
   aiFallbackEnabled: true,
+  botGroupsEnabled: false,
+  aiSummaryPrompt:
+    'Resumí la conversación identificando: qué pidió el cliente, puntos clave, compromisos y próximo paso sugerido. Usá español rioplatense, tono profesional.',
+  aiSummaryKnowledgeBaseId: null,
 
   ficha360Tabs: {
     historial: true,

@@ -1,6 +1,6 @@
 // src/services/api.service.ts
 
-import { Conversation } from "@/types/conversation";
+import { Conversation, ConversationMessage } from "@/types/conversation";
 import { KeywordRule, KeywordRuleInput } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser } from "@/types/auth";
@@ -76,14 +76,27 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ aiFallbackEnabled: boolean }>('/whatsapp/ai-fallback-enabled', 'PUT', { enabled });
     },
 
+    // Prompt/instrucciones de comportamiento personalizadas para el Agente IA (bot real de
+    // WhatsApp): texto libre que el backend inyecta en el system prompt junto con la Base de
+    // Conocimiento activa — ver AIService.processMessage.
+    async setAiCustomInstructions(instructions: string): Promise<{ aiCustomInstructions: string }> {
+        return this.sendBackgroundRequest<{ aiCustomInstructions: string }>('/whatsapp/ai-custom-instructions', 'PUT', { instructions });
+    },
+
+    // Switch "Responder también en grupos": por default el bot solo autoresponde en chats
+    // individuales — ver WhatsappService.handleIncomingMessage.
+    async setBotGroupsEnabled(enabled: boolean): Promise<{ botGroupsEnabled: boolean }> {
+        return this.sendBackgroundRequest<{ botGroupsEnabled: boolean }>('/whatsapp/bot-groups-enabled', 'PUT', { enabled });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     async getConversations(): Promise<Conversation[]> {
         return this.sendBackgroundRequest<Conversation[]>('/conversations');
     },
 
-    async getMessages(conversationId: string | number): Promise<any[]> {
-        return this.sendBackgroundRequest<any[]>(`/conversations/${conversationId}/messages`);
+    async getMessages(conversationId: string | number): Promise<ConversationMessage[]> {
+        return this.sendBackgroundRequest<ConversationMessage[]>(`/conversations/${conversationId}/messages`);
     },
 
     async sendMessage(conversationId: string | number, text: string, sender: 'agent' | 'customer' = 'agent'): Promise<any> {

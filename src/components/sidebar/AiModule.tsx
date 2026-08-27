@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAppState } from '@/state/AppStateContext';
 import { useModal } from '@/state/ModalContext';
-import { Mic, MessageSquare } from 'lucide-react';
+import { Mic, MessageSquare, Settings } from 'lucide-react';
 
 export const AiModule: React.FC = () => {
     const { config } = useAppState();
@@ -23,13 +23,22 @@ export const AiModule: React.FC = () => {
 
             {/* Grid de botones */}
             <div className="grid grid-cols-2 gap-2">
-                <button
-                    onClick={() => openModal('ai-summary')}
-                    className="flex items-center justify-center gap-1.5 bg-purple-50/70 hover:bg-purple-100/80 text-purple-700 font-medium text-xs py-2.5 px-2 rounded-lg border border-purple-100 transition-colors"
-                >
-                    <MessageSquare className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                    <span>Resumir charla</span>
-                </button>
+                <div className="flex gap-0">
+                    <button
+                        onClick={() => openModal('ai-summary')}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-purple-50/70 hover:bg-purple-100/80 text-purple-700 font-medium text-xs py-2.5 px-2 rounded-l-lg border border-purple-100 transition-colors"
+                    >
+                        <MessageSquare className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                        <span>Resumir charla</span>
+                    </button>
+                    <button
+                        onClick={() => openModal('ai-summary-config')}
+                        title="Configurar Resumen IA"
+                        className="flex items-center justify-center bg-purple-50/70 hover:bg-purple-100/80 text-purple-700 px-2 rounded-r-lg border border-l-0 border-purple-100 transition-colors"
+                    >
+                        <Settings className="w-3.5 h-3.5 shrink-0" />
+                    </button>
+                </div>
 
                 <button
                     disabled
