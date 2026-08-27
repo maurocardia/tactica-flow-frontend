@@ -116,13 +116,14 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
         } else {
           // Intentar hacer clic en el botón de reproducción para forzar la carga del blob de audio
           const playBtn = row?.querySelector(
-            '[data-icon="ptt-play"], [data-icon="audio-play"], [data-testid="audio-player"]'
+            '[data-icon*="ptt"], [data-icon*="play"], [data-icon*="audio"], button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], [data-testid*="audio"], [data-testid*="ptt"]'
           ) as HTMLElement | null;
           if (playBtn) {
             playBtn.click();
-            await new Promise((r) => setTimeout(r, 600));
+            await new Promise((r) => setTimeout(r, 900));
+            // Buscar pausa después de reproducir para detenerlo
             const pauseBtn = row?.querySelector(
-              '[data-icon="ptt-pause"], [data-icon="audio-pause"]'
+              '[data-icon*="ptt-pause"], [data-icon*="audio-pause"], [data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
             ) as HTMLElement | null;
             if (pauseBtn) pauseBtn.click();
             const reAudio = row?.querySelector('audio') as HTMLAudioElement | null;
