@@ -33,57 +33,57 @@ export function Header({ onRefresh = () => {} }: HeaderProps) {
     const { user } = useAuth();
     const { status } = useWhatsappStatus();
     return (
-        <div className="bg-[#9e1114] text-white p-3 flex items-start justify-between shadow-sm">
+        <div className="bg-gradient-to-r from-[#9e1114] via-[#b81519] to-[#800d10] text-white p-3.5 flex items-start justify-between shadow-md border-b border-white/10">
             <div>
-                <div className="flex items-center gap-2 font-bold text-[14.5px]">
+                <div className="flex items-center gap-2 font-bold text-[15px] tracking-tight">
                     <img
                         src={chrome.runtime.getURL('icons/icon.png')}
                         alt="TACTICA"
-                        className="w-7 h-7 rounded-full object-cover shrink-0"
+                        className="w-7 h-7 rounded-full object-cover shrink-0 ring-2 ring-white/30 shadow-sm"
                     />
-                    TACTICA · WA Sync
+                    <span>TACTICA · WA Sync</span>
                 </div>
                 {user && (
                     <button
                         onClick={() => openModal('config')}
-                        className="flex items-center gap-1.5 text-[11px] mt-1 text-slate-200 hover:text-white"
+                        className="flex items-center gap-1.5 text-[11px] font-medium mt-1.5 px-2 py-0.5 rounded-full bg-black/20 hover:bg-black/30 border border-white/10 transition-colors"
                         title="Ver conexión de WhatsApp en Configuración"
                     >
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${WA_DOT_COLOR[status]}`}></span>
-                        {WA_LABEL[status]}
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${WA_DOT_COLOR[status]} shadow-xs`}></span>
+                        <span>{WA_LABEL[status]}</span>
                     </button>
                 )}
-                <div className="text-[11px] text-slate-300 mt-0.5">
+                <div className="text-[11px] text-white/80 mt-1 font-medium">
                     {user ? (
                         <>{user.name} · {user.email}</>
                     ) : (
-                        <button onClick={() => openModal('config')} className="underline hover:text-white">
+                        <button onClick={() => openModal('config')} className="underline hover:text-white font-semibold">
                             Iniciá sesión en Configuración
                         </button>
                     )}
                 </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 bg-black/15 p-1 rounded-xl border border-white/10 backdrop-blur-xs">
                 <button
                     onClick={onRefresh}
-                    className="text-white hover:opacity-80 transition p-1"
+                    className="text-white/90 hover:text-white hover:bg-white/15 transition p-1.5 rounded-lg"
                     title="Actualizar chat"
                 >
                     <RefreshCw className="w-4 h-4" />
                 </button>
                 <button
                     onClick={() => openModal('config')}
-                    className="text-white hover:opacity-80 transition p-1"
+                    className="text-white/90 hover:text-white hover:bg-white/15 transition p-1.5 rounded-lg"
                     title="Configuración"
                 >
-                    <Settings className="w-5 h-5" />
+                    <Settings className="w-4 h-4" />
                 </button>
                 <button
                     onClick={closePanel}
-                    className="text-white hover:opacity-80 transition p-1"
+                    className="text-white/90 hover:text-white hover:bg-white/15 transition p-1.5 rounded-lg"
                     title="Cerrar panel"
                 >
-                    <PanelRightClose className="w-5 h-5" />
+                    <PanelRightClose className="w-4 h-4" />
                 </button>
             </div>
         </div>
