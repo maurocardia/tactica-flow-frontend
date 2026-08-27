@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, Check } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Field, fieldInputClass } from '@/components/ui/Field';
 import { ApiService } from '@/services/api.service';
+import { DOMService } from '@/services/dom.service';
 import { useAppState } from '@/state/AppStateContext';
 
 const REPETITIONS: { label: string; value: 'once' | 'daily' | 'weekly' | 'monthly' }[] = [
@@ -25,6 +26,43 @@ export const ScheduleMessageModal: React.FC<{ onClose: () => void; contactName: 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Auto-detectar teléfono del chat activo al abrir
+  useEffect(() => {
+    const detectPhone = async () => {
+      // 1. Detectar desde el DOM de WhatsApp Web (data-id de mensajes o header)
+      const domPhone = DOMService.getChatPhone();
+      if (domPhone) {
+        setPhone(domPhone);
+        return;
+      }
+
+      // 2. Si contactName tiene dígitos directamente (ej: +54 9 11...)
+      const digitsInName = (contactName || '').replace(/[^0-9]/g, '');
+      if (digitsInName.length >= 8) {
+        setPhone(digitsInName);
+        return;
+      }
+
+      // 3. Buscar en la base de datos de conversaciones sincronizadas
+      try {
+        const convs = await ApiService.getConversations();
+        const found = convs.find(
+          (c) =>
+            c.name?.toLowerCase() === (contactName || '').toLowerCase() ||
+            c.phone === contactName ||
+            (contactName && c.name && contactName.toLowerCase().includes(c.name.toLowerCase()))
+        );
+        if (found && found.phone) {
+          setPhone(found.phone.replace(/[^0-9]/g, ''));
+        }
+      } catch (err) {
+        console.warn('[ScheduleMessageModal] No se pudo obtener teléfono de la DB:', err);
+      }
+    };
+
+    detectPhone();
+  }, [contactName]);
 
   const save = async () => {
     if (!text.trim() || !datetime) {

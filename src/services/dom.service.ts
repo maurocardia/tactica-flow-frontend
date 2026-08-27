@@ -57,6 +57,41 @@ export const DOMService = {
         }
     },
 
+    /**
+     * Extrae el número de teléfono del chat abierto actualmente.
+     * Busca en los data-id de los mensajes de WhatsApp Web (formato: false_54911...@s.whatsapp.net_...)
+     * o en el encabezado del chat.
+     */
+    getChatPhone(): string | null {
+        try {
+            // 1. Buscar en data-id de los mensajes del chat activo (#main div[data-id])
+            const rows = document.querySelectorAll('#main div[data-id]');
+            for (const row of rows) {
+                const dataId = row.getAttribute('data-id') || '';
+                const match = dataId.match(/_(\d{8,16})@s\.whatsapp\.net/);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+
+            // 2. Buscar en el header texto que coincida con formato telefónico (ej: +54 9 11 1234-5678)
+            const header = document.querySelector('#main header');
+            if (header) {
+                const text = header.textContent || '';
+                const phoneMatch = text.match(/\+?(\d[\d\s\-()]{7,}\d)/);
+                if (phoneMatch) {
+                    const clean = phoneMatch[0].replace(/[^0-9]/g, '');
+                    if (clean.length >= 8 && clean.length <= 16) {
+                        return clean;
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('[DOMService] Error al obtener teléfono del chat:', err);
+        }
+        return null;
+    },
+
     insertMessage(text: string): boolean {
         try {
             const messageBox = document.querySelector('#main footer div[contenteditable="true"]') as HTMLElement;
