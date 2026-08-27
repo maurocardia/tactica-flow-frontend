@@ -1,6 +1,12 @@
 // src/services/dom.service.ts
 import { WA_SELECTORS } from '@/config/constants';
 
+export interface VisibleMessage {
+    sender: 'me' | 'them';
+    text: string;
+    dateCategory?: 'today' | 'past';
+}
+
 let lastProcessedMessageId: string | null = null;
 let messagesObserver: MutationObserver | null = null;
 let watcherRetryInterval: number | null = null;
@@ -223,7 +229,7 @@ export const DOMService = {
             const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
             const currentMessagesAll: VisibleMessage[] = [];
             const currentMessagesToday: VisibleMessage[] = [];
-            let currentSectionDate: 'today' | 'past' | 'unknown' = 'unknown';
+            let currentSectionDate: 'today' | 'past' = 'past'; // Default past salvo que esté bajo 'HOY'
 
             rows.forEach((row) => {
                 const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
@@ -248,7 +254,11 @@ export const DOMService = {
                 const text = extractMessageText(row);
                 if (!text) return;
 
-                const msg: VisibleMessage = { sender: isIncoming ? 'them' : 'me', text };
+                const msg: VisibleMessage = {
+                    sender: isIncoming ? 'them' : 'me',
+                    text,
+                    dateCategory: currentSectionDate
+                };
                 currentMessagesAll.push(msg);
 
                 if (currentSectionDate === 'today') {

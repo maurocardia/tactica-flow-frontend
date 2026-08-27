@@ -187,8 +187,9 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
           const docs = await ApiService.getKbDocuments(selectedBase.id);
           if (docs.length > 0) {
             kbContext =
-              `\n\nContexto de referencia de la base "${selectedBase.title}":\n` +
-              docs.map((d) => `- ${d.filename}: ${d.preview}`).join('\n');
+              `\n\n=== INFORMACIÓN DE LA BASE DE CONOCIMIENTO "${selectedBase.title}" ===\n` +
+              docs.map((d) => `• [${d.filename}]: ${d.preview}`).join('\n') +
+              `\n=== FIN BASE DE CONOCIMIENTO ===`;
           }
         } catch (err) {
           console.warn('[AiSummaryModal] No se pudo cargar KB para resumen:', err);
@@ -203,11 +204,26 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
         all: 'de TODO el historial disponible'
       };
 
-      const promptHeader = `Resume la siguiente conversación de WhatsApp con ${contactName} enfocado en ${scopeTextMap[currentScope]}. Extrae los temas clave, requerimientos del cliente, acuerdos y próximos pasos.`;
+      const prompt = `TAREA: Elaborar un resumen ejecutivo y fiel de la siguiente conversación de WhatsApp con ${contactName} enfocado en ${scopeTextMap[currentScope]}.
 
-      const response = await ApiService.aiChat(
-        `${promptHeader}\n\n${config.aiSummaryPrompt || ''}\n\n=== CONVERSACIÓN ===\n${transcript}\n=== FIN CONVERSACIÓN ===${kbContext}`
-      );
+REGLAS ESTRICTAS DE FIDELIDAD (IMPORTANTE):
+1. FIDELIDAD TOTAL A LA CONVERSACIÓN: Resume ÚNICA Y EXCLUSIVAMENTE lo que los participantes realmente dijeron en la sección === CONVERSACIÓN ===.
+2. PROHIBIDO ALUCINAR O FORZAR TEMAS DE NEGOCIO: Si la conversación trata de un tema informal, de salud, un saludo cotidiano o algo no relacionado con ventas, resume exactamente lo que hablaron. NUNCA inventes que el cliente fue a una ferretería, compró materiales o hizo pedidos si eso no fue escrito en el chat.
+3. USO DE LA BASE DE CONOCIMIENTO: La base de conocimiento solo debe utilizarse como guía técnica SI los términos o productos ya fueron mencionados en el chat. Si no fueron mencionados, no introduzcas conceptos ajenos a la conversación.
+
+${config.aiSummaryPrompt ? `INSTRUCCIÓN PERSONALIZADA:\n${config.aiSummaryPrompt}\n` : ''}
+${kbContext}
+
+=== CONVERSACIÓN (${lines.length} mensajes) ===
+${transcript}
+=== FIN CONVERSACIÓN ===
+
+Estructura del resumen:
+- **Temas clave:** (descripción verídica de lo que se habló)
+- **Requerimientos del cliente:** (lo que el contacto expresó, o "Ninguno relevante" si fue casual)
+- **Acuerdos:** (solo si se acordó algo real en el chat, sino indicar "Ninguno")`;
+
+      const response = await ApiService.aiChat(prompt);
 
       setSummary(response.reply);
       setStatus('done');
@@ -232,7 +248,11 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
         groupName: groupConversations.length > 0 ? title : null,
         messages: visibleMessages.map((m) => ({
           sender: m.sender === 'them' ? 'customer' : 'agent',
-          text: m.text
+          text: m.text,
+          createdAt:
+            m.dateCategory === 'past'
+              ? new Date(Date.now() - 3 * 86400 * 1000).toISOString()
+              : new Date().toISOString()
         })),
         mode: 'replace' // Reemplaza en DB para que si se borró el chat quede 100% limpio
       });
