@@ -40,6 +40,22 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
       }
 
       try {
+        // Sincronización automática de pantalla a base de datos al abrir el modal
+        const visibleMessages = DOMService.getVisibleMessages('all');
+        await ApiService.syncConversationMessages({
+          phone: title,
+          name: title,
+          messages: visibleMessages.map((m) => ({
+            sender: m.sender === 'them' ? 'customer' : 'agent',
+            text: m.text,
+            createdAt:
+              m.dateCategory === 'past'
+                ? new Date(Date.now() - 3 * 86400 * 1000).toISOString()
+                : new Date().toISOString()
+          })),
+          mode: 'replace'
+        }).catch((err) => console.warn('[AiSummaryModal] Auto-sync inicial falló:', err));
+
         const conversations = await ApiService.getConversations();
         if (cancelled) return;
 
