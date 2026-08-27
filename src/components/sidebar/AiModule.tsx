@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAppState } from '@/state/AppStateContext';
 import { useModal } from '@/state/ModalContext';
-import { Mic, MessageSquare } from 'lucide-react';
+import { Mic, MessageSquare, Sparkles } from 'lucide-react';
 
 export const AiModule: React.FC = () => {
     const { config } = useAppState();
@@ -21,23 +21,33 @@ export const AiModule: React.FC = () => {
                 </span>
             </div>
 
-            {/* Grid de botones */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Grid de botones de IA */}
+            <div className="grid grid-cols-3 gap-1.5">
                 <button
                     onClick={() => openModal('ai-summary')}
-                    className="flex items-center justify-center gap-1.5 bg-purple-50/70 hover:bg-purple-100/80 text-purple-700 font-medium text-xs py-2.5 px-2 rounded-lg border border-purple-100 transition-colors"
+                    className="flex flex-col items-center justify-center gap-1 bg-purple-50/70 hover:bg-purple-100/80 text-purple-800 font-semibold text-[11px] py-2 px-1 rounded-lg border border-purple-100 transition-colors text-center"
+                    title="Generar resumen ejecutivo de la conversación"
                 >
-                    <MessageSquare className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-                    <span>Resumir charla</span>
+                    <MessageSquare className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>Resumir</span>
                 </button>
 
                 <button
-                    disabled
-                    title="Próximamente"
-                    className="flex items-center justify-center gap-1.5 bg-slate-100 text-slate-400 font-medium text-xs py-2.5 px-2 rounded-lg border border-slate-200 cursor-not-allowed"
+                    onClick={() => openModal('ai-draft')}
+                    className="flex flex-col items-center justify-center gap-1 bg-purple-50/70 hover:bg-purple-100/80 text-purple-800 font-semibold text-[11px] py-2 px-1 rounded-lg border border-purple-100 transition-colors text-center"
+                    title="Redactar respuesta inteligente con tono y contexto"
                 >
-                    <Mic className="w-3.5 h-3.5 shrink-0" />
-                    <span>Transcribir audios (próximamente)</span>
+                    <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>Redactar</span>
+                </button>
+
+                <button
+                    onClick={() => openModal('ai-transcribe')}
+                    className="flex flex-col items-center justify-center gap-1 bg-purple-50/70 hover:bg-purple-100/80 text-purple-800 font-semibold text-[11px] py-2 px-1 rounded-lg border border-purple-100 transition-colors text-center"
+                    title="Transcribir notas de voz del chat"
+                >
+                    <Mic className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>Audios</span>
                 </button>
             </div>
         </div>
