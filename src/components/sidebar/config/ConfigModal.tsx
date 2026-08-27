@@ -6,6 +6,7 @@ import { WhatsAppModeSection } from './WhatsAppModeSection';
 import { AiEngineSection } from './AiEngineSection';
 import { BehaviorSection } from './BehaviorSection';
 import { VisibilitySection } from './VisibilitySection';
+import { AccountsSection } from './AccountsSection';
 import { ThemeSection } from './ThemeSection';
 
 export const ConfigModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
