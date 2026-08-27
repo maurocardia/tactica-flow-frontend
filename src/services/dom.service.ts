@@ -294,11 +294,13 @@ export const DOMService = {
     },
 
     /**
-     * Activa el modo de selección inyectando checkboxes en cada mensaje visible de WhatsApp Web.
+     * Activa el modo de selección inyectando checkboxes visuales en cada burbuja visible de WhatsApp Web,
+     * evitando interferir con el seleccionador nativo de WhatsApp.
      */
     enableMessageSelectionMode(onSelectionChange: (selectedMessages: { id: string; text: string; sender: 'me' | 'them' }[]) => void): () => void {
         const selectedMap = new Map<string, { id: string; text: string; sender: 'me' | 'them' }>();
-        const injectedCheckboxes: HTMLElement[] = [];
+        const injectedBadges: HTMLElement[] = [];
+        const modifiedBubbles: HTMLElement[] = [];
 
         const attachCheckboxes = () => {
             const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
@@ -307,49 +309,93 @@ export const DOMService = {
             const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
             rows.forEach((row) => {
                 const messageId = row.getAttribute('data-id');
-                if (!messageId || row.querySelector('.tf-msg-select-checkbox')) return;
+                if (!messageId || row.querySelector('.tf-msg-select-badge')) return;
 
                 const text = extractMessageText(row);
                 if (!text) return;
 
                 const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
+                const bubble = (row.querySelector('div.copyable-text') || row.querySelector('div[class*="message-"]') || row.firstElementChild || row) as HTMLElement;
+                if (!bubble) return;
 
-                // Crear checkbox flotante al costado del mensaje
-                const cbContainer = document.createElement('div');
-                cbContainer.className = 'tf-msg-select-checkbox';
-                cbContainer.style.cssText = `
-                    position: absolute !important;
-                    left: -28px !important;
-                    top: 50% !important;
-                    transform: translateY(-50%) !important;
-                    z-index: 100 !important;
-                    cursor: pointer !important;
-                `;
+                // Asegurar posición relativa en la burbuja para anclar el badge
+                const prevPosition = bubble.style.position;
+                if (getComputedStyle(bubble).position === 'static') {
+                    bubble.style.position = 'relative';
+                }
+                modifiedBubbles.push(bubble);
 
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.checked = selectedMap.has(messageId);
-                checkbox.style.cssText = `
-                    width: 18px !important;
-                    height: 18px !important;
-                    accent-color: #9e1114 !important;
-                    cursor: pointer !important;
-                `;
-
-                checkbox.addEventListener('change', (e) => {
-                    e.stopPropagation();
-                    if (checkbox.checked) {
-                        selectedMap.set(messageId, { id: messageId, text, sender: isIncoming ? 'them' : 'me' });
+                // Badge circular de selección
+                const badge = document.createElement('div');
+                badge.className = 'tf-msg-select-badge';
+                
+                const updateBadgeVisual = (isSelected: boolean) => {
+                    if (isSelected) {
+                        badge.style.cssText = `
+                            position: absolute !important;
+                            top: 4px !important;
+                            ${isIncoming ? 'right: 6px !important;' : 'left: 6px !important;'}
+                            width: 22px !important;
+                            height: 22px !important;
+                            border-radius: 50% !important;
+                            background-color: #9e1114 !important;
+                            border: 2px solid #ffffff !important;
+                            color: #ffffff !important;
+                            font-size: 13px !important;
+                            font-weight: 900 !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            box-shadow: 0 2px 8px rgba(158,17,20,0.5) !important;
+                            cursor: pointer !important;
+                            z-index: 100 !important;
+                            user-select: none !important;
+                        `;
+                        badge.innerHTML = '✓';
+                        bubble.style.outline = '2px solid #9e1114';
+                        bubble.style.outlineOffset = '2px';
                     } else {
+                        badge.style.cssText = `
+                            position: absolute !important;
+                            top: 4px !important;
+                            ${isIncoming ? 'right: 6px !important;' : 'left: 6px !important;'}
+                            width: 22px !important;
+                            height: 22px !important;
+                            border-radius: 50% !important;
+                            background-color: rgba(255, 255, 255, 0.9) !important;
+                            border: 2px solid #94a3b8 !important;
+                            color: transparent !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            box-shadow: 0 1px 4px rgba(0,0,0,0.15) !important;
+                            cursor: pointer !important;
+                            z-index: 100 !important;
+                            user-select: none !important;
+                        `;
+                        badge.innerHTML = '';
+                        bubble.style.outline = 'none';
+                    }
+                };
+
+                updateBadgeVisual(selectedMap.has(messageId));
+
+                const toggleSelection = (e: Event) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (selectedMap.has(messageId)) {
                         selectedMap.delete(messageId);
+                        updateBadgeVisual(false);
+                    } else {
+                        selectedMap.set(messageId, { id: messageId, text, sender: isIncoming ? 'them' : 'me' });
+                        updateBadgeVisual(true);
                     }
                     onSelectionChange(Array.from(selectedMap.values()));
-                });
+                };
 
-                cbContainer.appendChild(checkbox);
-                (row as HTMLElement).style.position = 'relative';
-                row.appendChild(cbContainer);
-                injectedCheckboxes.push(cbContainer);
+                badge.addEventListener('click', toggleSelection);
+                bubble.appendChild(badge);
+                injectedBadges.push(badge);
             });
         };
 
@@ -360,8 +406,11 @@ export const DOMService = {
 
         return () => {
             observer.disconnect();
-            injectedCheckboxes.forEach((cb) => cb.remove());
-            document.querySelectorAll('.tf-msg-select-checkbox').forEach((el) => el.remove());
+            injectedBadges.forEach((b) => b.remove());
+            document.querySelectorAll('.tf-msg-select-badge').forEach((el) => el.remove());
+            modifiedBubbles.forEach((b) => {
+                b.style.outline = 'none';
+            });
             selectedMap.clear();
             onSelectionChange([]);
         };
