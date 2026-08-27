@@ -305,12 +305,6 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onClose}
-              className="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer shadow-2xs"
-            >
-              Cerrar
-            </button>
-            <button
               onClick={handleDownload}
               disabled={status !== 'done'}
               className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs px-4 py-2 rounded-xl transition-colors cursor-pointer shadow-xs"
