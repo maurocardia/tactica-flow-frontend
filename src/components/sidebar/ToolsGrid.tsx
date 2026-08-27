@@ -39,9 +39,7 @@ export default function ToolsGrid() {
         <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                    <div className="w-6 h-6 rounded-lg bg-red-500/15 dark:bg-red-950/80 text-[#9e1114] dark:text-red-400 flex items-center justify-center shadow-2xs">
-                        <Wrench className="w-3.5 h-3.5" />
-                    </div>
+                    <Wrench className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900 dark:text-slate-100">HERRAMIENTAS</span>
                 </div>
                 <button
@@ -66,12 +64,10 @@ export default function ToolsGrid() {
                             className={`flex flex-col items-center justify-center gap-1.5 p-2.5 border rounded-2xl transition-all cursor-pointer shadow-2xs ${
                                 reordering
                                     ? `border-dashed cursor-move ${draggedIndex === index ? 'opacity-40 border-red-500 bg-red-50 dark:bg-red-950/60' : 'border-red-300 bg-white dark:bg-slate-800'}`
-                                    : 'glass-pill hover:bg-white dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-red-300 dark:hover:border-red-800 hover:scale-[1.03]'
+                                    : 'glass-pill hover:bg-white dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 hover:border-slate-300 dark:hover:border-slate-700 hover:scale-[1.03]'
                             }`}
                         >
-                            <div className="w-7 h-7 rounded-xl bg-red-500/15 dark:bg-red-950/80 flex items-center justify-center text-[#9e1114] dark:text-red-400 shadow-2xs">
-                                <Icon className="w-4 h-4" />
-                            </div>
+                            <Icon className="w-5 h-5 text-slate-700 dark:text-slate-300" />
                             <span className="truncate w-full leading-tight">{tool.label}</span>
                         </button>
                     );
