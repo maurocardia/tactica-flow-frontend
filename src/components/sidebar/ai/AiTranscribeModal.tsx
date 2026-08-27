@@ -31,28 +31,6 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
     setIsSyncing(true);
     setLoadingDetection(true);
 
-    const title = DOMService.getChatTitle() || contactName;
-    const visibleMessages = DOMService.getVisibleMessages('all');
-
-    // Sincronización automática de pantalla a base de datos al abrir / refrescar
-    try {
-      await ApiService.syncConversationMessages({
-        phone: title,
-        name: title,
-        messages: visibleMessages.map((m) => ({
-          sender: m.sender === 'them' ? 'customer' : 'agent',
-          text: m.text,
-          createdAt:
-            m.dateCategory === 'past'
-              ? new Date(Date.now() - 3 * 86400 * 1000).toISOString()
-              : new Date().toISOString()
-        })),
-        mode: 'replace'
-      });
-    } catch (err) {
-      console.warn('[AiTranscribeModal] Auto-sync falló:', err);
-    }
-
     const detected = DOMService.getVisibleAudios();
     const detectedItems: AudioItem[] = detected.map((a) => ({
       ...a,
