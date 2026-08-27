@@ -198,28 +198,49 @@ export const DOMService = {
 
     /**
      * Lee los mensajes con texto que estén cargados en el DOM del chat abierto ahora mismo, en
-     * orden cronológico. Limitación real: WhatsApp Web virtualiza la lista de mensajes — solo
-     * devuelve lo que ya está renderizado en pantalla (lo visible + lo que quedó cargado por
-     * scroll previo), no la charla completa si nunca se scrolleó hacia arriba. Los mensajes sin
-     * texto (audio, imagen sin caption) se omiten, no se inventan.
+     * orden cronológico. Si filter === 'today', respeta los separadores de fecha de WhatsApp
+     * (HOY / AYER / fechas) para no traer mensajes de días anteriores.
      */
-    getVisibleMessages(): VisibleMessage[] {
+    getVisibleMessages(filter?: 'today' | 'all'): VisibleMessage[] {
         try {
             const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
             if (!container) return [];
 
             const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
             const messages: VisibleMessage[] = [];
+            let currentSectionDate: 'today' | 'past' | 'unknown' = 'unknown';
 
             rows.forEach((row) => {
                 const isIncoming = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_IN);
                 const isOutgoing = !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT);
-                if (!isIncoming && !isOutgoing) return; // separador de fecha, sistema, etc.
+
+                // Separador de fecha de WhatsApp (no es mensaje entrante ni saliente)
+                if (!isIncoming && !isOutgoing) {
+                    const badgeText = row.textContent?.trim().toUpperCase() || '';
+                    if (badgeText.includes('HOY') || badgeText.includes('TODAY')) {
+                        currentSectionDate = 'today';
+                    } else if (
+                        badgeText.includes('AYER') ||
+                        badgeText.includes('YESTERDAY') ||
+                        /\d{1,2}\/\d{1,2}/.test(badgeText) ||
+                        /LUNES|MARTES|MIÉRCOLES|JUEVES|VIERNES|SÁBADO|DOMINGO/i.test(badgeText)
+                    ) {
+                        currentSectionDate = 'past';
+                    }
+                    return;
+                }
 
                 const text = extractMessageText(row);
-                if (!text) return; // audio/imagen sin texto, o placeholder virtualizado sin renderizar
+                if (!text) return;
 
-                messages.push({ sender: isIncoming ? 'them' : 'me', text });
+                if (filter === 'today') {
+                    // Si WhatsApp tiene separadores y este mensaje está bajo 'AYER' o fecha pasada, no lo incluye
+                    if (currentSectionDate === 'today') {
+                        messages.push({ sender: isIncoming ? 'them' : 'me', text });
+                    }
+                } else {
+                    messages.push({ sender: isIncoming ? 'them' : 'me', text });
+                }
             });
 
             return messages;

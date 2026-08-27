@@ -112,30 +112,55 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     try {
       let lines: string[] = [];
 
-      // 1. Si el usuario pide lo visible en pantalla o si no hay conversación en backend, lee el DOM
-      if (currentScope === 'visible' || conversations.length === 0) {
-        const visibleMessages = DOMService.getVisibleMessages();
+      if (currentScope === 'visible') {
+        const visibleMessages = DOMService.getVisibleMessages('all');
         lines = visibleMessages.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
-      } else {
-        // 2. Lee del backend con filtro de fecha
-        const messagesByConversation = await Promise.all(
-          conversations.map(async (c) => ({
-            conversation: c,
-            messages: await ApiService.getMessages(c.id).catch(() => [])
-          }))
-        );
+      } else if (currentScope === 'today') {
+        // 1. Buscar mensajes de hoy en el backend
+        if (conversations.length > 0) {
+          const messagesByConversation = await Promise.all(
+            conversations.map(async (c) => ({
+              conversation: c,
+              messages: await ApiService.getMessages(c.id).catch(() => [])
+            }))
+          );
 
-        for (const { conversation, messages } of messagesByConversation) {
-          const filtered = filterBackendMessages(messages, currentScope);
-          for (const m of filtered) {
-            const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
-            lines.push(`${who}: ${m.text}`);
+          for (const { conversation, messages } of messagesByConversation) {
+            const filtered = filterBackendMessages(messages, 'today');
+            for (const m of filtered) {
+              const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
+              lines.push(`${who}: ${m.text}`);
+            }
           }
         }
 
-        // Si el filtro de fecha no trajo nada del backend, intentar con los visibles en el DOM
+        // 2. Si no hay en el backend, buscar únicamente mensajes bajo el separador "HOY" en el chat visible
         if (lines.length === 0) {
-          const visibleMessages = DOMService.getVisibleMessages();
+          const visibleToday = DOMService.getVisibleMessages('today');
+          lines = visibleToday.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
+        }
+        // Si no hay mensajes de hoy, NO caer en mensajes de ayer
+      } else {
+        // Alcance 24h, 7d o all
+        if (conversations.length > 0) {
+          const messagesByConversation = await Promise.all(
+            conversations.map(async (c) => ({
+              conversation: c,
+              messages: await ApiService.getMessages(c.id).catch(() => [])
+            }))
+          );
+
+          for (const { conversation, messages } of messagesByConversation) {
+            const filtered = filterBackendMessages(messages, currentScope);
+            for (const m of filtered) {
+              const who = m.sender === 'customer' ? conversation.name : 'Nosotros';
+              lines.push(`${who}: ${m.text}`);
+            }
+          }
+        }
+
+        if (lines.length === 0) {
+          const visibleMessages = DOMService.getVisibleMessages('all');
           lines = visibleMessages.map((m) => `${m.sender === 'them' ? contactName : 'Nosotros'}: ${m.text}`);
         }
       }
@@ -355,12 +380,15 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
       )}
 
       {status === 'not-found' && (
-        <div className="text-center py-6 flex flex-col gap-2">
-          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            No se encontraron mensajes en el rango seleccionado ({scope}).
+        <div className="text-center py-6 flex flex-col gap-2.5 bg-slate-50/70 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 my-2">
+          <Calendar className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto" />
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+            {scope === 'today'
+              ? 'No hay mensajes registrados en el día de hoy.'
+              : `No se encontraron mensajes en el rango seleccionado (${scope}).`}
           </p>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">
-            Probá seleccionando "Pantalla" o "Todo" para incluir más mensajes.
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+            Los mensajes de este chat son de fechas anteriores. Tocá <button onClick={() => handleScopeChange('24h')} className="font-bold text-purple-600 dark:text-purple-400 underline cursor-pointer">"24h"</button>, <button onClick={() => handleScopeChange('7d')} className="font-bold text-purple-600 dark:text-purple-400 underline cursor-pointer">"7 días"</button> o <button onClick={() => handleScopeChange('visible')} className="font-bold text-purple-600 dark:text-purple-400 underline cursor-pointer">"Pantalla"</button> arriba para resumir los mensajes anteriores.
           </p>
         </div>
       )}
