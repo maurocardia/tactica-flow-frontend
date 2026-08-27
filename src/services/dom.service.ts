@@ -4,6 +4,7 @@ import { WA_SELECTORS } from '@/config/constants';
 let lastProcessedMessageId: string | null = null;
 let messagesObserver: MutationObserver | null = null;
 let watcherRetryInterval: number | null = null;
+const chatMessagesCache = new Map<string, { all: VisibleMessage[]; today: VisibleMessage[] }>();
 
 /** Última fila de mensaje ENTRANTE (con la "colita" tail-in) dentro del contenedor dado. */
 function getLastIncomingRow(container: Element): Element | null {
@@ -197,17 +198,31 @@ export const DOMService = {
     },
 
     /**
-     * Lee los mensajes con texto que estén cargados en el DOM del chat abierto ahora mismo, en
-     * orden cronológico. Si filter === 'today', respeta los separadores de fecha de WhatsApp
-     * (HOY / AYER / fechas) para no traer mensajes de días anteriores.
+     * Limpia la caché en memoria de un chat o de todos los chats.
+     */
+    clearChatCache(chatTitle?: string) {
+        if (chatTitle) {
+            chatMessagesCache.delete(chatTitle);
+        } else {
+            chatMessagesCache.clear();
+        }
+    },
+
+    /**
+     * Lee los mensajes con texto cargados en el chat abierto.
+     * Incorpora un acumulador en memoria para que al hacer scroll hacia arriba el contador
+     * de mensajes siga sumando y no disminuya cuando WhatsApp Web virtualiza los mensajes de abajo.
      */
     getVisibleMessages(filter?: 'today' | 'all'): VisibleMessage[] {
         try {
             const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
             if (!container) return [];
 
+            const currentTitle = DOMService.getChatTitle() || 'default_chat';
+
             const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
-            const messages: VisibleMessage[] = [];
+            const currentMessagesAll: VisibleMessage[] = [];
+            const currentMessagesToday: VisibleMessage[] = [];
             let currentSectionDate: 'today' | 'past' | 'unknown' = 'unknown';
 
             rows.forEach((row) => {
@@ -233,17 +248,51 @@ export const DOMService = {
                 const text = extractMessageText(row);
                 if (!text) return;
 
-                if (filter === 'today') {
-                    // Si WhatsApp tiene separadores y este mensaje está bajo 'AYER' o fecha pasada, no lo incluye
-                    if (currentSectionDate === 'today') {
-                        messages.push({ sender: isIncoming ? 'them' : 'me', text });
-                    }
-                } else {
-                    messages.push({ sender: isIncoming ? 'them' : 'me', text });
+                const msg: VisibleMessage = { sender: isIncoming ? 'them' : 'me', text };
+                currentMessagesAll.push(msg);
+
+                if (currentSectionDate === 'today') {
+                    currentMessagesToday.push(msg);
                 }
             });
 
-            return messages;
+            // Obtener o inicializar caché del chat
+            let chatCache = chatMessagesCache.get(currentTitle);
+            if (!chatCache) {
+                chatCache = { all: [], today: [] };
+                chatMessagesCache.set(currentTitle, chatCache);
+            }
+
+            // Función para fusionar sin duplicar conservando orden cronológico
+            const mergeMessages = (cached: VisibleMessage[], current: VisibleMessage[]): VisibleMessage[] => {
+                const seen = new Set<string>();
+                const merged: VisibleMessage[] = [];
+
+                // 1. Agregar los que ya teníamos acumulados
+                for (const m of cached) {
+                    const sig = `${m.sender}:${m.text.trim()}`;
+                    if (!seen.has(sig)) {
+                        seen.add(sig);
+                        merged.push(m);
+                    }
+                }
+
+                // 2. Agregar los nuevos que aparecieron en pantalla por scroll
+                for (const m of current) {
+                    const sig = `${m.sender}:${m.text.trim()}`;
+                    if (!seen.has(sig)) {
+                        seen.add(sig);
+                        merged.push(m);
+                    }
+                }
+
+                return merged;
+            };
+
+            chatCache.all = mergeMessages(chatCache.all, currentMessagesAll);
+            chatCache.today = mergeMessages(chatCache.today, currentMessagesToday);
+
+            return filter === 'today' ? chatCache.today : chatCache.all;
         } catch (err) {
             console.error('[DOMService] Error al leer los mensajes visibles del chat:', err);
             return [];
