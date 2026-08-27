@@ -97,7 +97,11 @@ export const AiSummaryModal: React.FC<{ onClose: () => void; contactName: string
     startOfToday.setHours(0, 0, 0, 0);
 
     return messages.filter((m) => {
-      const msgTime = m.created_at ? new Date(m.created_at).getTime() : now;
+      const dateStr = m.createdAt || m.created_at;
+      if (!dateStr) return false;
+      const msgTime = new Date(dateStr).getTime();
+      if (isNaN(msgTime)) return false;
+
       if (filter === 'today') return msgTime >= startOfToday.getTime();
       if (filter === '24h') return msgTime >= now - 24 * 3600 * 1000;
       if (filter === '7d') return msgTime >= now - 7 * 24 * 3600 * 1000;
