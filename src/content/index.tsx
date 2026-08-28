@@ -195,17 +195,33 @@ function observeAndRepositionWaDropdowns() {
 // cuando hace falta: con el panel abierto siempre, y con el panel cerrado únicamente si hay un
 // modal abierto encima (si no, `pointer-events: none` deja pasar los clics hacia WhatsApp).
 function updatePointerEvents(hostDiv: HTMLElement) {
-    hostDiv.style.pointerEvents = panelOpen || modalOpen ? 'auto' : 'none';
-    hostDiv.style.zIndex = modalOpen ? '2147483647' : '10000';
+    if (modalOpen) {
+        // Expandir a pantalla completa para que los modales y el FlowCanvas se centren en todo el monitor
+        hostDiv.style.setProperty('width', '100vw', 'important');
+        hostDiv.style.setProperty('height', '100vh', 'important');
+        hostDiv.style.setProperty('top', '0', 'important');
+        hostDiv.style.setProperty('left', '0', 'important');
+        hostDiv.style.setProperty('right', '0', 'important');
+        hostDiv.style.setProperty('background-color', 'transparent', 'important');
+        hostDiv.style.setProperty('box-shadow', 'none', 'important');
+        hostDiv.style.setProperty('pointer-events', 'auto', 'important');
+        hostDiv.style.setProperty('z-index', '2147483647', 'important');
+    } else {
+        // Restaurar posición y tamaño normal del panel lateral (360px)
+        hostDiv.style.setProperty('width', `${PANEL_WIDTH}px`, 'important');
+        hostDiv.style.setProperty('height', '100vh', 'important');
+        hostDiv.style.setProperty('top', '0', 'important');
+        hostDiv.style.removeProperty('left');
+        hostDiv.style.setProperty('right', panelOpen ? '0' : `-${PANEL_WIDTH}px`, 'important');
+        hostDiv.style.setProperty('background-color', '#ffffff', 'important');
+        hostDiv.style.setProperty('box-shadow', '-2px 0 8px rgba(0,0,0,0.15)', 'important');
+        hostDiv.style.setProperty('pointer-events', panelOpen ? 'auto' : 'none', 'important');
+        hostDiv.style.setProperty('z-index', '10000', 'important');
+    }
 }
 
 function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: boolean) {
     panelOpen = open;
-    // `right` en vez de `transform`: un ancestro con `transform` pasa a ser el "containing
-    // block" de cualquier descendiente `position: fixed` de adentro del Shadow DOM (los
-    // modales usan `fixed inset-0`) — quedaban encerrados en la franja de 360px del panel en
-    // vez de cubrir toda la pantalla. `right` no tiene ese efecto secundario.
-    hostDiv.style.right = open ? '0' : `-${PANEL_WIDTH}px`;
     updatePointerEvents(hostDiv);
     launcher.style.display = open ? 'none' : 'flex';
     setAppLayoutWidth(open);

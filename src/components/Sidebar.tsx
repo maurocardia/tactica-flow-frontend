@@ -20,24 +20,27 @@ export const Sidebar: React.FC = () => {
     const isDark = config.theme === 'dark';
 
     return (
-        <aside className={`relative w-full h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-hidden font-sans transition-colors`}>
-            {/* Header rojo moderno ocupando el 100% */}
-            <Header />
+        <div className="w-full h-full relative">
+            <aside className={`fixed top-0 right-0 w-[360px] h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-hidden font-sans transition-colors z-10 shadow-lg`}>
+                {/* Header rojo moderno ocupando el 100% */}
+                <Header />
 
-            {/* Contenedor del cuerpo con scroll independiente */}
-            <div className="flex-1 w-full p-3 flex flex-col gap-3.5 box-border overflow-y-auto">
-                {visible.contactCard && <ContactCard contactName={activeContact} />}
-                {visible.aiModule && <AiModule />}
-                {visible.chatbot && <ChatbotModule />}
-                {visible.selectMessages && <SelectMessagesCard />}
-                {visible.ficha360 && <Ficha360 />}
-                {visible.toolsGrid && <ToolsGrid />}
-            </div>
+                {/* Contenedor del cuerpo con scroll independiente */}
+                <div className="flex-1 w-full p-3 flex flex-col gap-3.5 box-border overflow-y-auto">
+                    {visible.contactCard && <ContactCard contactName={activeContact} />}
+                    {visible.aiModule && <AiModule />}
+                    {visible.chatbot && <ChatbotModule />}
+                    {visible.selectMessages && <SelectMessagesCard />}
+                    {visible.ficha360 && <Ficha360 />}
+                    {visible.toolsGrid && <ToolsGrid />}
+                </div>
+            </aside>
 
+            {/* Modales y Overlays globales a pantalla completa centrados */}
             <ModalHost />
             <ExternalBridge />
             <WhatsappStatusToast />
-        </aside>
+        </div>
     );
 };
 
