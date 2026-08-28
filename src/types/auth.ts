@@ -12,7 +12,8 @@ export interface AuthUser {
   botEnabled: boolean;
   aiFallbackEnabled: boolean;
   aiCustomInstructions: string;
-  botGroupsEnabled: boolean;
+  botEnabledForNewContacts: boolean;
+  botReplyToAll: boolean;
   createdAt: string;
   updatedAt: string;
 }

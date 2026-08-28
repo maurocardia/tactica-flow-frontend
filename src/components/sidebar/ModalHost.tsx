@@ -25,6 +25,7 @@ import { AiTranscribeModal } from './ai/AiTranscribeModal';
 import { BotFlowModal } from './BotFlowModal';
 import { AiSummaryConfigModal } from './ai/AiSummaryConfigModal';
 import { AiAgentConfigModal } from './ai/AiAgentConfigModal';
+import { ContactBotSwitchesModal } from './ContactBotSwitchesModal';
 
 // Único punto que decide qué modal está montado. Nunca hay más de uno a la vez.
 export const ModalHost: React.FC = () => {
@@ -62,6 +63,8 @@ export const ModalHost: React.FC = () => {
       return <AiSummaryConfigModal onClose={closeModal} />;
     case 'ai-agent-config':
       return <AiAgentConfigModal onClose={closeModal} />;
+    case 'contact-bot-switches':
+      return <ContactBotSwitchesModal onClose={closeModal} />;
     case 'config':
       return <ConfigModal onClose={closeModal} />;
     case 'bot-flow':

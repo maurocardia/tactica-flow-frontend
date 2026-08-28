@@ -18,6 +18,10 @@ export interface Conversation {
   // de un grupo (ver WhatsappService.handleIncomingMessage) — null en chats individuales. Varias
   // conversaciones pueden compartir el mismo groupName (una por cada participante del grupo).
   groupName: string | null;
+  // Columna vieja, ya no usada por el switch de bot por contacto: ese control ahora vive en la
+  // tabla/lista separada `bot_contacts` (ver types/botContact.ts) para no tocar nunca el
+  // historial real de chats. Se deja el campo por compatibilidad con filas existentes.
+  botEnabled: boolean;
 }
 
 export interface ConversationMessage {

@@ -1,7 +1,12 @@
 export const WA_SELECTORS = {
-  // Panel lateral (Lista de chats)
+  // Panel lateral (Lista de chats) — cubre tanto la lista sin filtrar como los resultados de
+  // búsqueda: en ambos casos WhatsApp arma un role="grid" real, con cada fila como role="row"
+  // (data-testid="list-item-N") — NO role="listitem" (confirmado a mano en los dos casos, ago-2026;
+  // antes se asumía "listitem" para la búsqueda y no matcheaba nada ahí, por eso openChatByQuery
+  // hacía la búsqueda pero nunca entraba al chat). Se deja "listitem" como fallback por si alguna
+  // vista vieja/distinta todavía lo usa.
   PANEL_SIDE: '#pane-side',
-  CHAT_ITEM: '#pane-side div[role="listitem"]',
+  CHAT_ITEM: '#pane-side div[role="row"][data-testid^="list-item-"], #pane-side div[role="listitem"]',
   CHAT_TITLE: 'span[dir="auto"][title]',
   SEARCH_INPUT: 'div[contenteditable="true"][data-tab="3"]',
 
