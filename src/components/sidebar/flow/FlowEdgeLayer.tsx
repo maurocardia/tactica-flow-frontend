@@ -28,50 +28,88 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
   const getNodeCenterCoords = (node: BotFlowNode, portId?: string, isInput = false) => {
     const nodeWidth = 288;
-    const baseHeight = 130;
     const posX = Number.isFinite(node?.position?.x) ? node.position.x : 100;
     const posY = Number.isFinite(node?.position?.y) ? node.position.y : 100;
 
+    // Medir la altura real del nodo en el DOM si está disponible
+    const cardEl = typeof document !== 'undefined' ? document.getElementById(`flow-node-${node.id}`) : null;
+    const renderedHeight = cardEl ? cardEl.offsetHeight : 175;
+
     if (isInput) {
-      // Puerto de entrada: parte superior central
+      // Puerto de entrada: exactamente en el centro del círculo superior (-top-3.5)
       return {
         x: posX + nodeWidth / 2,
-        y: posY
+        y: posY - 2,
+        isRightPort: false
       };
     }
 
-    // Puerto de salida por opción:
+    // Puerto de salida por opción (a la derecha):
     if (portId && portId !== 'default' && node.data?.options) {
-      const optIdx = node.data.options.findIndex((o, i) => (o.id || `opt_${i}`) === portId);
-      if (optIdx !== -1) {
-        const headerH = 40;
-        const optionsStart = headerH + 55;
+      const portEl = typeof document !== 'undefined' ? document.getElementById(`port-out-${node.id}-${portId}`) : null;
+      if (portEl && cardEl) {
+        const cardRect = cardEl.getBoundingClientRect();
+        const portRect = portEl.getBoundingClientRect();
+        const relativeY = (portRect.top - cardRect.top) + portRect.height / 2;
         return {
           x: posX + nodeWidth,
-          y: posY + optionsStart + optIdx * 36 + 18
+          y: posY + relativeY,
+          isRightPort: true
+        };
+      }
+      const optIdx = node.data.options.findIndex((o, i) => (o.id || `opt_${i}`) === portId);
+      if (optIdx !== -1) {
+        const headerH = 42;
+        const optionsStart = headerH + 60;
+        return {
+          x: posX + nodeWidth,
+          y: posY + optionsStart + optIdx * 36 + 18,
+          isRightPort: true
         };
       }
     }
 
-    // Puerto de salida default: parte inferior central
+    // Puerto de salida default: exactamente en el centro del círculo inferior (-bottom-3.5)
     return {
       x: posX + nodeWidth / 2,
-      y: posY + baseHeight
+      y: posY + renderedHeight + 2,
+      isRightPort: false
     };
   };
 
-  const getBezierPath = (x1: number, y1: number, x2: number, y2: number) => {
+  const getBezierPath = (x1: number, y1: number, x2: number, y2: number, isRightPort = false) => {
     const validX1 = Number.isFinite(x1) ? x1 : 100;
     const validY1 = Number.isFinite(y1) ? y1 : 100;
     const validX2 = Number.isFinite(x2) ? x2 : 200;
     const validY2 = Number.isFinite(y2) ? y2 : 200;
 
-    const dy = Math.max(Math.abs(validY2 - validY1) * 0.5, 45);
-    const dx = (validX2 - validX1) * 0.25;
-    const cx1 = validX1 + dx;
-    const cy1 = validY1 + dy;
-    const cx2 = validX2 - dx;
-    const cy2 = validY2 - dy;
+    const deltaY = validY2 - validY1;
+    const deltaX = validX2 - validX1;
+
+    let cx1: number, cy1: number, cx2: number, cy2: number;
+
+    if (isRightPort) {
+      // Sale horizontal hacia la derecha desde el botón de la opción
+      const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY), 60);
+      cx1 = validX1 + distance * 0.4;
+      cy1 = validY1;
+      cx2 = validX2;
+      cy2 = validY2 - Math.max(distance * 0.4, 45);
+    } else if (deltaY > 20) {
+      // Destino está claramente abajo: curva Bézier suave vertical
+      const dy = Math.max(deltaY * 0.5, 45);
+      cx1 = validX1;
+      cy1 = validY1 + dy;
+      cx2 = validX2;
+      cy2 = validY2 - dy;
+    } else {
+      // Destino está al lado o arriba: el cable sale hacia abajo y sube arqueándose
+      const arc = Math.max(Math.abs(deltaX) * 0.35, 65);
+      cx1 = validX1;
+      cy1 = validY1 + arc;
+      cx2 = validX2;
+      cy2 = validY2 - arc;
+    }
 
     return `M ${validX1} ${validY1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${validX2} ${validY2}`;
   };
@@ -135,7 +173,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
         const start = getNodeCenterCoords(sourceNode, conn.sourcePortId, false);
         const end = getNodeCenterCoords(targetNode, undefined, true);
-        const pathData = getBezierPath(start.x, start.y, end.x, end.y);
+        const pathData = getBezierPath(start.x, start.y, end.x, end.y, start.isRightPort);
 
         // Punto medio para el botón de eliminar
         const midX = (start.x + end.x) / 2;
@@ -222,7 +260,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         if (!sourceNode) return null;
         const start = getNodeCenterCoords(sourceNode, activeConnecting.sourcePortId, false);
         const end = activeConnecting.currentMousePos;
-        const pathData = getBezierPath(start.x, start.y, end.x, end.y);
+        const pathData = getBezierPath(start.x, start.y, end.x, end.y, start.isRightPort);
 
         return (
           <g>
