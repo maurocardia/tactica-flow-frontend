@@ -20,8 +20,9 @@ export const Sidebar: React.FC = () => {
     const isDark = config.theme === 'dark';
 
     return (
-        <div className="w-full h-full relative">
-            <aside className={`fixed top-0 right-0 w-[360px] h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-hidden font-sans transition-colors z-10 shadow-lg`}>
+        <div className="w-full h-full relative overflow-hidden">
+            {/* Panel lateral deslizante anclado a la derecha */}
+            <aside className={`absolute top-0 right-0 w-[360px] h-full ${isDark ? 'dark bg-[#090d16] text-slate-100' : 'bg-slate-100/90 text-slate-900'} backdrop-blur-md border-l border-slate-200/80 flex flex-col items-stretch overflow-hidden font-sans transition-colors z-10 shadow-lg`}>
                 {/* Header rojo moderno ocupando el 100% */}
                 <Header />
 
