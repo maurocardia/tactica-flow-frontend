@@ -10,7 +10,8 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
-  Plus
+  Plus,
+  Focus
 } from 'lucide-react';
 import {
   BotFlowData,
@@ -104,7 +105,22 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   onSaveFlow,
   onClose
 }) => {
-  const [flow, setFlow] = useState<BotFlowData>(initialData?.nodes?.length ? initialData : DEFAULT_INITIAL_FLOW);
+  const [flow, setFlow] = useState<BotFlowData>(() => {
+    const raw = initialData?.nodes?.length ? initialData : DEFAULT_INITIAL_FLOW;
+    // Sanitizar posiciones iniciales para que ninguna sea NaN o undefined
+    return {
+      ...raw,
+      nodes: (raw.nodes || []).map((n, i) => ({
+        ...n,
+        position: {
+          x: Number.isFinite(n?.position?.x) ? n.position.x : 100 + (i % 3) * 320,
+          y: Number.isFinite(n?.position?.y) ? n.position.y : 120 + Math.floor(i / 3) * 240
+        }
+      })),
+      connections: raw.connections || []
+    };
+  });
+
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [editingNode, setEditingNode] = useState<BotFlowNode | null>(null);
   const [showSimulator, setShowSimulator] = useState(false);
@@ -113,13 +129,22 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   // Zoom & Pan
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const panStartRef = useRef({ x: 0, y: 0 });
+  const [pan, setPan] = useState({ x: 40, y: 40 });
 
-  // Dragging Node
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
-  const dragStartRef = useRef<{ nodeX: number; nodeY: number; mouseX: number; mouseY: number } | null>(null);
+  // Refs de estado para interactuar con eventos nativos sin re-renders destructivos
+  const stateRef = useRef({
+    flow,
+    zoom,
+    pan,
+    isPanning: false,
+    panStart: { x: 0, y: 0 },
+    draggingNodeId: null as string | null,
+    dragStart: { nodeX: 0, nodeY: 0, clientX: 0, clientY: 0 }
+  });
+
+  stateRef.current.flow = flow;
+  stateRef.current.zoom = zoom;
+  stateRef.current.pan = pan;
 
   // Connecting Wire
   const [connectingState, setConnectingState] = useState<{
@@ -132,39 +157,91 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   // Convert screen coordinates to canvas space
   const screenToCanvasCoords = useCallback((screenX: number, screenY: number) => {
-    if (!canvasRef.current) return { x: 0, y: 0 };
+    if (!canvasRef.current) return { x: 100, y: 100 };
     const rect = canvasRef.current.getBoundingClientRect();
+    const currentPan = stateRef.current.pan;
+    const currentZoom = stateRef.current.zoom || 1;
+    const x = (screenX - rect.left - currentPan.x) / currentZoom;
+    const y = (screenY - rect.top - currentPan.y) / currentZoom;
     return {
-      x: (screenX - rect.left - pan.x) / zoom,
-      y: (screenY - rect.top - pan.y) / zoom
+      x: Number.isFinite(x) ? x : 100,
+      y: Number.isFinite(y) ? y : 100
     };
-  }, [pan, zoom]);
+  }, []);
 
-  // Handle Pan on Canvas Background
+  // Pan canvas on background drag
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current || (e.target as HTMLElement).classList.contains('canvas-bg')) {
       setSelectedNodeId(null);
-      setIsPanning(true);
-      panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+      stateRef.current.isPanning = true;
+      stateRef.current.panStart = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     }
   };
 
-  // Handle Node Drag Start
+  // Node Drag Start
   const handleNodeMouseDown = (nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedNodeId(nodeId);
-    setDraggingNodeId(nodeId);
 
-    const node = flow.nodes.find((n) => n.id === nodeId);
+    const node = stateRef.current.flow.nodes.find((n) => n.id === nodeId);
     if (node) {
-      dragStartRef.current = {
-        nodeX: node.position.x,
-        nodeY: node.position.y,
-        mouseX: e.clientX,
-        mouseY: e.clientY
+      stateRef.current.draggingNodeId = nodeId;
+      stateRef.current.dragStart = {
+        nodeX: Number.isFinite(node.position.x) ? node.position.x : 100,
+        nodeY: Number.isFinite(node.position.y) ? node.position.y : 100,
+        clientX: e.clientX,
+        clientY: e.clientY
       };
     }
   };
+
+  // Global mouse move & up listeners
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      const { isPanning, panStart, draggingNodeId, dragStart, zoom } = stateRef.current;
+
+      if (isPanning) {
+        setPan({
+          x: Math.round(e.clientX - panStart.x),
+          y: Math.round(e.clientY - panStart.y)
+        });
+      } else if (draggingNodeId) {
+        const safeZoom = zoom > 0 ? zoom : 1;
+        const dx = (e.clientX - dragStart.clientX) / safeZoom;
+        const dy = (e.clientY - dragStart.clientY) / safeZoom;
+
+        const newX = Math.round(dragStart.nodeX + dx);
+        const newY = Math.round(dragStart.nodeY + dy);
+
+        setFlow((prev) => ({
+          ...prev,
+          nodes: prev.nodes.map((n) =>
+            n.id === draggingNodeId
+              ? {
+                  ...n,
+                  position: {
+                    x: Number.isFinite(newX) ? newX : n.position.x,
+                    y: Number.isFinite(newY) ? newY : n.position.y
+                  }
+                }
+              : n
+          )
+        }));
+      }
+    };
+
+    const onMouseUp = () => {
+      stateRef.current.isPanning = false;
+      stateRef.current.draggingNodeId = null;
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, []);
 
   // Start Connection
   const handleStartConnection = (sourceNodeId: string, sourcePortId?: string, e?: React.MouseEvent) => {
@@ -185,7 +262,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       return;
     }
 
-    // Comprobar si ya existe esta conexión
     const exists = flow.connections.some(
       (c) =>
         c.sourceNodeId === connectingState.sourceNodeId &&
@@ -209,66 +285,11 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     setConnectingState(null);
   };
 
-  // Mouse Move on Document
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isPanning) {
-        setPan({
-          x: e.clientX - panStartRef.current.x,
-          y: e.clientY - panStartRef.current.y
-        });
-      } else if (draggingNodeId && dragStartRef.current) {
-        const dx = (e.clientX - dragStartRef.current.mouseX) / zoom;
-        const dy = (e.clientY - dragStartRef.current.mouseY) / zoom;
-
-        setFlow((prev) => ({
-          ...prev,
-          nodes: prev.nodes.map((n) =>
-            n.id === draggingNodeId
-              ? {
-                  ...n,
-                  position: {
-                    x: Math.round(dragStartRef.current!.nodeX + dx),
-                    y: Math.round(dragStartRef.current!.nodeY + dy)
-                  }
-                }
-              : n
-          )
-        }));
-      } else if (connectingState) {
-        setConnectingState((prev) =>
-          prev
-            ? {
-                ...prev,
-                currentMousePos: screenToCanvasCoords(e.clientX, e.clientY)
-              }
-            : null
-        );
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsPanning(false);
-      setDraggingNodeId(null);
-      dragStartRef.current = null;
-      if (connectingState) {
-        setConnectingState(null);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isPanning, draggingNodeId, zoom, connectingState, screenToCanvasCoords]);
-
-  // Handle Zoom Wheel
+  // Zoom Wheel
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.4), 2.2);
+    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.4), 2.0);
     setZoom(newZoom);
   };
 
@@ -276,7 +297,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const handleAddBlock = (type: NodeType) => {
     const nextIdx = flow.nodes.length + 1;
     const centerCanvas = screenToCanvasCoords(
-      window.innerWidth / 2 + 100,
+      window.innerWidth / 2,
       window.innerHeight / 2
     );
 
@@ -285,8 +306,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       type,
       title: `Nuevo Bloque ${nextIdx}`,
       position: {
-        x: Math.round(centerCanvas.x) + (nextIdx % 4) * 30,
-        y: Math.round(centerCanvas.y) + (nextIdx % 4) * 30
+        x: Math.round(centerCanvas.x - 140),
+        y: Math.round(centerCanvas.y - 40)
       },
       data: {
         name: `Bloque ${nextIdx}`,
@@ -355,10 +376,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       ...node,
       id: dupId,
       title: `${node.title} (Copia)`,
-      position: { x: node.position.x + 40, y: node.position.y + 40 },
+      position: { x: (node.position.x || 100) + 40, y: (node.position.y || 100) + 40 },
       data: {
         ...node.data,
-        name: `${node.data.name || node.title} (Copia)`
+        name: `${node.data?.name || node.title} (Copia)`
       }
     };
     setFlow((prev) => ({
@@ -396,15 +417,15 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     }
   };
 
-  const resetView = () => {
-    setPan({ x: 40, y: 40 });
+  const centerNodes = () => {
+    setPan({ x: 80, y: 80 });
     setZoom(1);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 flex flex-col font-sans select-none">
+    <div className="fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 flex flex-col font-sans select-none overflow-hidden">
       {/* Top Header Bar */}
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-30 shadow-xs">
+      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between z-30 shadow-xs shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-purple-600 flex items-center justify-center text-white font-bold shadow-md shadow-purple-600/20">
             🤖
@@ -471,7 +492,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           className="flex-1 h-full relative overflow-hidden bg-slate-50 dark:bg-slate-950 cursor-default"
           style={{
             backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
-            backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
+            backgroundSize: `${24 * (zoom || 1)}px ${24 * (zoom || 1)}px`,
             backgroundPosition: `${pan.x}px ${pan.y}px`
           }}
         >
@@ -514,7 +535,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           <div className="absolute bottom-5 left-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-lg flex items-center gap-1 z-30 select-none">
             <button
               type="button"
-              onClick={() => setZoom((z) => Math.min(z + 0.15, 2.2))}
+              onClick={() => setZoom((z) => Math.min(z + 0.15, 2.0))}
               title="Acercar (Zoom In)"
               className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
             >
@@ -534,11 +555,11 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
             <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
             <button
               type="button"
-              onClick={resetView}
-              title="Restablecer Vista"
-              className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+              onClick={centerNodes}
+              title="Centrar Nodos en Pantalla"
+              className="flex items-center gap-1 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors text-xs font-semibold"
             >
-              <Maximize2 className="w-4 h-4" />
+              <Focus className="w-4 h-4" /> Centrar
             </button>
           </div>
         </div>

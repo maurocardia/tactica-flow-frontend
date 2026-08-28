@@ -23,49 +23,53 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   const getNodeCenterCoords = (node: BotFlowNode, portId?: string, isInput = false) => {
-    const nodeWidth = 288; // w-72 = 18rem = 288px
-    // Estimación de altura o cálculo de offset según el tipo
+    const nodeWidth = 288;
     const baseHeight = 120;
+    const posX = Number.isFinite(node?.position?.x) ? node.position.x : 100;
+    const posY = Number.isFinite(node?.position?.y) ? node.position.y : 100;
 
     if (isInput) {
       // Puerto de entrada: parte superior central
       return {
-        x: node.position.x + nodeWidth / 2,
-        y: node.position.y
+        x: posX + nodeWidth / 2,
+        y: posY
       };
     }
 
     // Puerto de salida:
-    if (portId && portId !== 'default' && node.data.options) {
-      // Buscar índice de la opción
+    if (portId && portId !== 'default' && node.data?.options) {
       const optIdx = node.data.options.findIndex((o, i) => (o.id || `opt_${i}`) === portId);
       if (optIdx !== -1) {
-        // Handle a la derecha del ítem de la opción
         const headerH = 40;
-        const optionsStart = headerH + 60; // offset aproximado
+        const optionsStart = headerH + 60;
         return {
-          x: node.position.x + nodeWidth,
-          y: node.position.y + optionsStart + optIdx * 36 + 18
+          x: posX + nodeWidth,
+          y: posY + optionsStart + optIdx * 36 + 18
         };
       }
     }
 
     // Puerto de salida default: parte inferior central
     return {
-      x: node.position.x + nodeWidth / 2,
-      y: node.position.y + baseHeight
+      x: posX + nodeWidth / 2,
+      y: posY + baseHeight
     };
   };
 
   const getBezierPath = (x1: number, y1: number, x2: number, y2: number) => {
-    const dy = Math.max(Math.abs(y2 - y1) * 0.5, 40);
-    const dx = (x2 - x1) * 0.2;
-    const cx1 = x1 + dx;
-    const cy1 = y1 + dy;
-    const cx2 = x2 - dx;
-    const cy2 = y2 - dy;
+    const validX1 = Number.isFinite(x1) ? x1 : 100;
+    const validY1 = Number.isFinite(y1) ? y1 : 100;
+    const validX2 = Number.isFinite(x2) ? x2 : 200;
+    const validY2 = Number.isFinite(y2) ? y2 : 200;
 
-    return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+    const dy = Math.max(Math.abs(validY2 - validY1) * 0.5, 40);
+    const dx = (validX2 - validX1) * 0.2;
+    const cx1 = validX1 + dx;
+    const cy1 = validY1 + dy;
+    const cx2 = validX2 - dx;
+    const cy2 = validY2 - dy;
+
+    return `M ${validX1} ${validY1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${validX2} ${validY2}`;
   };
 
   return (
