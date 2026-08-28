@@ -1,7 +1,7 @@
 // src/services/api.service.ts
 
 import { Conversation, ConversationMessage } from "@/types/conversation";
-import { KeywordRule, KeywordRuleInput } from "@/types/bot";
+import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
@@ -128,6 +128,14 @@ export const ApiService = {
 
     async deleteBotRule(id: string): Promise<void> {
         return this.sendBackgroundRequest<void>(`/bot/rules/${id}`, 'DELETE');
+    },
+
+    async getBotFlow(): Promise<BotFlowData | null> {
+        return this.sendBackgroundRequest<BotFlowData | null>('/bot/flow');
+    },
+
+    async saveBotFlow(data: BotFlowData): Promise<{ success: boolean; message: string }> {
+        return this.sendBackgroundRequest<{ success: boolean; message: string }>('/bot/flow', 'POST', data);
     },
 
     // === BASE DE CONOCIMIENTO (real, rama 7-epic-knowledge-base) ===
