@@ -133,20 +133,31 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
     // 1. Si estamos en un nodo activo con opciones
     if (currentNodeId) {
       const currentNode = flow.nodes.find((n) => n.id === currentNodeId);
-      if (currentNode && currentNode.type === 'OPTIONS_MENU' && currentNode.data.options) {
-        const matchedOption = currentNode.data.options.find(
+      if (currentNode && currentNode.type === 'OPTIONS_MENU' && currentNode.data?.options) {
+        const optionsList = currentNode.data.options;
+        const optIndex = optionsList.findIndex(
           (opt, i) =>
-            opt.keyword.toLowerCase() === textLower ||
+            (opt.keyword && opt.keyword.toLowerCase() === textLower) ||
             opt.label.toLowerCase().includes(textLower) ||
-            `${i + 1}` === textLower
+            textLower === `${i + 1}` ||
+            textLower === `${i + 1}.` ||
+            textLower.startsWith(`${i + 1} `) ||
+            textLower.startsWith(`${i + 1}. `)
         );
 
-        if (matchedOption) {
-          // Buscar conexión desde ese puerto
+        if (optIndex !== -1) {
+          const matchedOption = optionsList[optIndex];
+          const optionPortId = matchedOption.id || `opt_${optIndex}`;
+
+          // Buscar conexión saliente desde esa opción
           const conn = flow.connections.find(
             (c) =>
               c.sourceNodeId === currentNode.id &&
-              c.sourcePortId === matchedOption.id
+              (c.sourcePortId === optionPortId ||
+               c.sourcePortId === matchedOption.id ||
+               c.sourcePortId === `opt_${optIndex}` ||
+               c.sourcePortId === `opt_${optIndex + 1}` ||
+               c.sourcePortId === `${optIndex + 1}`)
           );
 
           if (conn) {
@@ -155,6 +166,21 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
               executeNode(nextNode);
               return;
             }
+          } else {
+            // La opción fue seleccionada correctamente pero no tiene bloque conectado en el diagrama
+            setTimeout(() => {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `opt_unconnected_${Date.now()}`,
+                  sender: 'bot',
+                  text: `✅ Elegiste la opción "${matchedOption.label}".\n\nℹ️ *(Aviso del Simulador: Este camino aún no tiene un bloque conectado en el diagrama visual).*`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  activeNodeTitle: currentNode.data?.name || currentNode.title
+                }
+              ]);
+            }, 400);
+            return;
           }
         }
       }
