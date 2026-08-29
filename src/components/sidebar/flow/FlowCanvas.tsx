@@ -312,11 +312,24 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     };
   }, [handleEndConnection, screenToCanvasCoords]);
 
-  // Global Keyboard Shortcuts (Escape to cancel drag, Delete/Backspace to delete selected item)
+  // Global Keyboard Shortcuts (Escape to cancel drag, Delete/Supr to delete selected item)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (targetTag === 'input' || targetTag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) return;
+      // Obtener el elemento real dentro del Shadow DOM usando composedPath
+      const path = e.composedPath ? e.composedPath() : [e.target];
+      const actualTarget = path[0] as HTMLElement;
+      const tag = actualTarget?.tagName?.toLowerCase();
+
+      // Si el usuario está escribiendo en un input, textarea o tiene el panel de edición abierto, no interceptar
+      if (
+        tag === 'input' ||
+        tag === 'textarea' ||
+        actualTarget?.isContentEditable ||
+        actualTarget?.closest?.('input, textarea, form, [contenteditable="true"]') ||
+        editingNode !== null
+      ) {
+        return;
+      }
 
       if (e.key === 'Escape') {
         if (stateRef.current.connectingState) {
@@ -326,7 +339,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         setSelectedConnectionId(null);
         setSelectedNodeId(null);
         setEditingNode(null);
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      } else if (e.key === 'Delete') {
         if (selectedConnectionId) {
           handleDeleteConnection(selectedConnectionId);
           setSelectedConnectionId(null);
@@ -339,7 +352,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedConnectionId, selectedNodeId]);
+  }, [selectedConnectionId, selectedNodeId, editingNode]);
 
   // Start Connection
   const handleStartConnection = (sourceNodeId: string, sourcePortId?: string, e?: React.MouseEvent) => {
