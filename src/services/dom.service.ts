@@ -963,6 +963,36 @@ export const DOMService = {
     },
 
     /**
+     * Obtiene el Base64 de una nota de voz a partir de su ID de fila o su URL de blob.
+     */
+    async getAudioBase64(rowIdOrSrc: string): Promise<string> {
+        let blobUrl = rowIdOrSrc && rowIdOrSrc.startsWith('blob:') ? rowIdOrSrc : null;
+
+        if (!blobUrl) {
+            const row = document.querySelector(`div[data-id="${rowIdOrSrc}"]`);
+            if (row) {
+                const audioEl = row.querySelector('audio') as HTMLAudioElement | null;
+                blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
+            }
+        }
+
+        if (!blobUrl) {
+            const detected = this.getVisibleAudios();
+            const found = detected.find((a) => a.id === rowIdOrSrc);
+            if (found && found.src) {
+                blobUrl = found.src;
+            }
+        }
+
+        if (!blobUrl) {
+            const anyAudio = document.querySelector(WA_SELECTORS.MAIN_CHAT)?.querySelector('audio') as HTMLAudioElement | null;
+            blobUrl = anyAudio?.currentSrc || anyAudio?.src || null;
+        }
+
+        return this.convertBlobUrlToBase64(blobUrl || '');
+    },
+
+    /**
      * Activa el modo de selección interactivo: permite hacer clic directamente en cualquier burbuja
      * de mensaje para seleccionarla/deseleccionarla con un resalte visual limpio y sin tapar el texto.
      */
