@@ -248,11 +248,15 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ success: boolean; draft: string; foundInKb?: boolean; sourceKbIds?: number[] }>('/ai/draft', 'POST', params);
     },
 
-    async transcribeAudio(audioBase64: string, mimeType: string = 'audio/ogg'): Promise<{ success: boolean; transcription: string }> {
-        return this.sendBackgroundRequest<{ success: boolean; transcription: string }>('/ai/transcribe', 'POST', {
-            audioBase64,
-            mimeType
-        });
+    async transcribeAudio(
+        input: string | { audioBase64?: string; messageId?: string; mimeType?: string },
+        mimeType: string = 'audio/ogg'
+    ): Promise<{ success: boolean; transcription: string }> {
+        const payload = typeof input === 'string'
+            ? { audioBase64: input, mimeType }
+            : { audioBase64: input.audioBase64, messageId: input.messageId, mimeType: input.mimeType || mimeType };
+
+        return this.sendBackgroundRequest<{ success: boolean; transcription: string }>('/ai/transcribe', 'POST', payload);
     },
 
     // === MENSAJES PROGRAMADOS (Feature #5) ===

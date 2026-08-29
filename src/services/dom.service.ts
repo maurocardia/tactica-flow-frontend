@@ -964,15 +964,39 @@ export const DOMService = {
 
     /**
      * Obtiene el Base64 de una nota de voz a partir de su ID de fila o su URL de blob.
+     * Si el audio aún no fue reproducido por el usuario, dispara el botón de play para forzar la carga del blob.
      */
     async getAudioBase64(rowIdOrSrc: string): Promise<string> {
         let blobUrl = rowIdOrSrc && rowIdOrSrc.startsWith('blob:') ? rowIdOrSrc : null;
 
-        if (!blobUrl) {
+        if (!blobUrl && rowIdOrSrc) {
             const row = document.querySelector(`div[data-id="${rowIdOrSrc}"]`);
             if (row) {
-                const audioEl = row.querySelector('audio') as HTMLAudioElement | null;
+                let audioEl = row.querySelector('audio') as HTMLAudioElement | null;
                 blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
+
+                // Si no tiene blob aún, simular clic en el botón de play para que WhatsApp Web cargue el blob
+                if (!blobUrl) {
+                    const playBtn = (row.querySelector('button[aria-label*="Play"]') ||
+                        row.querySelector('button[aria-label*="reproducir"]') ||
+                        row.querySelector('button[aria-label*="Audio"]') ||
+                        row.querySelector('[data-icon*="audio-play"]') ||
+                        row.querySelector('button')) as HTMLElement | null;
+
+                    if (playBtn) {
+                        try {
+                            playBtn.click();
+                            await new Promise((r) => setTimeout(r, 450));
+                            audioEl = row.querySelector('audio') as HTMLAudioElement | null;
+                            blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
+                            if (audioEl) {
+                                audioEl.pause();
+                            }
+                        } catch (e) {
+                            console.warn('[DOMService] Error al auto-reproducir audio:', e);
+                        }
+                    }
+                }
             }
         }
 
@@ -989,7 +1013,11 @@ export const DOMService = {
             blobUrl = anyAudio?.currentSrc || anyAudio?.src || null;
         }
 
-        return this.convertBlobUrlToBase64(blobUrl || '');
+        if (!blobUrl || !blobUrl.startsWith('blob:')) {
+            throw new Error('NO_BLOB');
+        }
+
+        return this.convertBlobUrlToBase64(blobUrl);
     },
 
     /**

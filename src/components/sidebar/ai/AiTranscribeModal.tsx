@@ -60,13 +60,18 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
         throw new Error('Este audio ya fue procesado. Actualizá la lista para ver la transcripción.');
       }
 
-      // Obtener el Base64 directamente a través del servicio DOM robusto
-      const base64 = await DOMService.getAudioBase64(item.id);
-      if (!base64) {
-        throw new Error('⚠️ No se pudo capturar el audio. Dale Play manualmente a la nota de voz en WhatsApp y volvé a intentar.');
+      // 1. Intentar capturar Base64 desde el DOM (con auto-play trigger)
+      let base64: string | null = null;
+      try {
+        base64 = await DOMService.getAudioBase64(item.id);
+      } catch (domErr) {
+        console.log('[AiTranscribeModal] Fallback a descarga directa vía Baileys en backend...', domErr);
       }
 
-      const res = await ApiService.transcribeAudio(base64);
+      // 2. Enviar a la API: Si hay Base64 lo manda, si no pasa messageId para que Baileys lo descargue directo
+      const res = await ApiService.transcribeAudio(
+        base64 ? { audioBase64: base64 } : { messageId: item.id }
+      );
       const transcriptionText = res.transcription || '(Audio vacío o sin voz inteligible)';
 
       setAudios((prev) =>
