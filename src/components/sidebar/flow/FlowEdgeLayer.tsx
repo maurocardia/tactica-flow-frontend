@@ -16,6 +16,74 @@ interface FlowEdgeLayerProps {
   } | null;
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * Genera un trazado SVG ortogonal (Manhattan / Step) con esquinas redondeadas suaves
+ */
+function generateRoundedStepPath(points: Point[], cornerRadius = 12): string {
+  if (!points || points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+  if (points.length === 2) {
+    return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
+  }
+
+  // Filtrar puntos duplicados consecutivos
+  const cleanPoints: Point[] = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    const prev = cleanPoints[cleanPoints.length - 1];
+    const curr = points[i];
+    if (Math.abs(prev.x - curr.x) > 0.5 || Math.abs(prev.y - curr.y) > 0.5) {
+      cleanPoints.push(curr);
+    }
+  }
+
+  if (cleanPoints.length <= 2) {
+    return `M ${cleanPoints[0].x} ${cleanPoints[0].y} L ${cleanPoints[cleanPoints.length - 1].x} ${cleanPoints[cleanPoints.length - 1].y}`;
+  }
+
+  let d = `M ${cleanPoints[0].x} ${cleanPoints[0].y}`;
+
+  for (let i = 1; i < cleanPoints.length - 1; i++) {
+    const p0 = cleanPoints[i - 1];
+    const p1 = cleanPoints[i];
+    const p2 = cleanPoints[i + 1];
+
+    const d1x = p1.x - p0.x;
+    const d1y = p1.y - p0.y;
+    const len1 = Math.hypot(d1x, d1y);
+
+    const d2x = p2.x - p1.x;
+    const d2y = p2.y - p1.y;
+    const len2 = Math.hypot(d2x, d2y);
+
+    const r = Math.min(cornerRadius, len1 / 2, len2 / 2);
+
+    if (r <= 1 || len1 === 0 || len2 === 0) {
+      d += ` L ${p1.x} ${p1.y}`;
+      continue;
+    }
+
+    // Punto antes de la esquina
+    const startX = p1.x - (d1x / len1) * r;
+    const startY = p1.y - (d1y / len1) * r;
+
+    // Punto después de la esquina
+    const endX = p1.x + (d2x / len2) * r;
+    const endY = p1.y + (d2y / len2) * r;
+
+    d += ` L ${startX} ${startY} Q ${p1.x} ${p1.y} ${endX} ${endY}`;
+  }
+
+  const last = cleanPoints[cleanPoints.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+
+  return d;
+}
+
 export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   nodes,
   connections,
@@ -77,59 +145,84 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     };
   };
 
-  const getBezierPath = (
+  /**
+   * Generador de caminos ortogonales por los pasillos entre tarjetas (evita tocar las cards)
+   */
+  const getStepPath = (
     start: { x: number; y: number; isRightPort?: boolean },
     end: { x: number; y: number }
   ) => {
-    const x1 = Number.isFinite(start.x) ? start.x : 100;
-    const y1 = Number.isFinite(start.y) ? start.y : 100;
-    const x2 = Number.isFinite(end.x) ? end.x : 200;
-    const y2 = Number.isFinite(end.y) ? end.y : 200;
+    const x1 = Number.isFinite(start.x) ? Math.round(start.x) : 100;
+    const y1 = Number.isFinite(start.y) ? Math.round(start.y) : 100;
+    const x2 = Number.isFinite(end.x) ? Math.round(end.x) : 200;
+    const y2 = Number.isFinite(end.y) ? Math.round(end.y) : 200;
     const isRightPort = !!start.isRightPort;
 
     const deltaY = y2 - y1;
     const deltaX = x2 - x1;
 
-    // Caso 1: Destino está claramente abajo con suficiente holgura vertical (deltaY >= 50)
-    if (!isRightPort && deltaY >= 50) {
-      const dy = Math.max(deltaY * 0.5, 45);
-      return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
-    }
-
-    // Caso 2: Salida lateral por botón de opción (isRightPort)
+    // Caso 1: Salida desde la derecha (opción de menú)
     if (isRightPort) {
+      const exitCorridorX = x1 + 28; // Salir a la derecha al pasillo vertical
       if (deltaX >= 40 && deltaY >= 20) {
-        const cx1 = x1 + Math.max(deltaX * 0.45, 50);
-        const cy1 = y1;
-        const cx2 = x2;
-        const cy2 = y2 - Math.max(deltaY * 0.4, 40);
-        return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+        // Destino a la derecha y abajo
+        const midY = Math.round(y1 + Math.max(deltaY / 2, 20));
+        return generateRoundedStepPath([
+          { x: x1, y: y1 },
+          { x: exitCorridorX, y: y1 },
+          { x: exitCorridorX, y: midY },
+          { x: x2, y: midY },
+          { x: x2, y: y2 }
+        ], 10);
       } else {
-        // Sale a la derecha por el pasillo, bordea y entra desde arriba
-        const exitOffset = Math.min(Math.max(Math.abs(deltaX) * 0.3, 40), 90);
-        const exitX = x1 + exitOffset;
-        const entryY = y2 - 45;
-        const midY = (y1 + entryY) / 2;
-        return `M ${x1} ${y1} C ${exitX} ${y1}, ${exitX} ${midY}, ${(exitX + x2) / 2} ${midY} C ${x2} ${midY}, ${x2} ${entryY}, ${x2} ${y2}`;
+        // Destino arriba o a la izquierda: salir a la derecha, viajar por el pasillo y entrar arriba
+        const entryCorridorY = y2 - 28;
+        return generateRoundedStepPath([
+          { x: x1, y: y1 },
+          { x: exitCorridorX, y: y1 },
+          { x: exitCorridorX, y: entryCorridorY },
+          { x: x2, y: entryCorridorY },
+          { x: x2, y: y2 }
+        ], 10);
       }
     }
 
-    // Caso 3: Destino está arriba, al lado o en la misma fila (deltaY < 50)
-    // EVITAR ATRAVESAR EL CUERPO DE LA TARJETA:
-    // 1. Salir hacia abajo del bloque emisor despejando su base
-    const bottomClearance = Math.min(Math.max(Math.abs(deltaX) * 0.22, 50), 100);
-    const p1y = y1 + bottomClearance;
+    // Caso 2: Destino está alineado verticalmente justo abajo
+    if (Math.abs(deltaX) < 10 && deltaY >= 20) {
+      return `M ${x1} ${y1} L ${x2} ${y2}`;
+    }
 
-    // 2. Llegar desde arriba del bloque receptor despejando su cabecera
-    const topClearance = Math.min(Math.max(Math.abs(deltaX) * 0.22, 50), 100);
-    const p2y = y2 - topClearance;
+    // Caso 3: Destino está claramente abajo (deltaY >= 50)
+    if (deltaY >= 50) {
+      const midY = Math.round(y1 + deltaY / 2);
+      return generateRoundedStepPath([
+        { x: x1, y: y1 },
+        { x: x1, y: midY },
+        { x: x2, y: midY },
+        { x: x2, y: y2 }
+      ], 12);
+    }
 
-    // 3. Pasillo intermedio en el espacio vacío entre columnas
-    const midX = (x1 + x2) / 2;
-    const midY = (p1y + p2y) / 2;
+    // Caso 4: Destino está en la misma fila, arriba o al lado (deltaY < 50)
+    // RUTEO ESTRICTO POR LOS PASILLOS DE LA CUADRÍCULA PARA NUNCA TOCAR LAS TARJETAS:
+    const exitY = y1 + 28; // Pasillo horizontal inferior debajo de la fila origen
+    const entryY = y2 - 28; // Pasillo horizontal superior arriba de la fila destino
 
-    // Curva compuesta de 2 tramos Bézier continuos que rodean los bloques limpiamente
-    return `M ${x1} ${y1} C ${x1} ${p1y}, ${midX} ${p1y}, ${midX} ${midY} C ${midX} ${p2y}, ${x2} ${p2y}, ${x2} ${y2}`;
+    // Pasillo vertical intermedio en el espacio libre entre columnas
+    let verticalCorridorX = Math.round((x1 + x2) / 2);
+    if (Math.abs(deltaX) < 60) {
+      // Si están en la misma columna pero hacia arriba, bordear por la derecha de la tarjeta
+      verticalCorridorX = x1 + 170;
+    }
+
+    return generateRoundedStepPath([
+      { x: x1, y: y1 },
+      { x: x1, y: exitY },
+      { x: verticalCorridorX, y: exitY },
+      { x: verticalCorridorX, y: entryY },
+      { x: x2, y: entryY },
+      { x: x2, y: y2 }
+    ], 12);
   };
 
   return (
@@ -191,9 +284,9 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
         const start = getNodeCenterCoords(sourceNode, conn.sourcePortId, false);
         const end = getNodeCenterCoords(targetNode, undefined, true);
-        const pathData = getBezierPath(start, end);
+        const pathData = getStepPath(start, end);
 
-        // Punto medio para el botón de eliminar
+        // Punto medio aproximado para el botón de eliminar
         const midX = (start.x + end.x) / 2;
         const midY = (start.y + end.y) / 2;
 
@@ -234,7 +327,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
               />
             )}
 
-            {/* Cable visual principal (Rojo semi-transparente por defecto, brillante en hover) */}
+            {/* Cable visual principal (Líneas rectas ortogonales con esquinas redondeadas) */}
             <path
               d={pathData}
               fill="none"
@@ -278,7 +371,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         if (!sourceNode) return null;
         const start = getNodeCenterCoords(sourceNode, activeConnecting.sourcePortId, false);
         const end = activeConnecting.currentMousePos;
-        const pathData = getBezierPath(start, end);
+        const pathData = getStepPath(start, end);
 
         return (
           <g>
