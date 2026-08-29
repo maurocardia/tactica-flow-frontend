@@ -25,4 +25,12 @@ export const WA_SELECTORS = {
   MESSAGE_TEXT: '[data-testid="selectable-text"]',
   MESSAGE_TAIL_IN: '[data-icon="tail-in"]', // presente sólo en mensajes ENTRANTES
   MESSAGE_TAIL_OUT: '[data-icon="tail-out"]', // presente sólo en mensajes SALIENTES
+
+  // Contenedor real con scroll de los mensajes (confirmado a mano vía HTML real, ago-2026) — más
+  // confiable que buscar un ancestro genérico con overflow-y, se deja ese como fallback.
+  MESSAGES_SCROLL_CONTAINER: '[data-testid="conversation-panel-messages"]',
+  // Botón que WhatsApp muestra cuando ya no hay más historial en caché local y hace falta pedirle
+  // al teléfono los mensajes más viejos — sin clickearlo, el scroll solo nunca trae más allá de lo
+  // que el navegador ya tenía cacheado (confirmado a mano, ago-2026).
+  LOAD_OLDER_FROM_PHONE_BUTTON: '[data-testid="conversation-panel-messages"] button',
 } as const;

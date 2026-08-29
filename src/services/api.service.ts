@@ -293,8 +293,8 @@ export const ApiService = {
         groupName?: string | null;
         messages: { sender: 'customer' | 'agent' | 'bot'; text: string; createdAt?: string }[];
         mode?: 'replace' | 'merge';
-    }): Promise<{ status: string; conversation: any; syncedCount: number }> {
-        return this.sendBackgroundRequest<{ status: string; conversation: any; syncedCount: number }>(
+    }): Promise<{ status: string; conversation: any; syncedCount: number; lastMessageId: number | null }> {
+        return this.sendBackgroundRequest<{ status: string; conversation: any; syncedCount: number; lastMessageId: number | null }>(
             '/conversations/sync',
             'POST',
             params
@@ -304,6 +304,16 @@ export const ApiService = {
     async clearConversationMessages(conversationId: number): Promise<{ status: string; message: string }> {
         return this.sendBackgroundRequest<{ status: string; message: string }>(
             `/conversations/${conversationId}/messages`,
+            'DELETE'
+        );
+    },
+
+    // Revierte solo los mensajes traídos por el auto-scroll del resumen de IA (id > afterId) —
+    // usado al cancelar/cerrar el modal sin confirmar, para no dejar historial que solo se pidió
+    // para calcular ese resumen puntual.
+    async rollbackConversationMessages(conversationId: number, afterId: number): Promise<{ status: string; deletedCount: number }> {
+        return this.sendBackgroundRequest<{ status: string; deletedCount: number }>(
+            `/conversations/${conversationId}/messages/after/${afterId}`,
             'DELETE'
         );
     },
