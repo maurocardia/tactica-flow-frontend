@@ -354,31 +354,41 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     setConnectingState(newConnState);
   };
 
-  // Zoom Wheel (Suave y enfocado hacia la posición del cursor)
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    if (!canvasRef.current) return;
+  // Native non-passive Wheel listener to 100% prevent Chrome page zoom (Ctrl+Wheel / Trackpad Pinch)
+  useEffect(() => {
+    const canvasEl = canvasRef.current;
+    if (!canvasEl) return;
 
-    // Amortiguación suave para ruedas de mouse y trackpads
-    const step = -e.deltaY * 0.0008;
-    const clampedDelta = Math.max(-0.05, Math.min(0.05, step));
-    const currentZoom = stateRef.current.zoom || 1;
-    const newZoom = Math.min(Math.max(currentZoom + clampedDelta, 0.4), 2.0);
+    const onNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (Math.abs(newZoom - currentZoom) < 0.001) return;
+      // Amortiguación suave para ruedas de mouse y trackpads
+      const step = -e.deltaY * 0.0008;
+      const clampedDelta = Math.max(-0.05, Math.min(0.05, step));
+      const currentZoom = stateRef.current.zoom || 1;
+      const newZoom = Math.min(Math.max(currentZoom + clampedDelta, 0.4), 2.0);
 
-    // Zoom enfocado en el punto exacto donde apunta el cursor
-    const rect = canvasRef.current.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const currentPan = stateRef.current.pan;
+      if (Math.abs(newZoom - currentZoom) < 0.001) return;
 
-    const newPanX = mouseX - (mouseX - currentPan.x) * (newZoom / currentZoom);
-    const newPanY = mouseY - (mouseY - currentPan.y) * (newZoom / currentZoom);
+      // Zoom enfocado en el punto exacto donde apunta el cursor
+      const rect = canvasEl.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+      const currentPan = stateRef.current.pan;
 
-    setZoom(Number(newZoom.toFixed(3)));
-    setPan({ x: Math.round(newPanX), y: Math.round(newPanY) });
-  };
+      const newPanX = mouseX - (mouseX - currentPan.x) * (newZoom / currentZoom);
+      const newPanY = mouseY - (mouseY - currentPan.y) * (newZoom / currentZoom);
+
+      setZoom(Number(newZoom.toFixed(3)));
+      setPan({ x: Math.round(newPanX), y: Math.round(newPanY) });
+    };
+
+    canvasEl.addEventListener('wheel', onNativeWheel, { passive: false });
+    return () => {
+      canvasEl.removeEventListener('wheel', onNativeWheel);
+    };
+  }, []);
 
   // Add Block from Palette
   const handleAddBlock = (type: NodeType) => {
@@ -575,7 +585,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         <div
           ref={canvasRef}
           onMouseDown={handleCanvasMouseDown}
-          onWheel={handleWheel}
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
           className="flex-1 h-full relative overflow-hidden bg-slate-50 dark:bg-slate-950 cursor-default"
