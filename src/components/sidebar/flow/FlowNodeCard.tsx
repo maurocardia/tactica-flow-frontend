@@ -17,6 +17,10 @@ interface FlowNodeCardProps {
   node: BotFlowNode;
   isSelected: boolean;
   isHoveredByConnection?: boolean;
+  activeConnecting?: {
+    sourceNodeId: string;
+    sourcePortId?: string;
+  } | null;
   onSelect: (nodeId: string) => void;
   onEdit: (node: BotFlowNode) => void;
   onDelete: (nodeId: string) => void;
@@ -82,6 +86,7 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
   node,
   isSelected,
   isHoveredByConnection,
+  activeConnecting,
   onSelect,
   onEdit,
   onDelete,
@@ -95,6 +100,7 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
 
   const isTrigger = node.type === 'TRIGGER';
   const hasOptions = node.type === 'OPTIONS_MENU' && (node.data?.options?.length ?? 0) > 0;
+  const isConnectingTarget = activeConnecting && activeConnecting.sourceNodeId !== node.id && !isTrigger;
 
   return (
     <div
@@ -104,15 +110,22 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
       }}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect(node.id);
+        if (activeConnecting && activeConnecting.sourceNodeId !== node.id) {
+          onEndConnection(node.id);
+        } else {
+          onSelect(node.id);
+        }
       }}
       onMouseUp={(e) => {
-        // Permite soltar una conexión sobre cualquier parte de la tarjeta
-        onEndConnection(node.id);
+        if (activeConnecting && activeConnecting.sourceNodeId !== node.id) {
+          onEndConnection(node.id);
+        }
       }}
       className={`absolute w-72 rounded-2xl bg-white dark:bg-slate-900 shadow-md select-none border-2 transition-all duration-150 ${
         isSelected
           ? 'ring-4 ring-red-500/30 border-[#9e1114] dark:border-red-500 shadow-xl z-10'
+          : isConnectingTarget
+          ? 'ring-4 ring-emerald-500/30 border-emerald-500 dark:border-emerald-400 shadow-xl z-10 cursor-pointer'
           : isHoveredByConnection
           ? 'ring-4 ring-red-400/40 border-[#b81519] shadow-lg z-10 scale-[1.01]'
           : `${meta.border} hover:shadow-lg z-0`
@@ -130,10 +143,14 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
             e.stopPropagation();
             onEndConnection(node.id);
           }}
-          title="Conectar a la entrada de este bloque"
-          className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-slate-400 dark:border-slate-300 flex items-center justify-center cursor-crosshair hover:scale-125 hover:bg-[#9e1114] hover:border-red-700 transition-all z-30 group shadow-sm"
+          title="Toca o suelta para conectar a la entrada de este bloque"
+          className={`absolute -top-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all z-30 shadow-sm ${
+            isConnectingTarget
+              ? 'bg-emerald-500 border-emerald-600 scale-125 animate-bounce'
+              : 'bg-slate-100 dark:bg-slate-800 border-slate-400 dark:border-slate-300 hover:scale-125 hover:bg-[#9e1114] hover:border-red-700'
+          }`}
         >
-          <div className="w-2.5 h-2.5 rounded-full bg-slate-400 dark:bg-slate-300 group-hover:bg-white transition-colors" />
+          <div className={`w-2.5 h-2.5 rounded-full ${isConnectingTarget ? 'bg-white' : 'bg-slate-400 dark:bg-slate-300'}`} />
         </div>
       )}
 
@@ -224,32 +241,41 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
               Opciones de salida:
             </span>
-            {node.data?.options?.map((opt, optIdx) => (
-              <div
-                key={opt.id || optIdx}
-                className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-900 dark:text-emerald-200 relative group"
-              >
-                <div className="flex items-center gap-1.5 min-w-0 pr-4">
-                  <span className="w-4 h-4 rounded-full bg-emerald-200 dark:bg-emerald-800 flex items-center justify-center text-[10px] font-bold shrink-0">
-                    {optIdx + 1}
-                  </span>
-                  <span className="truncate">{opt.label}</span>
-                </div>
-
-                {/* Handle individual de salida por opción (Rojo Táctica) */}
+            {node.data?.options?.map((opt, optIdx) => {
+              const isOptionActive = activeConnecting?.sourceNodeId === node.id && activeConnecting?.sourcePortId === (opt.id || `opt_${optIdx}`);
+              return (
                 <div
-                  id={`port-out-${node.id}-${opt.id || optIdx}`}
-                  onMouseDown={(e) => {
-                    e.stopPropagation();
-                    onStartConnection(node.id, opt.id || `opt_${optIdx}`, e);
-                  }}
-                  title={`Arrastra para conectar opción "${opt.label}"`}
-                  className="absolute -right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#9e1114] border-2 border-white dark:border-slate-800 flex items-center justify-center cursor-crosshair hover:scale-125 hover:bg-red-700 transition-all shadow-md z-30 group"
+                  key={opt.id || optIdx}
+                  className="flex items-center justify-between p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium text-emerald-900 dark:text-emerald-200 relative group"
                 >
-                  <div className="w-2 h-2 rounded-full bg-white" />
+                  <div className="flex items-center gap-1.5 min-w-0 pr-4">
+                    <span className="w-4 h-4 rounded-full bg-emerald-200 dark:bg-emerald-800 flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {optIdx + 1}
+                    </span>
+                    <span className="truncate">{opt.label}</span>
+                  </div>
+
+                  {/* Handle individual de salida por opción (Rojo Táctica) */}
+                  <div
+                    id={`port-out-${node.id}-${opt.id || optIdx}`}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                      onStartConnection(node.id, opt.id || `opt_${optIdx}`, e);
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStartConnection(node.id, opt.id || `opt_${optIdx}`, e);
+                    }}
+                    title={`Toca o arrastra para conectar la opción "${opt.label}"`}
+                    className={`absolute -right-3.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#9e1114] border-2 border-white dark:border-slate-800 flex items-center justify-center cursor-pointer transition-all shadow-md z-30 ${
+                      isOptionActive ? 'ring-4 ring-red-400 scale-125 animate-pulse' : 'hover:scale-125 hover:bg-red-700'
+                    }`}
+                  >
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -279,19 +305,28 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
       </div>
 
       {/* Default Output Handle (Inferior - Rojo Táctica) si no es menú múltiple */}
-      {!hasOptions && (
-        <div
-          id={`port-out-${node.id}-default`}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            onStartConnection(node.id, 'default', e);
-          }}
-          title="Arrastra para conectar con el siguiente bloque"
-          className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-[#9e1114] border-2 border-white dark:border-slate-800 flex items-center justify-center cursor-crosshair hover:scale-125 hover:bg-red-700 transition-all shadow-md z-30 group"
-        >
-          <div className="w-2.5 h-2.5 rounded-full bg-white" />
-        </div>
-      )}
+      {!hasOptions && (() => {
+        const isDefaultActive = activeConnecting?.sourceNodeId === node.id && (activeConnecting?.sourcePortId === 'default' || !activeConnecting?.sourcePortId);
+        return (
+          <div
+            id={`port-out-${node.id}-default`}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onStartConnection(node.id, 'default', e);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartConnection(node.id, 'default', e);
+            }}
+            title="Toca o arrastra para conectar con el siguiente bloque"
+            className={`absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-[#9e1114] border-2 border-white dark:border-slate-800 flex items-center justify-center cursor-pointer transition-all shadow-md z-30 ${
+              isDefaultActive ? 'ring-4 ring-red-400 scale-125 animate-pulse' : 'hover:scale-125 hover:bg-red-700'
+            }`}
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-white" />
+          </div>
+        );
+      })()}
     </div>
   );
 };

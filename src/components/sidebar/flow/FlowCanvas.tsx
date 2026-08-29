@@ -214,6 +214,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current || (e.target as HTMLElement).classList.contains('canvas-bg')) {
       setSelectedNodeId(null);
+      if (connectingState) {
+        setConnectingState(null);
+        stateRef.current.connectingState = null;
+      }
       stateRef.current.isPanning = true;
       stateRef.current.panStart = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     }
@@ -551,6 +555,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
                     hoveredConnection?.sourceNodeId === node.id ||
                     hoveredConnection?.targetNodeId === node.id
                   }
+                  activeConnecting={connectingState}
                   onSelect={(id) => setSelectedNodeId(id)}
                   onEdit={(n) => setEditingNode(n)}
                   onDelete={handleDeleteNode}
