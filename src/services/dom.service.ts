@@ -258,6 +258,10 @@ export const DOMService = {
         return null;
     },
 
+    getContactPhone(contactName?: string): string | null {
+        return this.getChatPhone(contactName);
+    },
+
     /**
      * Respaldo de getChatPhone() para cuando el header no muestra el número a simple vista (ej.
      * contactos guardados con nombre y foto — confirmado a mano, ago-2026: el header de "Ángel

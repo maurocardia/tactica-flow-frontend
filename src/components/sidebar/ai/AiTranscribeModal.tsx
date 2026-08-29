@@ -69,7 +69,7 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
       }
 
       // 2. Enviar a la API: Si hay Base64 lo manda, si no pasa messageId y phone para que Baileys lo descargue directo
-      const phone = DOMService.getContactPhone();
+      const phone = DOMService.getChatPhone(contactName);
       const res = await ApiService.transcribeAudio(
         base64 ? { audioBase64: base64 } : { messageId: item.id, phone: phone || undefined }
       );
