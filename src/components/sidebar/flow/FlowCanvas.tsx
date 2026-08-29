@@ -122,6 +122,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   });
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [editingNode, setEditingNode] = useState<BotFlowNode | null>(null);
   const [showSimulator, setShowSimulator] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -214,6 +215,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current || (e.target as HTMLElement).classList.contains('canvas-bg')) {
       setSelectedNodeId(null);
+      setSelectedConnectionId(null);
       if (connectingState) {
         setConnectingState(null);
         stateRef.current.connectingState = null;
@@ -309,6 +311,35 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       window.removeEventListener('mouseup', onMouseUp);
     };
   }, [handleEndConnection, screenToCanvasCoords]);
+
+  // Global Keyboard Shortcuts (Escape to cancel drag, Delete/Backspace to delete selected item)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) return;
+
+      if (e.key === 'Escape') {
+        if (stateRef.current.connectingState) {
+          setConnectingState(null);
+          stateRef.current.connectingState = null;
+        }
+        setSelectedConnectionId(null);
+        setSelectedNodeId(null);
+        setEditingNode(null);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedConnectionId) {
+          handleDeleteConnection(selectedConnectionId);
+          setSelectedConnectionId(null);
+        } else if (selectedNodeId) {
+          handleDeleteNode(selectedNodeId);
+          setSelectedNodeId(null);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedConnectionId, selectedNodeId]);
 
   // Start Connection
   const handleStartConnection = (sourceNodeId: string, sourcePortId?: string, e?: React.MouseEvent) => {
@@ -589,6 +620,11 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
             <FlowEdgeLayer
               nodes={flow.nodes}
               connections={flow.connections}
+              selectedConnectionId={selectedConnectionId}
+              onSelectConnection={(id) => {
+                setSelectedConnectionId(id);
+                if (id) setSelectedNodeId(null);
+              }}
               onDeleteConnection={handleDeleteConnection}
               onHoverConnection={(c) => setHoveredConnection(c)}
               activeConnecting={connectingState}

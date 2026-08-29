@@ -6,6 +6,8 @@ import { BotFlowConnection, BotFlowNode } from '@/types/bot';
 interface FlowEdgeLayerProps {
   nodes: BotFlowNode[];
   connections: BotFlowConnection[];
+  selectedConnectionId?: string | null;
+  onSelectConnection?: (connectionId: string | null) => void;
   onDeleteConnection: (connectionId: string) => void;
   hoveredNodeId?: string | null;
   onHoverConnection?: (connection: BotFlowConnection | null) => void;
@@ -26,6 +28,11 @@ interface Box {
   right: number;
   top: number;
   bottom: number;
+}
+
+interface PathResult {
+  d: string;
+  midPoint: Point;
 }
 
 /**
@@ -94,6 +101,8 @@ function generateRoundedStepPath(points: Point[], cornerRadius = 12): string {
 export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   nodes,
   connections,
+  selectedConnectionId,
+  onSelectConnection,
   onDeleteConnection,
   hoveredNodeId,
   onHoverConnection,
@@ -153,14 +162,14 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   };
 
   /**
-   * Generador de caminos ortogonales con esquiva inteligente de tarjetas intermedias (Obstacle Avoidance)
+   * Generador de caminos ortogonales que calcula el trazado y el punto exacto de la línea para el botón de borrar
    */
   const getStepPath = (
     start: { x: number; y: number; isRightPort?: boolean },
     end: { x: number; y: number },
     sourceNodeId?: string,
     targetNodeId?: string
-  ) => {
+  ): PathResult => {
     const x1 = Number.isFinite(start.x) ? Math.round(start.x) : 100;
     const y1 = Number.isFinite(start.y) ? Math.round(start.y) : 100;
     const x2 = Number.isFinite(end.x) ? Math.round(end.x) : 200;
@@ -190,22 +199,28 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       const exitCorridorX = x1 + 28;
       if (deltaX >= 40 && deltaY >= 20) {
         const midY = Math.round(y1 + Math.max(deltaY / 2, 20));
-        return generateRoundedStepPath([
-          { x: x1, y: y1 },
-          { x: exitCorridorX, y: y1 },
-          { x: exitCorridorX, y: midY },
-          { x: x2, y: midY },
-          { x: x2, y: y2 }
-        ], 10);
+        return {
+          d: generateRoundedStepPath([
+            { x: x1, y: y1 },
+            { x: exitCorridorX, y: y1 },
+            { x: exitCorridorX, y: midY },
+            { x: x2, y: midY },
+            { x: x2, y: y2 }
+          ], 10),
+          midPoint: { x: (exitCorridorX + x2) / 2, y: midY }
+        };
       } else {
         const entryCorridorY = y2 - 28;
-        return generateRoundedStepPath([
-          { x: x1, y: y1 },
-          { x: exitCorridorX, y: y1 },
-          { x: exitCorridorX, y: entryCorridorY },
-          { x: x2, y: entryCorridorY },
-          { x: x2, y: y2 }
-        ], 10);
+        return {
+          d: generateRoundedStepPath([
+            { x: x1, y: y1 },
+            { x: exitCorridorX, y: y1 },
+            { x: exitCorridorX, y: entryCorridorY },
+            { x: x2, y: entryCorridorY },
+            { x: x2, y: y2 }
+          ], 10),
+          midPoint: { x: exitCorridorX, y: (y1 + entryCorridorY) / 2 }
+        };
       }
     }
 
@@ -221,36 +236,44 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
     // Caso 2: Hay tarjetas intermedias en medio (ej: de fila 1 a fila 3 en la misma columna)
     if (blockingObstacles.length > 0) {
-      // Encontrar el borde derecho más lejano de todos los obstáculos para bordear por la avenida
       const maxObstacleRight = Math.max(...blockingObstacles.map((b) => b.right), x1 + 144 + 20);
       const avenueX = maxObstacleRight + 12;
       const exitY = y1 + 24;
       const entryY = y2 - 24;
 
-      return generateRoundedStepPath([
-        { x: x1, y: y1 },
-        { x: x1, y: exitY },
-        { x: avenueX, y: exitY },
-        { x: avenueX, y: entryY },
-        { x: x2, y: entryY },
-        { x: x2, y: y2 }
-      ], 12);
+      return {
+        d: generateRoundedStepPath([
+          { x: x1, y: y1 },
+          { x: x1, y: exitY },
+          { x: avenueX, y: exitY },
+          { x: avenueX, y: entryY },
+          { x: x2, y: entryY },
+          { x: x2, y: y2 }
+        ], 12),
+        midPoint: { x: avenueX, y: (exitY + entryY) / 2 }
+      };
     }
 
     // Caso 3: Destino está justo abajo sin obstáculos en medio
     if (Math.abs(deltaX) < 10 && deltaY >= 20) {
-      return `M ${x1} ${y1} L ${x2} ${y2}`;
+      return {
+        d: `M ${x1} ${y1} L ${x2} ${y2}`,
+        midPoint: { x: x1, y: (y1 + y2) / 2 }
+      };
     }
 
     // Caso 4: Destino está abajo (deltaY >= 40) en otra columna sin obstáculos intermedios
     if (deltaY >= 40) {
       const midY = Math.round(y1 + deltaY / 2);
-      return generateRoundedStepPath([
-        { x: x1, y: y1 },
-        { x: x1, y: midY },
-        { x: x2, y: midY },
-        { x: x2, y: y2 }
-      ], 12);
+      return {
+        d: generateRoundedStepPath([
+          { x: x1, y: y1 },
+          { x: x1, y: midY },
+          { x: x2, y: midY },
+          { x: x2, y: y2 }
+        ], 12),
+        midPoint: { x: (x1 + x2) / 2, y: midY }
+      };
     }
 
     // Caso 5: Destino está en la misma fila, arriba o al lado (deltaY < 40)
@@ -262,14 +285,17 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       verticalCorridorX = x1 + 170;
     }
 
-    return generateRoundedStepPath([
-      { x: x1, y: y1 },
-      { x: x1, y: exitY },
-      { x: verticalCorridorX, y: exitY },
-      { x: verticalCorridorX, y: entryY },
-      { x: x2, y: entryY },
-      { x: x2, y: y2 }
-    ], 12);
+    return {
+      d: generateRoundedStepPath([
+        { x: x1, y: y1 },
+        { x: x1, y: exitY },
+        { x: verticalCorridorX, y: exitY },
+        { x: verticalCorridorX, y: entryY },
+        { x: x2, y: entryY },
+        { x: x2, y: y2 }
+      ], 12),
+      midPoint: { x: verticalCorridorX, y: (exitY + entryY) / 2 }
+    };
   };
 
   return (
@@ -331,20 +357,21 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
         const start = getNodeCenterCoords(sourceNode, conn.sourcePortId, false);
         const end = getNodeCenterCoords(targetNode, undefined, true);
-        const pathData = getStepPath(start, end, sourceNode.id, targetNode.id);
-
-        // Punto medio aproximado para el botón de eliminar
-        const midX = (start.x + end.x) / 2;
-        const midY = (start.y + end.y) / 2;
+        const { d: pathData, midPoint } = getStepPath(start, end, sourceNode.id, targetNode.id);
 
         const isHovered = hoveredEdgeId === conn.id;
+        const isSelected = selectedConnectionId === conn.id;
         const isNodeRelated = hoveredNodeId === conn.sourceNodeId || hoveredNodeId === conn.targetNodeId;
-        const isHighlighted = isHovered || isNodeRelated;
+        const isHighlighted = isHovered || isSelected || isNodeRelated;
 
         return (
           <g
             key={conn.id}
             className="pointer-events-auto cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectConnection?.(conn.id);
+            }}
             onMouseEnter={() => {
               setHoveredEdgeId(conn.id);
               onHoverConnection?.(conn);
@@ -359,17 +386,17 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
               d={pathData}
               fill="none"
               stroke="transparent"
-              strokeWidth="24"
+              strokeWidth="28"
             />
 
-            {/* Cable visual de resplandor cuando está en hover */}
+            {/* Cable visual de resplandor cuando está en hover o seleccionado */}
             {isHighlighted && (
               <path
                 d={pathData}
                 fill="none"
                 stroke="#ef4444"
                 strokeWidth="7"
-                strokeOpacity="0.35"
+                strokeOpacity={isSelected ? 0.6 : 0.35}
                 filter="url(#glow-red)"
               />
             )}
@@ -394,18 +421,18 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
               </>
             )}
 
-            {/* Botón flotante para borrar conexión al hacer hover */}
-            {isHovered && (
+            {/* Botón flotante para borrar conexión EXACTAMENTE sobre la línea */}
+            {(isHovered || isSelected) && (
               <g
-                transform={`translate(${midX - 13}, ${midY - 13})`}
+                transform={`translate(${midPoint.x - 12}, ${midPoint.y - 12})`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDeleteConnection(conn.id);
                 }}
                 className="cursor-pointer group"
               >
-                <circle cx="13" cy="13" r="13" fill="#dc2626" className="shadow-lg hover:fill-red-700 transition-colors" />
-                <X x="6.5" y="6.5" width="13" height="13" stroke="white" strokeWidth="2.5" />
+                <circle cx="12" cy="12" r="12" fill="#dc2626" className="shadow-xl hover:fill-red-700 hover:scale-110 transition-transform" />
+                <X x="6" y="6" width="12" height="12" stroke="white" strokeWidth="2.5" />
               </g>
             )}
           </g>
@@ -418,7 +445,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         if (!sourceNode) return null;
         const start = getNodeCenterCoords(sourceNode, activeConnecting.sourcePortId, false);
         const end = activeConnecting.currentMousePos;
-        const pathData = getStepPath(start, end, sourceNode.id);
+        const { d: pathData } = getStepPath(start, end, sourceNode.id);
 
         return (
           <g>
