@@ -507,10 +507,12 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   };
 
   const handleSaveNodeProperties = (updatedNode: BotFlowNode) => {
-    setFlow((prev) => ({
-      ...prev,
-      nodes: prev.nodes.map((n) => (n.id === updatedNode.id ? updatedNode : n))
-    }));
+    setFlow((prev) => {
+      const updatedNodes = prev.nodes.map((n) => (n.id === updatedNode.id ? updatedNode : n));
+      const nextFlow = { ...prev, nodes: updatedNodes };
+      stateRef.current.flow = nextFlow;
+      return nextFlow;
+    });
     setEditingNode(null);
   };
 

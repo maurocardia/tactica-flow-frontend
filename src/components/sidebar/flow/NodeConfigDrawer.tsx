@@ -39,12 +39,21 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
 
   useEffect(() => {
     if (node) {
-      setName(node.data.name || node.title || '');
+      setName(node.data?.name || node.title || '');
       setType(node.type);
-      setKeywords(node.data.keywords || []);
-      setReplyText(node.data.replyText || '');
-      setOptions(node.data.options || []);
-      setDelaySeconds(node.data.delaySeconds || 2);
+      setKeywords(node.data?.keywords ? [...node.data.keywords] : []);
+      setReplyText(node.data?.replyText || '');
+      setOptions(
+        node.data?.options && node.data.options.length > 0
+          ? node.data.options.map((o, idx) => ({ ...o, id: o.id || `opt_${Date.now()}_${idx + 1}` }))
+          : node.type === 'OPTIONS_MENU'
+          ? [
+              { id: `opt_${Date.now()}_1`, label: '1. Opción A', keyword: '1', targetNodeId: null },
+              { id: `opt_${Date.now()}_2`, label: '2. Opción B', keyword: '2', targetNodeId: null }
+            ]
+          : []
+      );
+      setDelaySeconds(node.data?.delaySeconds || 2);
     }
   }, [node]);
 
@@ -65,7 +74,7 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
   const handleAddOption = () => {
     const nextNum = options.length + 1;
     const newOption: FlowNodeOption = {
-      id: `opt_${Date.now()}_${nextNum}`,
+      id: `opt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       label: `${nextNum}. Opción ${nextNum}`,
       keyword: `${nextNum}`,
       targetNodeId: null
@@ -87,19 +96,28 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
     setReplyText((prev) => `${prev} {${varName}}`);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
     const updated: BotFlowNode = {
       ...node,
       type,
       title: name.trim() || node.title,
       data: {
         ...node.data,
-        name: name.trim(),
-        keywords,
-        replyText: replyText.trim(),
-        options: type === 'OPTIONS_MENU' ? options : undefined,
-        delaySeconds: type === 'DELAY' ? delaySeconds : undefined
+        name: name.trim() || node.data?.name || node.title,
+        keywords: keywords || [],
+        replyText: replyText || '',
+        options:
+          type === 'OPTIONS_MENU'
+            ? options.map((opt, i) => ({
+                ...opt,
+                id: opt.id || `opt_${Date.now()}_${i + 1}`,
+                label: opt.label.trim() || `Opción ${i + 1}`,
+                keyword: opt.keyword.trim() || `${i + 1}`
+              }))
+            : undefined,
+        delaySeconds: type === 'DELAY' ? delaySeconds : undefined,
+        isActive: true
       }
     };
     onSave(updated);
@@ -110,7 +128,7 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
   return (
     <div className="fixed inset-y-0 right-0 w-96 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-200 select-none">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50">
+      <div className="px-4 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-950/50 shrink-0">
         <div>
           <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
             Configuración del Bloque
@@ -122,14 +140,14 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Formulario */}
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 text-xs">
+      <form id="node-config-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 text-xs">
         {/* Nombre del bloque */}
         <div>
           <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
@@ -139,34 +157,46 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Saludo Inicial / Catálogo"
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-hidden"
+            placeholder="Ej: Saludo Inicial / Consulta Precios"
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-hidden"
           />
         </div>
 
-        {/* Tipo de bloque */}
-        <div>
-          <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-            Tipo de bloque:
-          </label>
-          <select
-            value={type}
-            onChange={(e) => setType(e.target.value as NodeType)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-hidden cursor-pointer"
-          >
-            {PALETTE_BLOCKS.map((b) => (
-              <option key={b.type} value={b.type}>
-                {b.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Tipo de bloque (Selector) */}
+        {!isTrigger && (
+          <div>
+            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+              Tipo de acción:
+            </label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {PALETTE_BLOCKS.filter((b) => b.type !== 'TRIGGER').map((b) => {
+                const Icon = b.icon;
+                const isCurrent = type === b.type;
+                return (
+                  <button
+                    key={b.type}
+                    type="button"
+                    onClick={() => setType(b.type)}
+                    className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                      isCurrent
+                        ? 'border-red-600 bg-red-50 dark:bg-red-950/40 text-red-950 dark:text-red-200 font-bold shadow-xs'
+                        : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate text-[11px]">{b.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-        {/* Palabras Clave (para Trigger o para cualquier nodo) */}
+        {/* Palabras Clave (si es TRIGGER o si quiere palabras activadoras adicionales) */}
         {(isTrigger || type === 'STATIC_REPLY' || type === 'OPTIONS_MENU') && (
           <div>
             <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-              Palabras clave activadoras:
+              Palabras clave activadoras (Disparador):
             </label>
             <div className="flex gap-1.5 mb-2">
               <input
@@ -179,23 +209,23 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
                     handleAddKeyword();
                   }
                 }}
-                placeholder="Escribe y presiona Enter (ej: hola)"
-                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs outline-hidden"
+                placeholder="Escribe palabra y presiona Enter o +"
+                className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-hidden"
               />
               <button
                 type="button"
                 onClick={handleAddKeyword}
-                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-slate-800 dark:bg-slate-700 text-white font-bold hover:bg-slate-700 transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 min-h-[32px] p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+            <div className="flex flex-wrap gap-1.5 min-h-8 p-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
               {keywords.map((kw, i) => (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-medium text-[11px]"
+                  className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-800 flex items-center gap-1 font-medium text-[11px]"
                 >
                   {kw}
                   <button
@@ -228,14 +258,14 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
                 <button
                   type="button"
                   onClick={() => insertVariable('nombre')}
-                  className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-semibold hover:bg-purple-100 cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 text-[10px] font-semibold hover:bg-red-100 cursor-pointer"
                 >
                   {'{nombre}'}
                 </button>
                 <button
                   type="button"
                   onClick={() => insertVariable('empresa')}
-                  className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-semibold hover:bg-purple-100 cursor-pointer"
+                  className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 text-[10px] font-semibold hover:bg-red-100 cursor-pointer"
                 >
                   {'{empresa}'}
                 </button>
@@ -247,7 +277,7 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               placeholder="Escribe la respuesta que enviará el bot..."
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-normal focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-hidden resize-none"
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-normal focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-hidden resize-none"
             />
           </div>
         )}
@@ -332,7 +362,7 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
       </form>
 
       {/* Footer */}
-      <div className="p-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex items-center justify-end gap-2">
+      <div className="p-3.5 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex items-center justify-end gap-2 shrink-0">
         <button
           type="button"
           onClick={onClose}
@@ -341,9 +371,9 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
           Cancelar
         </button>
         <button
-          type="button"
-          onClick={handleSubmit}
-          className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md cursor-pointer transition-all"
+          type="submit"
+          form="node-config-form"
+          className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs shadow-md cursor-pointer transition-all"
         >
           <Save className="w-3.5 h-3.5" /> Guardar Cambios
         </button>
