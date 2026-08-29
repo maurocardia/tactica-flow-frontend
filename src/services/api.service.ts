@@ -5,6 +5,7 @@ import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
+import { Conversation, ConversationMessage } from "@/types/conversation";
 import { API_URL } from '../config/env';
 import { getStoredToken } from './authStorage.service';
 
