@@ -249,12 +249,12 @@ export const ApiService = {
     },
 
     async transcribeAudio(
-        input: string | { audioBase64?: string; messageId?: string; mimeType?: string },
+        input: string | { audioBase64?: string; messageId?: string; phone?: string; mimeType?: string },
         mimeType: string = 'audio/ogg'
     ): Promise<{ success: boolean; transcription: string }> {
         const payload = typeof input === 'string'
             ? { audioBase64: input, mimeType }
-            : { audioBase64: input.audioBase64, messageId: input.messageId, mimeType: input.mimeType || mimeType };
+            : { audioBase64: input.audioBase64, messageId: input.messageId, phone: input.phone, mimeType: input.mimeType || mimeType };
 
         return this.sendBackgroundRequest<{ success: boolean; transcription: string }>('/ai/transcribe', 'POST', payload);
     },

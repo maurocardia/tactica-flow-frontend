@@ -68,9 +68,10 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
         console.log('[AiTranscribeModal] Fallback a descarga directa vía Baileys en backend...', domErr);
       }
 
-      // 2. Enviar a la API: Si hay Base64 lo manda, si no pasa messageId para que Baileys lo descargue directo
+      // 2. Enviar a la API: Si hay Base64 lo manda, si no pasa messageId y phone para que Baileys lo descargue directo
+      const phone = DOMService.getContactPhone();
       const res = await ApiService.transcribeAudio(
-        base64 ? { audioBase64: base64 } : { messageId: item.id }
+        base64 ? { audioBase64: base64 } : { messageId: item.id, phone: phone || undefined }
       );
       const transcriptionText = res.transcription || '(Audio vacío o sin voz inteligible)';
 

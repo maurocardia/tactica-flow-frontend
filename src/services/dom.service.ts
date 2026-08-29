@@ -970,23 +970,29 @@ export const DOMService = {
         let blobUrl = rowIdOrSrc && rowIdOrSrc.startsWith('blob:') ? rowIdOrSrc : null;
 
         if (!blobUrl && rowIdOrSrc) {
-            const row = document.querySelector(`div[data-id="${rowIdOrSrc}"]`);
+            const cleanId = rowIdOrSrc.trim();
+            const row = document.querySelector(`[data-tactica-audio-id="${cleanId}"]`) ||
+                document.querySelector(`div[data-id="${cleanId}"]`) ||
+                document.querySelector(`div[data-id*="${cleanId}"]`) ||
+                document.querySelector(`[data-id$="${cleanId}"]`);
+
             if (row) {
                 let audioEl = row.querySelector('audio') as HTMLAudioElement | null;
                 blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
 
                 // Si no tiene blob aún, simular clic en el botón de play para que WhatsApp Web cargue el blob
                 if (!blobUrl) {
-                    const playBtn = (row.querySelector('button[aria-label*="Play"]') ||
-                        row.querySelector('button[aria-label*="reproducir"]') ||
-                        row.querySelector('button[aria-label*="Audio"]') ||
+                    const playBtn = (row.querySelector('button[aria-label*="Play" i]') ||
+                        row.querySelector('button[aria-label*="reproducir" i]') ||
+                        row.querySelector('button[aria-label*="Audio" i]') ||
                         row.querySelector('[data-icon*="audio-play"]') ||
+                        row.querySelector('[data-icon*="play"]') ||
                         row.querySelector('button')) as HTMLElement | null;
 
                     if (playBtn) {
                         try {
                             playBtn.click();
-                            await new Promise((r) => setTimeout(r, 450));
+                            await new Promise((r) => setTimeout(r, 600));
                             audioEl = row.querySelector('audio') as HTMLAudioElement | null;
                             blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
                             if (audioEl) {
@@ -1002,7 +1008,7 @@ export const DOMService = {
 
         if (!blobUrl) {
             const detected = this.getVisibleAudios();
-            const found = detected.find((a) => a.id === rowIdOrSrc);
+            const found = detected.find((a) => a.id === rowIdOrSrc || a.id.includes(rowIdOrSrc));
             if (found && found.src) {
                 blobUrl = found.src;
             }
