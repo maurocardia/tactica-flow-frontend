@@ -131,6 +131,13 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 40, y: 40 });
 
+  // Connecting Wire
+  const [connectingState, setConnectingState] = useState<{
+    sourceNodeId: string;
+    sourcePortId?: string;
+    currentMousePos: { x: number; y: number };
+  } | null>(null);
+
   // Refs de estado para interactuar con eventos nativos sin re-renders destructivos
   const stateRef = useRef({
     flow,
@@ -151,13 +158,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   stateRef.current.zoom = zoom;
   stateRef.current.pan = pan;
   stateRef.current.connectingState = connectingState;
-
-  // Connecting Wire
-  const [connectingState, setConnectingState] = useState<{
-    sourceNodeId: string;
-    sourcePortId?: string;
-    currentMousePos: { x: number; y: number };
-  } | null>(null);
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
