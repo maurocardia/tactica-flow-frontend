@@ -21,8 +21,15 @@ interface Point {
   y: number;
 }
 
+interface Box {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 /**
- * Genera un trazado SVG ortogonal (Manhattan / Step) con esquinas redondeadas suaves
+ * Genera un trazado SVG ortogonal (Manhattan / Step) con esquinas redondeadas suaves (12px)
  */
 function generateRoundedStepPath(points: Point[], cornerRadius = 12): string {
   if (!points || points.length === 0) return '';
@@ -146,11 +153,13 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   };
 
   /**
-   * Generador de caminos ortogonales por los pasillos entre tarjetas (evita tocar las cards)
+   * Generador de caminos ortogonales con esquiva inteligente de tarjetas intermedias (Obstacle Avoidance)
    */
   const getStepPath = (
     start: { x: number; y: number; isRightPort?: boolean },
-    end: { x: number; y: number }
+    end: { x: number; y: number },
+    sourceNodeId?: string,
+    targetNodeId?: string
   ) => {
     const x1 = Number.isFinite(start.x) ? Math.round(start.x) : 100;
     const y1 = Number.isFinite(start.y) ? Math.round(start.y) : 100;
@@ -161,11 +170,25 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     const deltaY = y2 - y1;
     const deltaX = x2 - x1;
 
+    // Obtener las cajas delimitadoras de los demás nodos (obstáculos)
+    const obstacleBoxes: Box[] = nodes
+      .filter((n) => n.id !== sourceNodeId && n.id !== targetNodeId)
+      .map((n) => {
+        const cardEl = typeof document !== 'undefined' ? document.getElementById(`flow-node-${n.id}`) : null;
+        const h = cardEl ? cardEl.offsetHeight : 175;
+        const pad = 16;
+        return {
+          left: (n.position?.x || 0) - pad,
+          right: (n.position?.x || 0) + 288 + pad,
+          top: (n.position?.y || 0) - pad,
+          bottom: (n.position?.y || 0) + h + pad
+        };
+      });
+
     // Caso 1: Salida desde la derecha (opción de menú)
     if (isRightPort) {
-      const exitCorridorX = x1 + 28; // Salir a la derecha al pasillo vertical
+      const exitCorridorX = x1 + 28;
       if (deltaX >= 40 && deltaY >= 20) {
-        // Destino a la derecha y abajo
         const midY = Math.round(y1 + Math.max(deltaY / 2, 20));
         return generateRoundedStepPath([
           { x: x1, y: y1 },
@@ -175,7 +198,6 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
           { x: x2, y: y2 }
         ], 10);
       } else {
-        // Destino arriba o a la izquierda: salir a la derecha, viajar por el pasillo y entrar arriba
         const entryCorridorY = y2 - 28;
         return generateRoundedStepPath([
           { x: x1, y: y1 },
@@ -187,13 +209,41 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       }
     }
 
-    // Caso 2: Destino está alineado verticalmente justo abajo
+    // Verificar si hay algún nodo obstáculo en el trayecto vertical directo
+    const minX = Math.min(x1, x2) - 10;
+    const maxX = Math.max(x1, x2) + 10;
+    const minY = Math.min(y1, y2) + 10;
+    const maxY = Math.max(y1, y2) - 10;
+
+    const blockingObstacles = obstacleBoxes.filter(
+      (b) => !(b.right < minX || b.left > maxX || b.bottom < minY || b.top > maxY)
+    );
+
+    // Caso 2: Hay tarjetas intermedias en medio (ej: de fila 1 a fila 3 en la misma columna)
+    if (blockingObstacles.length > 0) {
+      // Encontrar el borde derecho más lejano de todos los obstáculos para bordear por la avenida
+      const maxObstacleRight = Math.max(...blockingObstacles.map((b) => b.right), x1 + 144 + 20);
+      const avenueX = maxObstacleRight + 12;
+      const exitY = y1 + 24;
+      const entryY = y2 - 24;
+
+      return generateRoundedStepPath([
+        { x: x1, y: y1 },
+        { x: x1, y: exitY },
+        { x: avenueX, y: exitY },
+        { x: avenueX, y: entryY },
+        { x: x2, y: entryY },
+        { x: x2, y: y2 }
+      ], 12);
+    }
+
+    // Caso 3: Destino está justo abajo sin obstáculos en medio
     if (Math.abs(deltaX) < 10 && deltaY >= 20) {
       return `M ${x1} ${y1} L ${x2} ${y2}`;
     }
 
-    // Caso 3: Destino está claramente abajo (deltaY >= 50)
-    if (deltaY >= 50) {
+    // Caso 4: Destino está abajo (deltaY >= 40) en otra columna sin obstáculos intermedios
+    if (deltaY >= 40) {
       const midY = Math.round(y1 + deltaY / 2);
       return generateRoundedStepPath([
         { x: x1, y: y1 },
@@ -203,15 +253,12 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       ], 12);
     }
 
-    // Caso 4: Destino está en la misma fila, arriba o al lado (deltaY < 50)
-    // RUTEO ESTRICTO POR LOS PASILLOS DE LA CUADRÍCULA PARA NUNCA TOCAR LAS TARJETAS:
-    const exitY = y1 + 28; // Pasillo horizontal inferior debajo de la fila origen
-    const entryY = y2 - 28; // Pasillo horizontal superior arriba de la fila destino
+    // Caso 5: Destino está en la misma fila, arriba o al lado (deltaY < 40)
+    const exitY = y1 + 28;
+    const entryY = y2 - 28;
 
-    // Pasillo vertical intermedio en el espacio libre entre columnas
     let verticalCorridorX = Math.round((x1 + x2) / 2);
     if (Math.abs(deltaX) < 60) {
-      // Si están en la misma columna pero hacia arriba, bordear por la derecha de la tarjeta
       verticalCorridorX = x1 + 170;
     }
 
@@ -284,7 +331,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
         const start = getNodeCenterCoords(sourceNode, conn.sourcePortId, false);
         const end = getNodeCenterCoords(targetNode, undefined, true);
-        const pathData = getStepPath(start, end);
+        const pathData = getStepPath(start, end, sourceNode.id, targetNode.id);
 
         // Punto medio aproximado para el botón de eliminar
         const midX = (start.x + end.x) / 2;
@@ -371,7 +418,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         if (!sourceNode) return null;
         const start = getNodeCenterCoords(sourceNode, activeConnecting.sourcePortId, false);
         const end = activeConnecting.currentMousePos;
-        const pathData = getStepPath(start, end);
+        const pathData = getStepPath(start, end, sourceNode.id);
 
         return (
           <g>
