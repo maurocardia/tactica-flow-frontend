@@ -323,12 +323,30 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     setConnectingState(newConnState);
   };
 
-  // Zoom Wheel
+  // Zoom Wheel (Suave y enfocado hacia la posición del cursor)
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZoom = Math.min(Math.max(zoom * zoomFactor, 0.4), 2.0);
-    setZoom(newZoom);
+    if (!canvasRef.current) return;
+
+    // Amortiguación suave para ruedas de mouse y trackpads
+    const step = -e.deltaY * 0.0008;
+    const clampedDelta = Math.max(-0.05, Math.min(0.05, step));
+    const currentZoom = stateRef.current.zoom || 1;
+    const newZoom = Math.min(Math.max(currentZoom + clampedDelta, 0.4), 2.0);
+
+    if (Math.abs(newZoom - currentZoom) < 0.001) return;
+
+    // Zoom enfocado en el punto exacto donde apunta el cursor
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const currentPan = stateRef.current.pan;
+
+    const newPanX = mouseX - (mouseX - currentPan.x) * (newZoom / currentZoom);
+    const newPanY = mouseY - (mouseY - currentPan.y) * (newZoom / currentZoom);
+
+    setZoom(Number(newZoom.toFixed(3)));
+    setPan({ x: Math.round(newPanX), y: Math.round(newPanY) });
   };
 
   // Add Block from Palette
