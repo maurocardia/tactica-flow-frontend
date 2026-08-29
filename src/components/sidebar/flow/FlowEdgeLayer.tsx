@@ -36,6 +36,21 @@ interface PathResult {
 }
 
 /**
+ * Busca un elemento del DOM incluso si está encapsulado dentro del Shadow DOM
+ */
+function findFlowElement(id: string): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  const direct = document.getElementById(id);
+  if (direct) return direct;
+
+  const host = document.getElementById('tactica-flow-host') || document.querySelector('#tactica-flow-host');
+  if (host && (host as any).shadowRoot) {
+    return (host as any).shadowRoot.getElementById(id) || (host as any).shadowRoot.querySelector(`#${id}`);
+  }
+  return null;
+}
+
+/**
  * Genera un trazado SVG ortogonal (Manhattan / Step) con esquinas redondeadas suaves (12px)
  */
 function generateRoundedStepPath(points: Point[], cornerRadius = 12): string {
@@ -115,8 +130,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     const posX = Number.isFinite(node?.position?.x) ? node.position.x : 100;
     const posY = Number.isFinite(node?.position?.y) ? node.position.y : 100;
 
-    // Medir la altura real del nodo en el DOM si está disponible
-    const cardEl = typeof document !== 'undefined' ? document.getElementById(`flow-node-${node.id}`) : null;
+    const cardEl = findFlowElement(`flow-node-${node.id}`);
     const renderedHeight = cardEl ? cardEl.offsetHeight : 175;
 
     if (isInput) {
@@ -130,7 +144,8 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
     // Puerto de salida por opción (a la derecha):
     if (portId && portId !== 'default' && node.data?.options) {
-      const portEl = typeof document !== 'undefined' ? document.getElementById(`port-out-${node.id}-${portId}`) : null;
+      // Buscar el elemento exacto del puerto de la opción en el DOM
+      const portEl = findFlowElement(`port-out-${node.id}-${portId}`);
       if (portEl && cardEl) {
         const cardRect = cardEl.getBoundingClientRect();
         const portRect = portEl.getBoundingClientRect();
@@ -141,13 +156,19 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
           isRightPort: true
         };
       }
+
+      // Si aún no está en el DOM, calcular posición relativa precisa por índice
       const optIdx = node.data.options.findIndex((o, i) => (o.id || `opt_${i}`) === portId);
       if (optIdx !== -1) {
-        const headerH = 42;
-        const optionsStart = headerH + 60;
+        // Altura estimada del header (44px) + margen + caja de opción
+        const headerH = 44;
+        const msgHeight = node.data?.replyText ? 48 : 0;
+        const optionsHeaderH = 20;
+        const optionItemH = 40;
+        const estimatedPortY = headerH + msgHeight + optionsHeaderH + optIdx * optionItemH + 20;
         return {
           x: posX + nodeWidth,
-          y: posY + optionsStart + optIdx * 36 + 18,
+          y: posY + estimatedPortY,
           isRightPort: true
         };
       }
@@ -162,7 +183,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   };
 
   /**
-   * Generador de caminos ortogonales que calcula el trazado y el punto exacto de la línea para el botón de borrar
+   * Generador de caminos ortogonales con esquiva inteligente sin rodeos innecesarios
    */
   const getStepPath = (
     start: { x: number; y: number; isRightPort?: boolean },
@@ -179,26 +200,26 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     const deltaY = y2 - y1;
     const deltaX = x2 - x1;
 
-    // Obtener las cajas delimitadoras de los demás nodos (obstáculos)
+    // Cajas delimitadoras de los demás nodos (obstáculos)
     const obstacleBoxes: Box[] = nodes
       .filter((n) => n.id !== sourceNodeId && n.id !== targetNodeId)
       .map((n) => {
-        const cardEl = typeof document !== 'undefined' ? document.getElementById(`flow-node-${n.id}`) : null;
+        const cardEl = findFlowElement(`flow-node-${n.id}`);
         const h = cardEl ? cardEl.offsetHeight : 175;
-        const pad = 16;
         return {
-          left: (n.position?.x || 0) - pad,
-          right: (n.position?.x || 0) + 288 + pad,
-          top: (n.position?.y || 0) - pad,
-          bottom: (n.position?.y || 0) + h + pad
+          left: (n.position?.x || 0) - 8,
+          right: (n.position?.x || 0) + 288 + 8,
+          top: (n.position?.y || 0) - 8,
+          bottom: (n.position?.y || 0) + h + 8
         };
       });
 
     // Caso 1: Salida desde la derecha (opción de menú)
     if (isRightPort) {
       const exitCorridorX = x1 + 28;
-      if (deltaX >= 40 && deltaY >= 20) {
-        const midY = Math.round(y1 + Math.max(deltaY / 2, 20));
+      if (deltaX >= 40 && deltaY >= 10) {
+        // Destino claramente a la derecha y abajo
+        const midY = Math.round(y1 + deltaY / 2);
         return {
           d: generateRoundedStepPath([
             { x: x1, y: y1 },
@@ -210,7 +231,8 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
           midPoint: { x: (exitCorridorX + x2) / 2, y: midY }
         };
       } else {
-        const entryCorridorY = y2 - 28;
+        // Destino arriba, alineado o a la izquierda: salir a la derecha, subir/bajar por el pasillo y entrar arriba
+        const entryCorridorY = y2 - 24;
         return {
           d: generateRoundedStepPath([
             { x: x1, y: y1 },
@@ -224,22 +246,50 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       }
     }
 
-    // Verificar si hay algún nodo obstáculo en el trayecto vertical directo
-    const minX = Math.min(x1, x2) - 10;
-    const maxX = Math.max(x1, x2) + 10;
-    const minY = Math.min(y1, y2) + 10;
-    const maxY = Math.max(y1, y2) - 10;
+    // Caso 2: Destino alineado verticalmente justo abajo
+    if (Math.abs(deltaX) < 12 && deltaY >= 15) {
+      // Verificar si hay alguna tarjeta intermedia entre medio en la misma columna
+      const hasIntermediateCard = obstacleBoxes.some(
+        (b) => b.left < x1 + 40 && b.right > x1 - 40 && b.top > y1 + 10 && b.bottom < y2 - 10
+      );
 
-    const blockingObstacles = obstacleBoxes.filter(
-      (b) => !(b.right < minX || b.left > maxX || b.bottom < minY || b.top > maxY)
-    );
+      if (!hasIntermediateCard) {
+        return {
+          d: `M ${x1} ${y1} L ${x2} ${y2}`,
+          midPoint: { x: x1, y: (y1 + y2) / 2 }
+        };
+      }
+    }
 
-    // Caso 2: Hay tarjetas intermedias en medio (ej: de fila 1 a fila 3 en la misma columna)
-    if (blockingObstacles.length > 0) {
-      const maxObstacleRight = Math.max(...blockingObstacles.map((b) => b.right), x1 + 144 + 20);
-      const avenueX = maxObstacleRight + 12;
-      const exitY = y1 + 24;
-      const entryY = y2 - 24;
+    // Caso 3: Destino está en una fila inferior (deltaY >= 25)
+    if (deltaY >= 25) {
+      const midY = Math.round(y1 + deltaY / 2);
+
+      // Verificar si la línea horizontal en midY atraviesa alguna tarjeta
+      const minX = Math.min(x1, x2) + 10;
+      const maxX = Math.max(x1, x2) - 10;
+      const horizontalObstacles = obstacleBoxes.filter(
+        (b) => !(b.right < minX || b.left > maxX || b.bottom < midY || b.top > midY)
+      );
+
+      // Si la calle horizontal intermedia está libre, hacer el giro directo sin rodeos
+      if (horizontalObstacles.length === 0) {
+        return {
+          d: generateRoundedStepPath([
+            { x: x1, y: y1 },
+            { x: x1, y: midY },
+            { x: x2, y: midY },
+            { x: x2, y: y2 }
+          ], 12),
+          midPoint: { x: (x1 + x2) / 2, y: midY }
+        };
+      }
+
+      // Si hay una tarjeta bloqueando la calle horizontal en midY, bordear por la avenida lateral
+      const maxObstacleRight = Math.max(...horizontalObstacles.map((b) => b.right), x1 + 144 + 20);
+      const avenueX = maxObstacleRight + 16;
+      const exitY = y1 + 20;
+      const entryY = y2 - 20;
 
       return {
         d: generateRoundedStepPath([
@@ -254,35 +304,13 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       };
     }
 
-    // Caso 3: Destino está justo abajo sin obstáculos en medio
-    if (Math.abs(deltaX) < 10 && deltaY >= 20) {
-      return {
-        d: `M ${x1} ${y1} L ${x2} ${y2}`,
-        midPoint: { x: x1, y: (y1 + y2) / 2 }
-      };
-    }
-
-    // Caso 4: Destino está abajo (deltaY >= 40) en otra columna sin obstáculos intermedios
-    if (deltaY >= 40) {
-      const midY = Math.round(y1 + deltaY / 2);
-      return {
-        d: generateRoundedStepPath([
-          { x: x1, y: y1 },
-          { x: x1, y: midY },
-          { x: x2, y: midY },
-          { x: x2, y: y2 }
-        ], 12),
-        midPoint: { x: (x1 + x2) / 2, y: midY }
-      };
-    }
-
-    // Caso 5: Destino está en la misma fila, arriba o al lado (deltaY < 40)
-    const exitY = y1 + 28;
-    const entryY = y2 - 28;
+    // Caso 4: Destino está en la misma fila o hacia arriba (deltaY < 25)
+    const exitY = y1 + 24;
+    const entryY = y2 - 24;
 
     let verticalCorridorX = Math.round((x1 + x2) / 2);
-    if (Math.abs(deltaX) < 60) {
-      verticalCorridorX = x1 + 170;
+    if (Math.abs(deltaX) < 80) {
+      verticalCorridorX = x1 + 160;
     }
 
     return {
