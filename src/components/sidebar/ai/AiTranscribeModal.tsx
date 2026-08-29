@@ -57,22 +57,78 @@ export const AiTranscribeModal: React.FC<AiTranscribeModalProps> = ({ onClose, c
 
     try {
       if (item.id.startsWith('db_audio_')) {
-        throw new Error('Este audio ya fue procesado. Actualizá la lista para ver la transcripción.');
+        throw new Error('Este audio ya fue procesado por Baileys. Actualizá la lista para ver la transcripción.');
       }
 
-      // 1. Intentar capturar Base64 desde el DOM (con auto-play trigger)
-      let base64: string | null = null;
-      try {
-        base64 = await DOMService.getAudioBase64(item.id);
-      } catch (domErr) {
-        console.log('[AiTranscribeModal] Fallback a descarga directa vía Baileys en backend...', domErr);
+      let base64: string | null =
+        item.src && item.src.startsWith('blob:') ? await DOMService.convertBlobUrlToBase64(item.src) : null;
+      let capturedMimeType = 'audio/ogg';
+
+      if (!base64) {
+        const findRow = (): Element | null => {
+          if (item.id.startsWith('audio_')) {
+            const mainArea = document.querySelector('#main');
+            const allRows = mainArea?.querySelectorAll('div[data-id]');
+            const idx = parseInt(item.id.replace('audio_', ''), 10);
+            return !isNaN(idx) && allRows ? allRows[idx] || null : null;
+          }
+          return document.querySelector(`[data-id="${item.id}"]`) ||
+                 document.querySelector(`[data-id*="${item.id}"]`) ||
+                 document.querySelector(`[data-tactica-audio-id="${item.id}"]`);
+        };
+
+        const row = findRow();
+        console.log(`[AiTranscribeModal] id=${item.id} — fila encontrada:`, !!row);
+
+        const playBtn = row?.querySelector(
+          'button[aria-label*="play" i], button[aria-label*="reproducir" i], button[aria-label*="nota de voz" i], [data-icon*="ptt"], [data-icon*="play"], [data-testid*="ptt"], [data-testid*="audio-play"], div[role="button"][aria-label*="play" i], div[role="button"][aria-label*="reproducir" i]'
+        ) as HTMLElement | null;
+        console.log('[AiTranscribeModal] Botón de play encontrado:', !!playBtn);
+
+        if (playBtn) {
+          base64 = await new Promise<string | null>((resolve) => {
+            const onCaptured = (e: Event) => {
+              const detail = (e as CustomEvent).detail as
+                | { base64: string; byteLength: number; mimeType?: string }
+                | undefined;
+              console.log(
+                '[AiTranscribeModal] Audio capturado, bytes:', detail?.byteLength,
+                'mimeType:', detail?.mimeType
+              );
+              if (detail?.mimeType) capturedMimeType = detail.mimeType;
+              clearTimeout(timeoutId);
+              window.removeEventListener('tactica-audio-captured', onCaptured);
+              resolve(detail?.base64 || null);
+            };
+
+            const timeoutId = setTimeout(() => {
+              window.removeEventListener('tactica-audio-captured', onCaptured);
+              console.warn('[AiTranscribeModal] Se agotaron los 8s sin capturar audio.');
+              resolve(null);
+            }, 8000);
+
+            window.addEventListener('tactica-audio-captured', onCaptured);
+            console.log('[AiTranscribeModal] Click en Play disparado, esperando captura de audio...');
+            playBtn.click();
+
+            setTimeout(() => {
+              const liveRow = findRow();
+              const pauseBtn = liveRow?.querySelector(
+                '[data-icon*="pause"], button[aria-label*="pausar" i], button[aria-label*="pause" i]'
+              ) as HTMLElement | null;
+              if (pauseBtn) pauseBtn.click();
+            }, 1000);
+          });
+        } else {
+          console.warn('[AiTranscribeModal] No se encontró ningún botón de play para esta fila.');
+        }
       }
 
-      // 2. Enviar a la API: Si hay Base64 lo manda, si no pasa messageId y phone para que Baileys lo descargue directo
-      const phone = DOMService.getChatPhone(contactName);
-      const res = await ApiService.transcribeAudio(
-        base64 ? { audioBase64: base64 } : { messageId: item.id, phone: phone || undefined }
-      );
+      if (!base64) {
+        throw new Error('⚠️ No se pudo capturar el audio. Dale Play manualmente a la nota de voz en WhatsApp y volvé a intentar.');
+      }
+
+      const res = await ApiService.transcribeAudio(base64, capturedMimeType);
       const transcriptionText = res.transcription || '(Audio vacío o sin voz inteligible)';
 
       setAudios((prev) =>
