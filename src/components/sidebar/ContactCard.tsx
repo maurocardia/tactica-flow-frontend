@@ -5,6 +5,9 @@ interface ContactCardProps {
     contactName: string;
 }
 
+// El control de bot por contacto vive en el modal "Bot habilitado por contacto" y en el ícono del
+// header de WhatsApp (ver ExternalBridge, que resuelve el contacto activo contra bot_contacts) —
+// esta tarjeta es solo informativa, mostrando el chat detectado.
 const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const isSelected = contactName !== 'Sin chat seleccionado';
 

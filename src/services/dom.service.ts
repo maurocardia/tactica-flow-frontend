@@ -27,6 +27,85 @@ function extractMessageText(row: Element): string | null {
     return textEl?.textContent?.trim() || null;
 }
 
+// Tabla de códigos de país (E.164) con el largo TOTAL esperado del número (código de país +
+// número de abonado, sin el "+") — sirve para distinguir un teléfono real de un identificador
+// interno de WhatsApp (@lid) con pinta de número: los @lid observados en este proyecto son
+// siempre de 14 a 16 dígitos y no calzan con NINGÚN código de país real a esa longitud exacta
+// (ej. "148237239484423" no es un +1 482... de 15 dígitos porque +1 son 11 en total). No es
+// una lista exhaustiva de los ~200 países — cubre los códigos más comunes para la región y
+// algunos globales — pero alcanza para filtrar la inmensa mayoría de los falsos positivos sin
+// bloquear números reales de países no listados (esos siguen aceptándose por el rango genérico
+// de respaldo, ver looksLikeRealPhoneNumber).
+const COUNTRY_CODE_LENGTHS: Record<string, number[]> = {
+    '1': [11], // EE.UU./Canadá/Caribe angloparlante
+    '52': [12, 13], // México (formato moderno 12; algunos todavía con el "1" extra, 13)
+    '54': [12, 13], // Argentina (fijo 12; celular con el "9" insertado, 13)
+    '55': [12, 13], // Brasil
+    '56': [11], // Chile
+    '57': [12], // Colombia
+    '58': [12], // Venezuela
+    '51': [11], // Perú
+    '593': [12], // Ecuador
+    '595': [12], // Paraguay
+    '598': [11], // Uruguay
+    '591': [11], // Bolivia
+    '507': [11], // Panamá
+    '506': [11], // Costa Rica
+    '502': [11], // Guatemala
+    '503': [11], // El Salvador
+    '504': [11], // Honduras
+    '505': [11], // Nicaragua
+    '34': [11], // España
+    '44': [12, 13], // Reino Unido
+    '33': [11], // Francia
+    '49': [12, 13], // Alemania
+    '39': [12, 13], // Italia
+    '91': [12], // India
+    '27': [11], // Sudáfrica
+};
+
+/**
+ * Además del chequeo por código de país (más preciso), acepta cualquier largo entre 8 y 15 —
+ * el máximo real permitido por el estándar E.164 — para no bloquear países que no están en la
+ * tabla de arriba. Un candidato que SÍ matchea un código de país conocido se prioriza sobre uno
+ * que no, cuando hay que elegir entre varios encontrados en el mismo escaneo.
+ */
+function looksLikeRealPhoneNumber(digits: string): boolean {
+    if (digits.length < 8 || digits.length > 15) return false;
+    return true;
+}
+
+function matchesKnownCountryCode(digits: string): boolean {
+    for (const [code, lengths] of Object.entries(COUNTRY_CODE_LENGTHS)) {
+        if (digits.startsWith(code) && lengths.includes(digits.length)) return true;
+    }
+    return false;
+}
+
+/**
+ * Deja el buscador de WhatsApp vacío y cierra el panel de resultados (Escape), para que después
+ * de abrir un chat por búsqueda no quede visible el texto buscado ni la lista de resultados
+ * pisando el chat recién abierto — se llama siempre al final de openChatByQuery, haya abierto o no.
+ */
+function clearSearch(searchInput: HTMLInputElement) {
+    try {
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+        if (nativeSetter) {
+            nativeSetter.call(searchInput, '');
+        } else {
+            searchInput.value = '';
+        }
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+        const escInit: KeyboardEventInit = { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true };
+        searchInput.dispatchEvent(new KeyboardEvent('keydown', escInit));
+        searchInput.dispatchEvent(new KeyboardEvent('keyup', escInit));
+        searchInput.blur();
+    } catch (err) {
+        console.warn('[DOMService] No se pudo limpiar el buscador:', err);
+    }
+}
+
 export const DOMService = {
     /**
      * Lee el nombre del contacto/grupo del chat abierto. Verificado a mano en consola (ago-2026):
@@ -62,18 +141,22 @@ export const DOMService = {
      */
     getChatPhone(contactName?: string): string | null {
         try {
-            // 1. Buscar en todos los spans del header si alguno tiene formato de teléfono (+57 300 123 4567, etc.)
+            // 1. Buscar en todos los spans del header si alguno tiene formato de teléfono (+57 300 123 4567,
+            // etc.) — prioriza un candidato cuyo código de país+largo calcen con un país real (ver
+            // matchesKnownCountryCode) sobre uno que solo "parece" un número por su longitud, así no se
+            // confunde con un identificador interno de WhatsApp (@lid) que también tenga forma numérica.
             const headerSpans = document.querySelectorAll('#main header span');
+            let genericPhoneMatch: string | null = null;
             for (const span of headerSpans) {
                 const text = span.textContent?.trim() || '';
                 const phoneMatch = text.match(/\+?(\d[\d\s\-()]{7,}\d)/);
                 if (phoneMatch) {
                     const clean = phoneMatch[0].replace(/[^0-9]/g, '');
-                    if (clean.length >= 8 && clean.length <= 18) {
-                        return clean;
-                    }
+                    if (matchesKnownCountryCode(clean)) return clean;
+                    if (!genericPhoneMatch && looksLikeRealPhoneNumber(clean)) genericPhoneMatch = clean;
                 }
             }
+            if (genericPhoneMatch) return genericPhoneMatch;
 
             // 2. Buscar en data-id / data-item-id de cualquier mensaje dentro de #main
             // En WhatsApp Web data-id puede tener @c.us o @s.whatsapp.net (ej: false_573001234567@c.us_...)
@@ -124,7 +207,168 @@ export const DOMService = {
         return null;
     },
 
+    /**
+     * Respaldo de getChatPhone() para cuando el header no muestra el número a simple vista (ej.
+     * contactos guardados con nombre y foto — confirmado a mano, ago-2026: el header de "Ángel
+     * Univer" no trae ningún número, solo el nombre). Abre el panel "Información del perfil"
+     * (clic en el mismo botón que usa un humano para ver los datos del contacto), busca ahí el
+     * número real y, de paso, un nombre mejor que el que ya teníamos — de dos formas posibles:
+     * (a) el nombre que la persona se puso a sí misma, que WhatsApp muestra como "~nombre" cuando
+     * no es un contacto guardado (confirmado a mano: "+57 316 6140287" con "~samira" debajo), o
+     * (b) para un perfil de EMPRESA (WhatsApp Business), el nombre real SIN "~" dentro de
+     * `data-testid="business-top-card-name-title"` (confirmado a mano: "Hernan Seivane" / rubro
+     * "Finanzas"). Cierra el panel de nuevo con el mismo botón para dejar la UI como estaba —
+     * imperceptible, mismo criterio que el resto de la automatización de este archivo.
+     */
+    async getChatPhoneViaProfile(): Promise<{ phone: string | null; selfSetName: string | null }> {
+        try {
+            const infoButton = document.querySelector(
+                '[data-testid="conversation-info-header"], div[aria-label="Información del perfil"][role="button"]'
+            ) as HTMLElement | null;
+            if (!infoButton) return { phone: null, selfSetName: null };
 
+            infoButton.click();
+            await new Promise((resolve) => setTimeout(resolve, 500));
+
+            let phone: string | null = null;
+            let selfSetName: string | null = null;
+            let genericPhoneMatch: string | null = null;
+
+            const businessNameEl = document.querySelector(
+                '[data-testid="business-top-card-name-title"] span[data-testid="selectable-text"]'
+            );
+            const businessName = businessNameEl?.textContent?.trim();
+            if (businessName) selfSetName = businessName;
+
+            const scope = document.querySelector('#app') || document.body;
+            const spans = scope.querySelectorAll('span');
+            for (const span of spans) {
+                if (span.closest('#pane-side')) continue; // ignorar la lista de chats de la izquierda
+                const text = span.textContent?.trim() || '';
+
+                if (!phone) {
+                    const match = text.match(/\+?(\d[\d\s\-()]{7,}\d)/);
+                    if (match) {
+                        const clean = match[0].replace(/[^0-9]/g, '');
+                        if (matchesKnownCountryCode(clean)) {
+                            phone = clean;
+                        } else if (!genericPhoneMatch && looksLikeRealPhoneNumber(clean)) {
+                            genericPhoneMatch = clean;
+                        }
+                    }
+                }
+
+                if (!selfSetName && text.startsWith('~') && text.length > 1) {
+                    selfSetName = text.slice(1).trim();
+                }
+
+                if (phone && selfSetName) break;
+            }
+            if (!phone) phone = genericPhoneMatch;
+
+            // El mismo botón togglea el panel — lo volvemos a tocar para cerrarlo de nuevo.
+            infoButton.click();
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            return { phone, selfSetName };
+        } catch (err) {
+            console.warn('[DOMService] Error al leer los datos desde el panel de información del contacto:', err);
+            return { phone: null, selfSetName: null };
+        }
+    },
+
+    /**
+     * Después de resolver un contacto en segundo plano (buscarlo, abrirlo, leer su número) hay que
+     * dejar WhatsApp Web como estaba — no tiene sentido dejar abierto un chat que el usuario no
+     * pidió ver. Un solo Escape cierra el panel de info si quedó abierto; un segundo Escape
+     * deselecciona el chat y vuelve a la pantalla de inicio. Se usa SOLO en flujos de resolución
+     * en segundo plano (agregar por nombre, contacto pendiente, alta desde el ícono del header,
+     * recargar) — nunca en "abrir chat", donde el usuario sí quiere quedarse viendo esa charla.
+     */
+    async returnToHome(): Promise<void> {
+        try {
+            const escInit: KeyboardEventInit = { key: 'Escape', code: 'Escape', keyCode: 27, which: 27, bubbles: true, cancelable: true };
+            const pressEscape = () => {
+                document.dispatchEvent(new KeyboardEvent('keydown', escInit));
+                document.dispatchEvent(new KeyboardEvent('keyup', escInit));
+            };
+            pressEscape();
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            pressEscape();
+        } catch (err) {
+            console.warn('[DOMService] Error al volver al inicio (Escape):', err);
+        }
+    },
+
+    /**
+     * Extrae el JID real (ej. "1203634...@g.us") del GRUPO abierto actualmente, leyendo el
+     * `data-id` de sus mensajes — a diferencia de un contacto individual, dos grupos distintos
+     * pueden tener EXACTAMENTE el mismo nombre visible (confirmado a mano: dos grupos separados
+     * llamados "tactica flow"), así que matchear un grupo por nombre no es seguro. El JID real, en
+     * cambio, es único de verdad — se usa en vez del nombre para saber con certeza a cuál de los
+     * grupos homónimos corresponde el chat abierto.
+     */
+    getOpenGroupJid(): string | null {
+        try {
+            const elements = document.querySelectorAll('#main [data-id], #main [data-item-id]');
+            for (const el of elements) {
+                const dataId = el.getAttribute('data-id') || el.getAttribute('data-item-id') || '';
+                const match = dataId.match(/(\d{8,20}(?:-\d+)?)@g\.us/);
+                if (match && match[1]) {
+                    return `${match[1]}@g.us`;
+                }
+            }
+        } catch (err) {
+            console.warn('[DOMService] Error al obtener el JID del grupo abierto:', err);
+        }
+        return null;
+    },
+
+    /**
+     * Lee los nombres de los contactos INDIVIDUALES (sin grupos) ya renderizados en la lista de
+     * chats — sin scrollear, solo lo que ya está en el DOM (normalmente entre 10 y 20 filas según
+     * el alto de la ventana). Sirve para tener de entrada los contactos más recientes sin
+     * necesidad de un scroll automático completo por las ~500 conversaciones.
+     *
+     * Excluir grupos acá es más difícil de lo que parece: un grupo SIN foto propia muestra el
+     * ícono `ic-group-filled` (fácil de detectar), pero un grupo CON foto propia se ve igual que
+     * un contacto individual — para esos, la señal que sí es confiable es que la vista previa del
+     * último mensaje trae el nombre de quién lo mandó antes del texto ("Fulano: mensaje..."),
+     * cosa que WhatsApp NUNCA hace en un chat individual.
+     */
+    getRecentIndividualContacts(limit: number = 10): string[] {
+        try {
+            const items = document.querySelectorAll(WA_SELECTORS.CHAT_ITEM);
+            const names: string[] = [];
+            const seen = new Set<string>();
+
+            for (const item of items) {
+                if (names.length >= limit) break;
+
+                const titleEl = item.querySelector('span[dir="auto"][title]');
+                const name = titleEl?.getAttribute('title')?.trim();
+                if (!name || seen.has(name)) continue;
+
+                const hasGroupIcon = Array.from(item.querySelectorAll('svg title')).some(
+                    (t) => t.textContent === 'ic-group-filled'
+                );
+                const secondary = item.querySelector('[data-testid="cell-frame-secondary"]');
+                const hasSenderPrefix = !!secondary && Array.from(secondary.querySelectorAll('span')).some(
+                    (s) => s.textContent === ': ' || s.textContent === ': '
+                );
+
+                if (hasGroupIcon || hasSenderPrefix) continue; // es un grupo, no lo contamos
+
+                seen.add(name);
+                names.push(name);
+            }
+
+            return names;
+        } catch (err) {
+            console.error('[DOMService] Error al leer los contactos recientes:', err);
+            return [];
+        }
+    },
 
     insertMessage(text: string): boolean {
         try {
@@ -658,6 +902,101 @@ export const DOMService = {
         } catch (err) {
             console.error('[DOMService] Error al leer la lista de contactos:', err);
             return [];
+        }
+    },
+
+    /**
+     * Busca `query` (teléfono o nombre) en el buscador de WhatsApp Web y abre el primer chat que
+     * aparezca — usado desde "Bot habilitado por contacto" para saltar directo a ese chat al
+     * tocar su foto. Best-effort: si WhatsApp cambia el buscador o no hay resultados, no rompe
+     * nada, solo devuelve false.
+     *
+     * Verificado a mano (ago-2026): el buscador NO es un `div[contenteditable]` como el resto de
+     * los cuadros de texto de WhatsApp — es un `<input type="text">` real
+     * (`aria-label="Buscar un chat o iniciar uno nuevo"`), y ni siquiera existe en el DOM hasta
+     * que se hace clic en el ícono de lupa. Por eso primero hay que asegurarse de abrirlo, y
+     * para escribirle el valor hay que usar el setter nativo de <input> en vez de
+     * `el.value = ...` directo — React pisa ese setter en la instancia del elemento, así que
+     * asignarlo directo no dispara su detección de cambios y el buscador no filtra nada.
+     */
+    async openChatByQuery(query: string): Promise<boolean> {
+        try {
+            const INPUT_SELECTOR = 'input[aria-label*="uscar" i], input[aria-label*="earch" i], input[data-tab="3"]';
+            const ICON_SELECTOR = 'button[aria-label*="uscar" i], span[data-icon="search"], div[role="button"][aria-label*="uscar" i], button[aria-label*="earch" i]';
+
+            let searchInput = document.querySelector(INPUT_SELECTOR) as HTMLInputElement | null;
+
+            if (!searchInput) {
+                const searchIcon = document.querySelector(ICON_SELECTOR) as HTMLElement | null;
+                if (!searchIcon) {
+                    console.warn('[DOMService] No se encontró ni el buscador ni el ícono para abrirlo.');
+                    return false;
+                }
+                searchIcon.click();
+                await new Promise((resolve) => setTimeout(resolve, 300));
+                searchInput = document.querySelector(INPUT_SELECTOR) as HTMLInputElement | null;
+                if (!searchInput) {
+                    console.warn('[DOMService] Se clickeó el ícono de búsqueda pero el buscador no apareció.');
+                    return false;
+                }
+            }
+
+            searchInput.focus();
+            const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+            if (nativeSetter) {
+                nativeSetter.call(searchInput, query);
+            } else {
+                searchInput.value = query;
+            }
+            searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+            // Reintentar por hasta ~1.5s en vez de una sola espera fija: WhatsApp puede tardar un
+            // toque en filtrar la lista según qué tan pesada esté la vista en ese momento.
+            let firstResult: HTMLElement | null = null;
+            for (let attempt = 0; attempt < 6 && !firstResult; attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 250));
+                firstResult = document.querySelector(WA_SELECTORS.CHAT_ITEM) as HTMLElement | null;
+            }
+            if (!firstResult) {
+                console.warn(`[DOMService] Se encontró el buscador pero ningún resultado para "${query}".`);
+                clearSearch(searchInput);
+                return false;
+            }
+
+            const titleBefore = DOMService.getChatTitle();
+
+            // Un solo Enter en el buscador abre directo el primer resultado (así lo usaría una
+            // persona). Si eso no cambió de chat, clickeamos el resultado a mano — probando primero
+            // un botón/target interno de la fila (algunas filas de resultado, sobre todo dentro de
+            // "Mensajes", envuelven el click real en un div[role="button"] anidado, no en el
+            // listitem completo) y si no, la fila entera.
+            const enterInit: KeyboardEventInit = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
+            searchInput.dispatchEvent(new KeyboardEvent('keydown', enterInit));
+            searchInput.dispatchEvent(new KeyboardEvent('keyup', enterInit));
+            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            let opened = DOMService.getChatTitle() !== titleBefore && DOMService.getChatTitle() !== null;
+            if (!opened) {
+                const clickTarget = (firstResult.querySelector('div[role="button"]') as HTMLElement | null) || firstResult;
+                clickTarget.click();
+                await new Promise((resolve) => setTimeout(resolve, 400));
+                opened = DOMService.getChatTitle() !== titleBefore && DOMService.getChatTitle() !== null;
+            }
+
+            if (!opened) {
+                console.warn(`[DOMService] Se encontró un resultado para "${query}" pero no se pudo confirmar que el chat se haya abierto.`);
+            } else {
+                console.log(`[DOMService] Chat abierto para "${query}".`);
+            }
+
+            // Ya sea que haya abierto o no, dejamos el buscador limpio (imperceptible) en vez de
+            // que quede con el texto buscado y los resultados a la vista.
+            clearSearch(searchInput);
+
+            return opened;
+        } catch (err) {
+            console.error('[DOMService] Error al abrir el chat por búsqueda:', err);
+            return false;
         }
     }
 };

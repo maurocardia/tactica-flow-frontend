@@ -40,10 +40,17 @@ export interface AppConfig {
   // regla de palabra clave matchea, decide si se cae al agente de IA o si no se manda ninguna
   // respuesta automática (solo chatbot manual). Ver PUT /api/whatsapp/ai-fallback-enabled.
   aiFallbackEnabled: boolean;
-  // Switch "Responder también en grupos" (mismo patrón que botEnabled/aiFallbackEnabled): por
-  // default el bot solo autoresponde en chats individuales — ver
-  // PUT /api/whatsapp/bot-groups-enabled y WhatsappService.handleIncomingMessage.
-  botGroupsEnabled: boolean;
+  // Si un contacto NUEVO (que escribe por primera vez) arranca con el switch de "Bot habilitado
+  // por contacto" ya prendido en vez de apagado — ver PUT /api/whatsapp/bot-enabled-for-new-contacts
+  // y BotContactService.upsert.
+  botEnabledForNewContacts: boolean;
+  // "Responder a todos" (true) vs "Responder a contactos seleccionados" (false, default): con
+  // "todos" el bot le responde a cualquier contacto sin importar el switch de bot_contacts — ver
+  // PUT /api/whatsapp/bot-reply-to-all y WhatsappService.handleIncomingMessage.
+  botReplyToAll: boolean;
+  // Orden en que se pintan las secciones de ChatbotModule (arrastrables por el usuario, ver
+  // ChatbotModule.tsx) — solo una preferencia visual local, no tiene endpoint en el backend.
+  chatbotSectionOrder: string[];
   // Configuración de "Resumir charla" (gear junto al botón, ver AiSummaryConfigModal): prompt
   // que se le manda a la IA y, opcionalmente, una base de conocimiento cuyos documentos se
   // agregan como contexto extra al pedir el resumen. Solo frontend — no hay endpoint dedicado,

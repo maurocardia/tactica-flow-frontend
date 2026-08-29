@@ -20,7 +20,9 @@ export const INITIAL_CONFIG: AppConfig = {
   autoTranscribe: true,
   botEnabled: true,
   aiFallbackEnabled: true,
-  botGroupsEnabled: false,
+  botEnabledForNewContacts: false,
+  botReplyToAll: false,
+  chatbotSectionOrder: ['botStatus', 'newContacts', 'aiReply', 'knowledgeBase'],
   aiSummaryPrompt:
     'Resumí la conversación identificando: qué pidió el cliente, puntos clave, compromisos y próximo paso sugerido. Usá español rioplatense, tono profesional.',
   aiSummaryKnowledgeBaseId: null,

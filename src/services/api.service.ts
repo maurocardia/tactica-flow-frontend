@@ -1,7 +1,12 @@
 // src/services/api.service.ts
 
 import { Conversation, ConversationMessage } from "@/types/conversation";
+<<<<<<< HEAD
 import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
+=======
+import { BotContact } from "@/types/botContact";
+import { KeywordRule, KeywordRuleInput } from "@/types/bot";
+>>>>>>> origin/feature/bot-habilitado-por-contacto
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
@@ -83,16 +88,72 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ aiCustomInstructions: string }>('/whatsapp/ai-custom-instructions', 'PUT', { instructions });
     },
 
-    // Switch "Responder también en grupos": por default el bot solo autoresponde en chats
-    // individuales — ver WhatsappService.handleIncomingMessage.
-    async setBotGroupsEnabled(enabled: boolean): Promise<{ botGroupsEnabled: boolean }> {
-        return this.sendBackgroundRequest<{ botGroupsEnabled: boolean }>('/whatsapp/bot-groups-enabled', 'PUT', { enabled });
+    // Switch "Activar el bot para contactos nuevos": si está prendido, un contacto que escribe por
+    // primera vez arranca con el switch de bot YA activado (en vez de apagado) en bot_contacts.
+    async setBotEnabledForNewContacts(enabled: boolean): Promise<{ botEnabledForNewContacts: boolean }> {
+        return this.sendBackgroundRequest<{ botEnabledForNewContacts: boolean }>('/whatsapp/bot-enabled-for-new-contacts', 'PUT', { enabled });
+    },
+
+    // "Responder a todos" vs "Responder a contactos seleccionados": con "todos" prendido, el bot
+    // le responde a cualquier contacto sin importar el switch de "Bot habilitado por contacto".
+    async setBotReplyToAll(enabled: boolean): Promise<{ botReplyToAll: boolean }> {
+        return this.sendBackgroundRequest<{ botReplyToAll: boolean }>('/whatsapp/bot-reply-to-all', 'PUT', { enabled });
     },
 
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
-    async getConversations(): Promise<Conversation[]> {
-        return this.sendBackgroundRequest<Conversation[]>('/conversations');
+    // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión
+    // conectada al backend, la lista mezcla contactos de cuentas distintas.
+    async getConversations(userId?: number): Promise<Conversation[]> {
+        return this.sendBackgroundRequest<Conversation[]>(userId ? `/conversations?userId=${userId}` : '/conversations');
+    },
+
+    // === "Bot habilitado por contacto" (tabla bot_contacts, separada de conversations/messages) ===
+
+    // Lista propia de contactos/grupos administrables para el switch de bot por contacto — un
+    // grupo es una sola fila acá, y nunca toca el historial real de chats.
+    async getBotContacts(): Promise<BotContact[]> {
+        return this.sendBackgroundRequest<BotContact[]>('/whatsapp/bot-contacts');
+    },
+
+    async setBotContactEnabled(id: number, enabled: boolean): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/enabled`, 'PUT', { enabled });
+    },
+
+    // Botón "X" del panel: borra un contacto/grupo puntual de la lista (solo bot_contacts, nunca
+    // toca conversations/messages).
+    async deleteBotContact(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/whatsapp/bot-contacts/${id}`, 'DELETE');
+    },
+
+    // Registra (o encuentra) un número de teléfono como contacto administrable, sin esperar a que
+    // ese número le escriba primero al bot.
+    async addBotContact(phone: string, name: string | undefined, enabled: boolean): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>('/whatsapp/bot-contacts', 'POST', { phone, name, enabled });
+    },
+
+    // "Recargar" un contacto puntual (botón de refrescar en el panel) — corrige el JID/nombre de
+    // una fila ya existente que quedó mal agregada (ej. con un @lid viejo en vez del número real).
+    async refreshBotContactIdentity(id: number, phone: string, name: string): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/identity`, 'PUT', { phone, name });
+    },
+
+    // Sincronización manual de una sola vez (ver ContactBotSwitchesModal, que la llama solo la
+    // primera vez que se abre el panel en la sesión): relee grupos y nombres de contacto que
+    // Baileys ya sabe pero que todavía no habían quedado guardados en bot_contacts. Devuelve la
+    // lista ya actualizada.
+    async syncBotContacts(): Promise<BotContact[]> {
+        return this.sendBackgroundRequest<BotContact[]>('/whatsapp/bot-contacts/sync', 'POST');
+    },
+
+    // Intenta resolver el JID real de nombres tal cual los muestra WhatsApp (ej. los ya
+    // renderizados en la lista de chats, ver DOMService.getRecentIndividualContacts) cruzando
+    // contra lo que el backend ya sabe (sin llamar a WhatsApp). Los que resuelve quedan sembrados
+    // en bot_contacts del lado del backend — este método solo informa el resultado por nombre.
+    async resolveBotContactsByName(
+        names: string[]
+    ): Promise<{ name: string; jid: string | null; source: 'known-contact' | 'conversations' | 'unresolved' }[]> {
+        return this.sendBackgroundRequest('/whatsapp/bot-contacts/resolve-names', 'POST', { names });
     },
 
     async getMessages(conversationId: string | number): Promise<ConversationMessage[]> {

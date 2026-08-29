@@ -86,7 +86,7 @@ function buildContainer(): { el: HTMLDivElement; refs: ContainerRefs } {
     const alarmBadge = makeBadge();
     alarmBtn.appendChild(alarmBadge);
 
-    const botBtn = makeIconButton('🤖', 'Chatbot / autoatención — click para activar o pausar', () =>
+    const botBtn = makeIconButton('🤖', 'Bot para este contacto — click para activar o pausar', () =>
         window.dispatchEvent(new CustomEvent(TOGGLE_BOT_EVENT))
     );
     const botDot = document.createElement('span');

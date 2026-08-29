@@ -24,4 +24,5 @@ export type ModalId =
   | 'sequence-editor'
   | 'ai-draft'
   | 'ai-transcribe'
-  | 'bot-flow';
+  | 'bot-flow'
+  | 'contact-bot-switches';

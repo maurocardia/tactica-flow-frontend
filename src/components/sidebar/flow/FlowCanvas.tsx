@@ -3,102 +3,103 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ZoomIn,
   ZoomOut,
-  Maximize2,
+  Focus,
   Play,
   Save,
-  RotateCcw,
-  Sparkles,
-  Layers,
-  ArrowRight,
-  Plus,
-  Focus
+  Trash2,
+  X,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
-import {
-  BotFlowData,
-  BotFlowNode,
-  BotFlowConnection,
-  NodeType
-} from '@/types/bot';
+import { BotFlowConnection, BotFlowData, BotFlowNode, NodeType } from '@/types/bot';
 import { FlowPalette } from './FlowPalette';
 import { FlowNodeCard } from './FlowNodeCard';
 import { FlowEdgeLayer } from './FlowEdgeLayer';
 import { NodeConfigDrawer } from './NodeConfigDrawer';
 import { FlowSimulatorModal } from './FlowSimulatorModal';
 
-interface FlowCanvasProps {
-  initialData?: BotFlowData;
-  onSaveFlow: (data: BotFlowData) => Promise<void>;
-  onClose: () => void;
-}
-
 const DEFAULT_INITIAL_FLOW: BotFlowData = {
   id: 'main_flow',
   name: 'Flujo Principal de Atención',
   nodes: [
     {
-      id: 'node_trigger_1',
+      id: 'node_trigger_start',
       type: 'TRIGGER',
-      title: 'Disparador Principal',
-      position: { x: 80, y: 150 },
+      title: 'Disparador Inicial',
+      position: { x: 120, y: 80 },
       data: {
-        name: 'Palabras de Bienvenida',
-        keywords: ['hola', 'buen dia', 'buenas tardes', 'info', 'consulta', 'empezar'],
+        name: 'Saludo de Bienvenida',
+        keywords: ['hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'saludos'],
+        replyText: '¡Hola! 👋 Bienvenido a la atención automatizada de Tactica Flow. ¿En qué te podemos ayudar hoy?',
         isActive: true
       }
     },
     {
-      id: 'node_menu_1',
+      id: 'node_menu_main',
       type: 'OPTIONS_MENU',
-      title: 'Menú Inicial',
-      position: { x: 440, y: 120 },
+      title: 'Menú Principal',
+      position: { x: 500, y: 80 },
       data: {
-        name: 'Opciones de Atención',
-        replyText: '¡Hola {nombre}! 👋 Gracias por comunicarte con nuestro equipo comercial.\n\nPor favor elige una opción:',
+        name: 'Menú de Opciones',
+        replyText: 'Por favor selecciona una de las siguientes opciones respondiendo con el número:',
         options: [
-          { id: 'opt_1', label: 'Consultar Lista de Precios', keyword: '1' },
-          { id: 'opt_2', label: 'Consultar Estado de Pedido', keyword: '2' },
-          { id: 'opt_3', label: 'Hablar con un Asesor', keyword: '3' }
-        ]
+          { id: 'opt_1', label: '1. Información de Servicios', keyword: '1', targetNodeId: null },
+          { id: 'opt_2', label: '2. Consultar Precios y Planes', keyword: '2', targetNodeId: null },
+          { id: 'opt_3', label: '3. Hablar con un Asesor', keyword: '3', targetNodeId: null }
+        ],
+        isActive: true
       }
     },
     {
-      id: 'node_reply_prices',
-      type: 'STATIC_REPLY',
-      title: 'Respuesta Precios',
-      position: { x: 820, y: 40 },
-      data: {
-        name: 'Información de Precios',
-        replyText: 'Nuestra lista de precios oficial se encuentra actualizada. Puedes descargarla o consultarnos por un presupuesto personalizado para tu empresa.'
-      }
-    },
-    {
-      id: 'node_ai_agent',
+      id: 'node_ai_info',
       type: 'CALL_AI',
-      title: 'Consultas Generales',
-      position: { x: 820, y: 220 },
+      title: 'Agente de IA',
+      position: { x: 900, y: 80 },
       data: {
-        name: 'Asistente Inteligente',
-        replyText: 'Procesando tu consulta técnica o comercial con la Base de Conocimiento...'
+        name: 'Respuestas con IA y Base de Conocimiento',
+        replyText: 'Procesando tu consulta con nuestra Base de Conocimiento...',
+        isActive: true
       }
     },
     {
-      id: 'node_handoff',
+      id: 'node_handoff_agent',
       type: 'HANDOFF',
-      title: 'Derivación Comercial',
-      position: { x: 820, y: 400 },
+      title: 'Derivación Humana',
+      position: { x: 900, y: 340 },
       data: {
-        name: 'Transferir a Asesor',
-        replyText: 'Te transferimos con un asesor de ventas en vivo. En instantes te responderán por este chat.'
+        name: 'Pasar a Asesor Comercial',
+        replyText: 'Te estamos transfiriendo con un asesor de nuestro equipo comercial. Aguarda un instante, por favor.',
+        isActive: true
       }
     }
   ],
   connections: [
-    { id: 'conn_1', sourceNodeId: 'node_trigger_1', sourcePortId: 'default', targetNodeId: 'node_menu_1' },
-    { id: 'conn_2', sourceNodeId: 'node_menu_1', sourcePortId: 'opt_1', targetNodeId: 'node_reply_prices' },
-    { id: 'conn_3', sourceNodeId: 'node_menu_1', sourcePortId: 'opt_2', targetNodeId: 'node_ai_agent' },
-    { id: 'conn_4', sourceNodeId: 'node_menu_1', sourcePortId: 'opt_3', targetNodeId: 'node_handoff' }
+    {
+      id: 'conn_init_1',
+      sourceNodeId: 'node_trigger_start',
+      sourcePortId: 'default',
+      targetNodeId: 'node_menu_main'
+    },
+    {
+      id: 'conn_opt_1',
+      sourceNodeId: 'node_menu_main',
+      sourcePortId: 'opt_1',
+      targetNodeId: 'node_ai_info'
+    },
+    {
+      id: 'conn_opt_3',
+      sourceNodeId: 'node_menu_main',
+      sourcePortId: 'opt_3',
+      targetNodeId: 'node_handoff_agent'
+    }
   ]
 };
+
+interface FlowCanvasProps {
+  initialData?: BotFlowData;
+  onSaveFlow: (flowData: BotFlowData) => Promise<void>;
+  onClose: () => void;
+}
 
 export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   initialData,
@@ -106,7 +107,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   onClose
 }) => {
   const [flow, setFlow] = useState<BotFlowData>(() => {
-    const raw = initialData?.nodes?.length ? initialData : DEFAULT_INITIAL_FLOW;
+    const raw = initialData && initialData.nodes && initialData.nodes.length > 0
+      ? initialData
+      : DEFAULT_INITIAL_FLOW;
+
     // Sanitizar posiciones iniciales para que ninguna sea NaN o undefined
     return {
       ...raw,
@@ -127,6 +131,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [showSimulator, setShowSimulator] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
 
   // Zoom & Pan
   const [zoom, setZoom] = useState(1);
@@ -162,6 +168,35 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   const canvasRef = useRef<HTMLDivElement>(null);
 
+  // Advertir al usuario si intenta recargar la página con cambios sin guardar
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = 'Tienes cambios sin guardar en el flujo del bot. ¿Estás seguro de que deseas salir?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Actualizador centralizado con respaldo automático en localStorage
+  const updateFlowWithDraft = useCallback((updater: (prev: BotFlowData) => BotFlowData) => {
+    setFlow((prev) => {
+      const nextFlow = updater(prev);
+      stateRef.current.flow = nextFlow;
+      setHasUnsavedChanges(true);
+      try {
+        localStorage.setItem('tactica_flow_draft', JSON.stringify(nextFlow));
+      } catch (e) {
+        // ignore
+      }
+      return nextFlow;
+    });
+  }, []);
+
   // Convert screen coordinates to canvas space
   const screenToCanvasCoords = useCallback((screenX: number, screenY: number) => {
     if (!canvasRef.current) return { x: 100, y: 100 };
@@ -185,7 +220,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       return;
     }
 
-    setFlow((prev) => {
+    updateFlowWithDraft((prev) => {
       const exists = prev.connections.some(
         (c) =>
           c.sourceNodeId === activeConn.sourceNodeId &&
@@ -209,7 +244,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     });
 
     setConnectingState(null);
-  }, []);
+  }, [updateFlowWithDraft]);
 
   // Pan canvas on background drag
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
@@ -260,7 +295,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         const newX = Math.round(dragStart.nodeX + dx);
         const newY = Math.round(dragStart.nodeY + dy);
 
-        setFlow((prev) => ({
+        updateFlowWithDraft((prev) => ({
           ...prev,
           nodes: prev.nodes.map((n) =>
             n.id === draggingNodeId
@@ -310,17 +345,15 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [handleEndConnection, screenToCanvasCoords]);
+  }, [handleEndConnection, screenToCanvasCoords, updateFlowWithDraft]);
 
   // Global Keyboard Shortcuts (Escape to cancel drag, Delete/Supr to delete selected item)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Obtener el elemento real dentro del Shadow DOM usando composedPath
       const path = e.composedPath ? e.composedPath() : [e.target];
       const actualTarget = path[0] as HTMLElement;
       const tag = actualTarget?.tagName?.toLowerCase();
 
-      // Si el usuario está escribiendo en un input, textarea o tiene el panel de edición abierto, no interceptar
       if (
         tag === 'input' ||
         tag === 'textarea' ||
@@ -376,7 +409,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       e.preventDefault();
       e.stopPropagation();
 
-      // Amortiguación suave para ruedas de mouse y trackpads
       const step = -e.deltaY * 0.0008;
       const clampedDelta = Math.max(-0.05, Math.min(0.05, step));
       const currentZoom = stateRef.current.zoom || 1;
@@ -384,7 +416,6 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
       if (Math.abs(newZoom - currentZoom) < 0.001) return;
 
-      // Zoom enfocado en el punto exacto donde apunta el cursor
       const rect = canvasEl.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
@@ -414,21 +445,21 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     const newNode: BotFlowNode = {
       id: `node_${type.toLowerCase()}_${Date.now()}`,
       type,
-      title: `Nuevo Bloque ${nextIdx}`,
+      title: `Bloque ${nextIdx}`,
       position: {
-        x: Math.round(centerCanvas.x - 140),
+        x: Math.round(centerCanvas.x - 144),
         y: Math.round(centerCanvas.y - 40)
       },
       data: {
         name: `Bloque ${nextIdx}`,
         replyText: type === 'DELAY' ? '' : 'Mensaje configurable del bot...',
-        options: type === 'OPTIONS_MENU' ? [{ id: 'opt_1', label: '1. Opción A', keyword: '1' }] : undefined,
+        options: type === 'OPTIONS_MENU' ? [{ id: `opt_${Date.now()}_1`, label: '1. Opción A', keyword: '1' }] : undefined,
         delaySeconds: type === 'DELAY' ? 2 : undefined,
         isActive: true
       }
     };
 
-    setFlow((prev) => ({
+    updateFlowWithDraft((prev) => ({
       ...prev,
       nodes: [...prev.nodes, newNode]
     }));
@@ -449,19 +480,19 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       type,
       title: `Bloque ${nextIdx}`,
       position: {
-        x: Math.round(coords.x - 140),
-        y: Math.round(coords.y - 40)
+        x: Math.round(coords.x - 144),
+        y: Math.round(coords.y - 30)
       },
       data: {
         name: `Bloque ${nextIdx}`,
         replyText: type === 'DELAY' ? '' : 'Mensaje configurable del bot...',
-        options: type === 'OPTIONS_MENU' ? [{ id: 'opt_1', label: '1. Opción A', keyword: '1' }] : undefined,
+        options: type === 'OPTIONS_MENU' ? [{ id: `opt_${Date.now()}_1`, label: '1. Opción A', keyword: '1' }] : undefined,
         delaySeconds: type === 'DELAY' ? 2 : undefined,
         isActive: true
       }
     };
 
-    setFlow((prev) => ({
+    updateFlowWithDraft((prev) => ({
       ...prev,
       nodes: [...prev.nodes, newNode]
     }));
@@ -470,7 +501,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
   // Node Actions
   const handleDeleteNode = (nodeId: string) => {
-    setFlow((prev) => ({
+    updateFlowWithDraft((prev) => ({
       ...prev,
       nodes: prev.nodes.filter((n) => n.id !== nodeId),
       connections: prev.connections.filter(
@@ -492,7 +523,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         name: `${node.data?.name || node.title} (Copia)`
       }
     };
-    setFlow((prev) => ({
+    updateFlowWithDraft((prev) => ({
       ...prev,
       nodes: [...prev.nodes, dupNode]
     }));
@@ -500,19 +531,17 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   };
 
   const handleDeleteConnection = (connectionId: string) => {
-    setFlow((prev) => ({
+    updateFlowWithDraft((prev) => ({
       ...prev,
       connections: prev.connections.filter((c) => c.id !== connectionId)
     }));
   };
 
   const handleSaveNodeProperties = (updatedNode: BotFlowNode) => {
-    setFlow((prev) => {
-      const updatedNodes = prev.nodes.map((n) => (n.id === updatedNode.id ? updatedNode : n));
-      const nextFlow = { ...prev, nodes: updatedNodes };
-      stateRef.current.flow = nextFlow;
-      return nextFlow;
-    });
+    updateFlowWithDraft((prev) => ({
+      ...prev,
+      nodes: prev.nodes.map((n) => (n.id === updatedNode.id ? updatedNode : n))
+    }));
     setEditingNode(null);
   };
 
@@ -520,12 +549,21 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     setSaving(true);
     try {
       await onSaveFlow(flow);
+      setHasUnsavedChanges(false);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err) {
       console.error('[FlowCanvas] Error guardando flujo:', err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCloseClick = () => {
+    if (hasUnsavedChanges) {
+      setShowCloseConfirmModal(true);
+    } else {
+      onClose();
     }
   };
 
@@ -549,9 +587,15 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
               <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
                 Diagramador de Flujos de Bot
               </h2>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 dark:bg-red-950/60 text-[#9e1114] dark:text-red-300 border border-red-200 dark:border-red-800">
-                Visual Flow Builder
-              </span>
+              {hasUnsavedChanges ? (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Cambios sin guardar (copia local protegida)
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Sincronizado en servidor
+                </span>
+              )}
             </div>
             <span className="text-[11px] text-slate-500 dark:text-slate-400">
               {flow.nodes.length} bloques · {flow.connections.length} conexiones activas
@@ -583,7 +627,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCloseClick}
             className="px-3.5 py-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold text-xs transition-colors cursor-pointer"
           >
             Cerrar
@@ -705,6 +749,67 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           flow={flow}
           onClose={() => setShowSimulator(false)}
         />
+      )}
+
+      {/* Modal de Confirmación al Cerrar con Cambios sin Guardar */}
+      {showCloseConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-2xl max-w-md w-full border border-slate-200 dark:border-slate-800 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 flex items-center justify-center font-bold text-lg">
+                ⚠️
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
+                  ¿Guardar cambios antes de salir?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Tienes modificaciones sin guardar en el diagrama de flujo.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+              Si recargas la página o sales sin guardar, puedes perder los bloques o conexiones que agregaste.
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleSaveFlow();
+                  setShowCloseConfirmModal(false);
+                  onClose();
+                }}
+                className="w-full py-2.5 rounded-xl bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Save className="w-4 h-4" /> Guardar Cambios y Salir
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('tactica_flow_draft');
+                  } catch (e) {}
+                  setShowCloseConfirmModal(false);
+                  onClose();
+                }}
+                className="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/40 dark:hover:text-red-300 text-slate-700 dark:text-slate-300 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Descartar Cambios y Salir
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowCloseConfirmModal(false)}
+                className="w-full py-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 text-xs font-semibold cursor-pointer"
+              >
+                Cancelar y Seguir Editando
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
