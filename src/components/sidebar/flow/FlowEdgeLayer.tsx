@@ -77,41 +77,59 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     };
   };
 
-  const getBezierPath = (x1: number, y1: number, x2: number, y2: number, isRightPort = false) => {
-    const validX1 = Number.isFinite(x1) ? x1 : 100;
-    const validY1 = Number.isFinite(y1) ? y1 : 100;
-    const validX2 = Number.isFinite(x2) ? x2 : 200;
-    const validY2 = Number.isFinite(y2) ? y2 : 200;
+  const getBezierPath = (
+    start: { x: number; y: number; isRightPort?: boolean },
+    end: { x: number; y: number }
+  ) => {
+    const x1 = Number.isFinite(start.x) ? start.x : 100;
+    const y1 = Number.isFinite(start.y) ? start.y : 100;
+    const x2 = Number.isFinite(end.x) ? end.x : 200;
+    const y2 = Number.isFinite(end.y) ? end.y : 200;
+    const isRightPort = !!start.isRightPort;
 
-    const deltaY = validY2 - validY1;
-    const deltaX = validX2 - validX1;
+    const deltaY = y2 - y1;
+    const deltaX = x2 - x1;
 
-    let cx1: number, cy1: number, cx2: number, cy2: number;
-
-    if (isRightPort) {
-      // Sale horizontal hacia la derecha desde el botón de la opción
-      const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY), 60);
-      cx1 = validX1 + distance * 0.4;
-      cy1 = validY1;
-      cx2 = validX2;
-      cy2 = validY2 - Math.max(distance * 0.4, 45);
-    } else if (deltaY > 20) {
-      // Destino está claramente abajo: curva Bézier suave vertical
+    // Caso 1: Destino está claramente abajo con suficiente holgura vertical (deltaY >= 50)
+    if (!isRightPort && deltaY >= 50) {
       const dy = Math.max(deltaY * 0.5, 45);
-      cx1 = validX1;
-      cy1 = validY1 + dy;
-      cx2 = validX2;
-      cy2 = validY2 - dy;
-    } else {
-      // Destino está al lado o arriba: el cable sale hacia abajo y sube arqueándose
-      const arc = Math.max(Math.abs(deltaX) * 0.35, 65);
-      cx1 = validX1;
-      cy1 = validY1 + arc;
-      cx2 = validX2;
-      cy2 = validY2 - arc;
+      return `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x2} ${y2 - dy}, ${x2} ${y2}`;
     }
 
-    return `M ${validX1} ${validY1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${validX2} ${validY2}`;
+    // Caso 2: Salida lateral por botón de opción (isRightPort)
+    if (isRightPort) {
+      if (deltaX >= 40 && deltaY >= 20) {
+        const cx1 = x1 + Math.max(deltaX * 0.45, 50);
+        const cy1 = y1;
+        const cx2 = x2;
+        const cy2 = y2 - Math.max(deltaY * 0.4, 40);
+        return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+      } else {
+        // Sale a la derecha por el pasillo, bordea y entra desde arriba
+        const exitOffset = Math.min(Math.max(Math.abs(deltaX) * 0.3, 40), 90);
+        const exitX = x1 + exitOffset;
+        const entryY = y2 - 45;
+        const midY = (y1 + entryY) / 2;
+        return `M ${x1} ${y1} C ${exitX} ${y1}, ${exitX} ${midY}, ${(exitX + x2) / 2} ${midY} C ${x2} ${midY}, ${x2} ${entryY}, ${x2} ${y2}`;
+      }
+    }
+
+    // Caso 3: Destino está arriba, al lado o en la misma fila (deltaY < 50)
+    // EVITAR ATRAVESAR EL CUERPO DE LA TARJETA:
+    // 1. Salir hacia abajo del bloque emisor despejando su base
+    const bottomClearance = Math.min(Math.max(Math.abs(deltaX) * 0.22, 50), 100);
+    const p1y = y1 + bottomClearance;
+
+    // 2. Llegar desde arriba del bloque receptor despejando su cabecera
+    const topClearance = Math.min(Math.max(Math.abs(deltaX) * 0.22, 50), 100);
+    const p2y = y2 - topClearance;
+
+    // 3. Pasillo intermedio en el espacio vacío entre columnas
+    const midX = (x1 + x2) / 2;
+    const midY = (p1y + p2y) / 2;
+
+    // Curva compuesta de 2 tramos Bézier continuos que rodean los bloques limpiamente
+    return `M ${x1} ${y1} C ${x1} ${p1y}, ${midX} ${p1y}, ${midX} ${midY} C ${midX} ${p2y}, ${x2} ${p2y}, ${x2} ${y2}`;
   };
 
   return (
@@ -173,7 +191,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
         const start = getNodeCenterCoords(sourceNode, conn.sourcePortId, false);
         const end = getNodeCenterCoords(targetNode, undefined, true);
-        const pathData = getBezierPath(start.x, start.y, end.x, end.y, start.isRightPort);
+        const pathData = getBezierPath(start, end);
 
         // Punto medio para el botón de eliminar
         const midX = (start.x + end.x) / 2;
@@ -260,7 +278,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         if (!sourceNode) return null;
         const start = getNodeCenterCoords(sourceNode, activeConnecting.sourcePortId, false);
         const end = activeConnecting.currentMousePos;
-        const pathData = getBezierPath(start.x, start.y, end.x, end.y, start.isRightPort);
+        const pathData = getBezierPath(start, end);
 
         return (
           <g>
