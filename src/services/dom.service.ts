@@ -5,6 +5,8 @@ export interface VisibleMessage {
     sender: 'me' | 'them';
     text: string;
     dateCategory?: 'today' | 'past';
+    /** Fecha y hora reales del mensaje (leídas de data-pre-plain-text), si se pudieron parsear. */
+    at?: Date;
 }
 
 let lastProcessedMessageId: string | null = null;
@@ -25,6 +27,55 @@ function getLastIncomingRow(container: Element): Element | null {
 function extractMessageText(row: Element): string | null {
     const textEl = row.querySelector(WA_SELECTORS.MESSAGE_TEXT);
     return textEl?.textContent?.trim() || null;
+}
+
+/**
+ * Fecha y hora REALES de un mensaje, leyendo `data-pre-plain-text` — WhatsApp lo pone en formato
+ * "[H:MM a. m./p. m., D/M/AAAA] Remitente: " (usado hasta ahora solo para la hora, ver
+ * getVisibleAudios) — acá se parsea completo (hora + fecha) para tener un timestamp real por
+ * mensaje en vez de solo la categoría "hoy/pasado". Devuelve null si el formato no calza (puede
+ * variar según el idioma configurado en WhatsApp) — quien llama debe tener un respaldo.
+ */
+function parseMessageDateTime(row: Element): Date | null {
+    const prePlainEl = row.querySelector('[data-pre-plain-text]');
+    const raw = prePlainEl?.getAttribute('data-pre-plain-text');
+    if (!raw) return null;
+
+    const match = raw.match(/\[(\d{1,2}):(\d{2})\s*([ap])\.?\s*\.?\s*m\.?,\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})\]/i);
+    if (!match) return null;
+
+    const [, hhStr, mmStr, ap, ddStr, moStr, yyStr] = match;
+    let hour = parseInt(hhStr, 10);
+    const minute = parseInt(mmStr, 10);
+    const isPM = ap.toLowerCase() === 'p';
+    if (isPM && hour !== 12) hour += 12;
+    if (!isPM && hour === 12) hour = 0;
+
+    const day = parseInt(ddStr, 10);
+    const month = parseInt(moStr, 10) - 1;
+    let year = parseInt(yyStr, 10);
+    if (year < 100) year += 2000;
+
+    const date = new Date(year, month, day, hour, minute, 0, 0);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Busca el ancestro real con scroll de un elemento (overflow-y auto/scroll y contenido más alto
+ * que su alto visible) — en vez de adivinar una clase/selector fijo para el contenedor de
+ * mensajes de WhatsApp (que cambia con actualizaciones), esto encuentra el que sea, sea cual sea
+ * su clase. Usado por loadOlderMessages para saber qué elemento scrollear hacia arriba.
+ */
+function findScrollableAncestor(el: Element): HTMLElement | null {
+    let node: HTMLElement | null = el.parentElement;
+    while (node && node !== document.body) {
+        const style = window.getComputedStyle(node);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 10) {
+            return node;
+        }
+        node = node.parentElement;
+    }
+    return null;
 }
 
 // Tabla de códigos de país (E.164) con el largo TOTAL esperado del número (código de país +
@@ -547,7 +598,13 @@ export const DOMService = {
             const allElements = container.querySelectorAll('[data-id], [role="row"], div.focusable-list-item');
             const currentMessagesAll: VisibleMessage[] = [];
             const currentMessagesToday: VisibleMessage[] = [];
-            let currentSectionDate: 'today' | 'past' = 'past'; // Default past
+            // Default "today", no "past": WhatsApp solo pinta un separador de fecha cuando el
+            // historial visible SALTA de un día a otro — un chat donde todo lo cargado es de hoy
+            // (charla reciente sin scrollear hacia atrás) no tiene ningún separador "HOY" que
+            // detectar, y con el default en "past" esos mensajes quedaban mal etiquetados como
+            // viejos (confirmado: rompía el resumen con IA en modo "Hoy", que sincronizaba esos
+            // mensajes con una fecha falsa de hace 3 días y después no encontraba nada al filtrar).
+            let currentSectionDate: 'today' | 'past' = 'today';
 
             const processedMsgIds = new Set<string>();
 
@@ -581,10 +638,13 @@ export const DOMService = {
                     el.classList.contains('message-out') ||
                     !!el.querySelector('.message-out');
 
+                const at = parseMessageDateTime(el) || undefined;
+
                 const msg: VisibleMessage = {
                     sender: isOutgoing ? 'me' : 'them',
                     text,
-                    dateCategory: currentSectionDate
+                    dateCategory: currentSectionDate,
+                    at
                 };
 
                 currentMessagesAll.push(msg);
@@ -631,6 +691,120 @@ export const DOMService = {
         } catch (err) {
             console.error('[DOMService] Error al leer los mensajes visibles del chat:', err);
             return [];
+        }
+    },
+
+    /**
+     * Scrollea el chat abierto hacia arriba para que WhatsApp vaya cargando mensajes más viejos
+     * (lo mismo que hace un humano al subir con la rueda), recolectando cada tanda nueva a medida
+     * que aparece — con su fecha REAL (ver parseMessageDateTime), no la aproximación de
+     * "hoy/pasado". Llama a `onBatch` una vez por cada tanda nueva encontrada, para que quien
+     * llame la pueda ir guardando en el backend sin esperar a que termine todo el scroll.
+     *
+     * Usa el contenedor real de scroll de los mensajes (WA_SELECTORS.MESSAGES_SCROLL_CONTAINER,
+     * con fallback al ancestro con overflow si cambiara). Si WhatsApp deja de crecer el alto del
+     * scroll entre dos pasadas, asume que llegó al principio del historial y corta ahí.
+     *
+     * `options.until`, si se pasa, corta el scroll apenas aparece un mensaje con fecha igual o
+     * anterior a ese límite (ej. "hace 7 días") — sirve para no traer más historial del que hace
+     * falta para el rango que pidió el usuario.
+     */
+    async loadOlderMessages(
+        options: { maxSteps: number; until?: Date },
+        onBatch: (newMessages: VisibleMessage[]) => void | Promise<void>
+    ): Promise<{ batches: number; messagesLoaded: number; reachedStart: boolean; reachedThreshold: boolean }> {
+        const { maxSteps, until } = options;
+        let batches = 0;
+        let messagesLoaded = 0;
+        let reachedStart = false;
+        let reachedThreshold = false;
+
+        try {
+            const container = document.querySelector(WA_SELECTORS.MAIN_CHAT);
+            if (!container) return { batches, messagesLoaded, reachedStart: true, reachedThreshold: false };
+
+            const firstRow = container.querySelector(WA_SELECTORS.MESSAGE_ROW);
+            const scrollEl =
+                document.querySelector<HTMLElement>(WA_SELECTORS.MESSAGES_SCROLL_CONTAINER) ||
+                (firstRow ? findScrollableAncestor(firstRow) : null);
+            if (!scrollEl) {
+                console.warn('[DOMService] No se encontró el contenedor con scroll de los mensajes.');
+                return { batches, messagesLoaded, reachedStart: true, reachedThreshold: false };
+            }
+
+            // Ya marcamos como "vistos" los mensajes que ya están cargados en pantalla, para no
+            // volver a mandarlos en el primer lote.
+            const seenIds = new Set<string>();
+            container.querySelectorAll('[data-id]').forEach((el) => {
+                const id = el.getAttribute('data-id');
+                if (id) seenIds.add(id);
+            });
+
+            for (let i = 0; i < maxSteps; i++) {
+                const beforeHeight = scrollEl.scrollHeight;
+                scrollEl.scrollTop = 0;
+                await new Promise((resolve) => setTimeout(resolve, 900));
+
+                // Cuando WhatsApp agota el historial cacheado localmente muestra un botón propio
+                // ("Haz clic aquí para obtener mensajes anteriores de tu teléfono") — sin clickearlo
+                // el scroll por sí solo nunca trae más allá de lo que el navegador ya tenía cacheado.
+                const loadMoreButton = Array.from(
+                    scrollEl.querySelectorAll<HTMLButtonElement>(WA_SELECTORS.LOAD_OLDER_FROM_PHONE_BUTTON)
+                ).find((btn) => btn.textContent?.includes('mensajes anteriores'));
+                if (loadMoreButton) {
+                    loadMoreButton.click();
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
+                }
+
+                const afterHeight = scrollEl.scrollHeight;
+
+                if (afterHeight <= beforeHeight) {
+                    reachedStart = true;
+                    break;
+                }
+
+                const rows = container.querySelectorAll(WA_SELECTORS.MESSAGE_ROW);
+                const newOnes: VisibleMessage[] = [];
+                rows.forEach((row) => {
+                    const id = row.getAttribute('data-id');
+                    if (!id || seenIds.has(id)) return;
+                    seenIds.add(id);
+                    const text = extractMessageText(row);
+                    if (!text) return;
+                    const isOutgoing =
+                        id.startsWith('true_') ||
+                        !!row.querySelector(WA_SELECTORS.MESSAGE_TAIL_OUT) ||
+                        row.classList.contains('message-out') ||
+                        !!row.querySelector('.message-out');
+                    const at = parseMessageDateTime(row) || undefined;
+                    newOnes.push({ sender: isOutgoing ? 'me' : 'them', text, at });
+                });
+
+                if (newOnes.length > 0) {
+                    await onBatch(newOnes);
+                    batches++;
+                    messagesLoaded += newOnes.length;
+                }
+
+                // Se guarda la tanda completa (aunque traiga algún mensaje más viejo que el límite)
+                // pero se corta ahí — no hace falta seguir scrolleando más atrás del rango pedido.
+                if (until) {
+                    const oldestInBatch = newOnes.reduce<Date | null>((min, m) => {
+                        if (!m.at) return min;
+                        if (!min || m.at < min) return m.at;
+                        return min;
+                    }, null);
+                    if (oldestInBatch && oldestInBatch <= until) {
+                        reachedThreshold = true;
+                        break;
+                    }
+                }
+            }
+
+            return { batches, messagesLoaded, reachedStart, reachedThreshold };
+        } catch (err) {
+            console.error('[DOMService] Error cargando mensajes más antiguos:', err);
+            return { batches, messagesLoaded, reachedStart: true, reachedThreshold: false };
         }
     },
 
