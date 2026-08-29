@@ -139,12 +139,18 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     isPanning: false,
     panStart: { x: 0, y: 0 },
     draggingNodeId: null as string | null,
-    dragStart: { nodeX: 0, nodeY: 0, clientX: 0, clientY: 0 }
+    dragStart: { nodeX: 0, nodeY: 0, clientX: 0, clientY: 0 },
+    connectingState: null as {
+      sourceNodeId: string;
+      sourcePortId?: string;
+      currentMousePos: { x: number; y: number };
+    } | null
   });
 
   stateRef.current.flow = flow;
   stateRef.current.zoom = zoom;
   stateRef.current.pan = pan;
+  stateRef.current.connectingState = connectingState;
 
   // Connecting Wire
   const [connectingState, setConnectingState] = useState<{
@@ -167,6 +173,41 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       x: Number.isFinite(x) ? x : 100,
       y: Number.isFinite(y) ? y : 100
     };
+  }, []);
+
+  // End Connection on Target Node
+  const handleEndConnection = useCallback((targetNodeId: string) => {
+    const activeConn = stateRef.current.connectingState;
+    if (!activeConn) return;
+    if (activeConn.sourceNodeId === targetNodeId) {
+      setConnectingState(null);
+      return;
+    }
+
+    setFlow((prev) => {
+      const exists = prev.connections.some(
+        (c) =>
+          c.sourceNodeId === activeConn.sourceNodeId &&
+          c.sourcePortId === activeConn.sourcePortId &&
+          c.targetNodeId === targetNodeId
+      );
+
+      if (exists) return prev;
+
+      const newConn: BotFlowConnection = {
+        id: `conn_${Date.now()}`,
+        sourceNodeId: activeConn.sourceNodeId,
+        sourcePortId: activeConn.sourcePortId || 'default',
+        targetNodeId
+      };
+
+      return {
+        ...prev,
+        connections: [...prev.connections, newConn]
+      };
+    });
+
+    setConnectingState(null);
   }, []);
 
   // Pan canvas on background drag
@@ -198,7 +239,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   // Global mouse move & up listeners
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
-      const { isPanning, panStart, draggingNodeId, dragStart, zoom } = stateRef.current;
+      const { isPanning, panStart, draggingNodeId, dragStart, zoom, connectingState: activeConn } = stateRef.current;
 
       if (isPanning) {
         setPan({
@@ -227,12 +268,34 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
               : n
           )
         }));
+      } else if (activeConn) {
+        // Actualizar la punta del cable arrastrado en tiempo real
+        const mouseCanvas = screenToCanvasCoords(e.clientX, e.clientY);
+        setConnectingState({
+          ...activeConn,
+          currentMousePos: mouseCanvas
+        });
       }
     };
 
-    const onMouseUp = () => {
+    const onMouseUp = (e: MouseEvent) => {
       stateRef.current.isPanning = false;
       stateRef.current.draggingNodeId = null;
+
+      const activeConn = stateRef.current.connectingState;
+      if (activeConn) {
+        // Si el usuario soltó el mouse sobre un nodo de destino o su puerto
+        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+        const nodeEl = targetEl?.closest('[id^="flow-node-"]') as HTMLElement | null;
+        if (nodeEl) {
+          const targetNodeId = nodeEl.id.replace('flow-node-', '');
+          if (targetNodeId && targetNodeId !== activeConn.sourceNodeId) {
+            handleEndConnection(targetNodeId);
+            return;
+          }
+        }
+        setConnectingState(null);
+      }
     };
 
     window.addEventListener('mousemove', onMouseMove);
@@ -241,48 +304,19 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, []);
+  }, [handleEndConnection, screenToCanvasCoords]);
 
   // Start Connection
   const handleStartConnection = (sourceNodeId: string, sourcePortId?: string, e?: React.MouseEvent) => {
     if (!e) return;
     const canvasPos = screenToCanvasCoords(e.clientX, e.clientY);
-    setConnectingState({
+    const newConnState = {
       sourceNodeId,
       sourcePortId,
       currentMousePos: canvasPos
-    });
-  };
-
-  // End Connection on Target Node
-  const handleEndConnection = (targetNodeId: string) => {
-    if (!connectingState) return;
-    if (connectingState.sourceNodeId === targetNodeId) {
-      setConnectingState(null);
-      return;
-    }
-
-    const exists = flow.connections.some(
-      (c) =>
-        c.sourceNodeId === connectingState.sourceNodeId &&
-        c.sourcePortId === connectingState.sourcePortId &&
-        c.targetNodeId === targetNodeId
-    );
-
-    if (!exists) {
-      const newConn: BotFlowConnection = {
-        id: `conn_${Date.now()}`,
-        sourceNodeId: connectingState.sourceNodeId,
-        sourcePortId: connectingState.sourcePortId || 'default',
-        targetNodeId
-      };
-      setFlow((prev) => ({
-        ...prev,
-        connections: [...prev.connections, newConn]
-      }));
-    }
-
-    setConnectingState(null);
+    };
+    stateRef.current.connectingState = newConnState;
+    setConnectingState(newConnState);
   };
 
   // Zoom Wheel

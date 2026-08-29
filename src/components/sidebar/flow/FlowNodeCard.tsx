@@ -106,6 +106,10 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
         e.stopPropagation();
         onSelect(node.id);
       }}
+      onMouseUp={(e) => {
+        // Permite soltar una conexión sobre cualquier parte de la tarjeta
+        onEndConnection(node.id);
+      }}
       className={`absolute w-72 rounded-2xl bg-white dark:bg-slate-900 shadow-md select-none border-2 transition-all duration-150 ${
         isSelected
           ? 'ring-4 ring-red-500/30 border-[#9e1114] dark:border-red-500 shadow-xl z-10'
@@ -119,6 +123,10 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
         <div
           id={`port-in-${node.id}`}
           onClick={(e) => {
+            e.stopPropagation();
+            onEndConnection(node.id);
+          }}
+          onMouseUp={(e) => {
             e.stopPropagation();
             onEndConnection(node.id);
           }}
