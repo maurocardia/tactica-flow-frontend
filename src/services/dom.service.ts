@@ -968,66 +968,89 @@ export const DOMService = {
 
     /**
      * Obtiene el Base64 de una nota de voz a partir de su ID de fila o su URL de blob.
-     * Si el audio aún no fue reproducido por el usuario, dispara el botón de play para forzar la carga del blob.
+     * Utiliza el interceptor de audio del mundo principal y el auto-disparo del reproductor.
      */
     async getAudioBase64(rowIdOrSrc: string): Promise<string> {
-        let blobUrl = rowIdOrSrc && rowIdOrSrc.startsWith('blob:') ? rowIdOrSrc : null;
+        // 1. Si ya tenemos un audio capturado recientemente (en los últimos 8 segundos)
+        const lastCaptured = (window as any).__tactica_last_captured_audio;
+        if (lastCaptured && (Date.now() - lastCaptured.at < 8000) && lastCaptured.base64) {
+            return lastCaptured.base64;
+        }
 
-        if (!blobUrl && rowIdOrSrc) {
-            const cleanId = rowIdOrSrc.trim();
-            const row = document.querySelector(`[data-tactica-audio-id="${cleanId}"]`) ||
-                document.querySelector(`div[data-id="${cleanId}"]`) ||
-                document.querySelector(`div[data-id*="${cleanId}"]`) ||
-                document.querySelector(`[data-id$="${cleanId}"]`);
+        // 2. Si ya viene una URL blob directa
+        if (rowIdOrSrc && rowIdOrSrc.startsWith('blob:')) {
+            return this.convertBlobUrlToBase64(rowIdOrSrc);
+        }
 
-            if (row) {
-                let audioEl = row.querySelector('audio') as HTMLAudioElement | null;
-                blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
+        const cleanId = (rowIdOrSrc || '').trim();
+        const row = document.querySelector(`[data-tactica-audio-id="${cleanId}"]`) ||
+            document.querySelector(`div[data-id="${cleanId}"]`) ||
+            document.querySelector(`div[data-id*="${cleanId}"]`) ||
+            document.querySelector(`[data-id$="${cleanId}"]`) ||
+            document.querySelector(WA_SELECTORS.MAIN_CHAT)?.querySelector(`[data-id*="${cleanId}"]`);
 
-                // Si no tiene blob aún, simular clic en el botón de play para que WhatsApp Web cargue el blob
-                if (!blobUrl) {
-                    const playBtn = (row.querySelector('button[aria-label*="Play" i]') ||
-                        row.querySelector('button[aria-label*="reproducir" i]') ||
-                        row.querySelector('button[aria-label*="Audio" i]') ||
-                        row.querySelector('[data-icon*="audio-play"]') ||
-                        row.querySelector('[data-icon*="play"]') ||
-                        row.querySelector('button')) as HTMLElement | null;
+        // 3. Preparar escucha de captura reactiva
+        const capturePromise = new Promise<string>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                window.removeEventListener('tactica-audio-captured', onCaptured as EventListener);
+                reject(new Error('NO_CAPTURED_EVENT'));
+            }, 3000);
 
-                    if (playBtn) {
-                        try {
-                            playBtn.click();
-                            await new Promise((r) => setTimeout(r, 600));
-                            audioEl = row.querySelector('audio') as HTMLAudioElement | null;
-                            blobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
-                            if (audioEl) {
-                                audioEl.pause();
-                            }
-                        } catch (e) {
-                            console.warn('[DOMService] Error al auto-reproducir audio:', e);
-                        }
-                    }
+            const onCaptured = (e: any) => {
+                if (e.detail && e.detail.base64) {
+                    clearTimeout(timeout);
+                    window.removeEventListener('tactica-audio-captured', onCaptured as EventListener);
+                    try {
+                        (window as any).__tactica_last_media_el?.pause();
+                    } catch {}
+                    resolve(e.detail.base64);
                 }
+            };
+
+            window.addEventListener('tactica-audio-captured', onCaptured as EventListener);
+        });
+
+        // 4. Intentar simular clic en el botón de reproducción del mensaje
+        if (row) {
+            const playBtn = (row.querySelector('button[aria-label*="Play" i]') ||
+                row.querySelector('button[aria-label*="reproducir" i]') ||
+                row.querySelector('button[aria-label*="Audio" i]') ||
+                row.querySelector('[data-icon*="audio-play"]') ||
+                row.querySelector('[data-icon*="play"]') ||
+                row.querySelector('div[role="button"][aria-label*="Play" i]') ||
+                row.querySelector('div[role="button"][aria-label*="reproducir" i]') ||
+                row.querySelector('button')) as HTMLElement | null;
+
+            if (playBtn) {
+                playBtn.click();
             }
         }
 
-        if (!blobUrl) {
-            const detected = this.getVisibleAudios();
-            const found = detected.find((a) => a.id === rowIdOrSrc || a.id.includes(rowIdOrSrc));
-            if (found && found.src) {
-                blobUrl = found.src;
+        try {
+            return await capturePromise;
+        } catch (captureErr) {
+            // Respaldo de lectura directa de URL blob
+            let fallbackBlobUrl: string | null = null;
+            if (row) {
+                const audioEl = row.querySelector('audio') as HTMLAudioElement | null;
+                fallbackBlobUrl = audioEl?.currentSrc || audioEl?.src || audioEl?.querySelector('source')?.src || null;
             }
-        }
+            if (!fallbackBlobUrl) {
+                const detected = this.getVisibleAudios();
+                const found = detected.find((a) => a.id === rowIdOrSrc || a.id.includes(rowIdOrSrc));
+                if (found && found.src) fallbackBlobUrl = found.src;
+            }
+            if (!fallbackBlobUrl) {
+                const anyAudio = document.querySelector(WA_SELECTORS.MAIN_CHAT)?.querySelector('audio') as HTMLAudioElement | null;
+                fallbackBlobUrl = anyAudio?.currentSrc || anyAudio?.src || null;
+            }
 
-        if (!blobUrl) {
-            const anyAudio = document.querySelector(WA_SELECTORS.MAIN_CHAT)?.querySelector('audio') as HTMLAudioElement | null;
-            blobUrl = anyAudio?.currentSrc || anyAudio?.src || null;
-        }
+            if (fallbackBlobUrl && fallbackBlobUrl.startsWith('blob:')) {
+                return this.convertBlobUrlToBase64(fallbackBlobUrl);
+            }
 
-        if (!blobUrl || !blobUrl.startsWith('blob:')) {
-            throw new Error('NO_BLOB');
+            throw new Error('No se pudo capturar el audio. Por favor dale Play a la nota de voz en WhatsApp Web y reintenta.');
         }
-
-        return this.convertBlobUrlToBase64(blobUrl);
     },
 
     /**

@@ -20,10 +20,13 @@
     return btoa(binary);
   }
 
-  function emitCaptured(base64: string, byteLength: number, mimeType: string) {
+  function emitCaptured(base64: string, byteLength: number, mimeType: string, src?: string) {
     log(`Audio capturado — ${byteLength} bytes, ${mimeType}`);
+    try {
+      (window as any).__tactica_last_captured_audio = { base64, byteLength, mimeType, src, at: Date.now() };
+    } catch {}
     window.dispatchEvent(
-      new CustomEvent('tactica-audio-captured', { detail: { base64, byteLength, mimeType, at: Date.now() } })
+      new CustomEvent('tactica-audio-captured', { detail: { base64, byteLength, mimeType, src, at: Date.now() } })
     );
   }
 
@@ -31,12 +34,15 @@
     const originalPlay = HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play = function (this: HTMLMediaElement, ...args: any[]) {
       const src = this.currentSrc || this.src;
-      if (src) {
+      try {
+        (window as any).__tactica_last_media_el = this;
+      } catch {}
+      if (src && src.startsWith('blob:')) {
         fetch(src)
           .then((r) => r.arrayBuffer())
           .then((buf) => {
             const mimeType = this.tagName === 'VIDEO' ? 'video/mp4' : 'audio/ogg';
-            emitCaptured(bufferToBase64(buf), buf.byteLength, mimeType);
+            emitCaptured(bufferToBase64(buf), buf.byteLength, mimeType, src);
           })
           .catch((err) => log('No se pudo descargar el src del elemento de audio:', err));
       }
