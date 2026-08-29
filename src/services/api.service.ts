@@ -1,12 +1,7 @@
 // src/services/api.service.ts
 
-import { Conversation, ConversationMessage } from "@/types/conversation";
-<<<<<<< HEAD
-import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
-=======
 import { BotContact } from "@/types/botContact";
-import { KeywordRule, KeywordRuleInput } from "@/types/bot";
->>>>>>> origin/feature/bot-habilitado-por-contacto
+import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
