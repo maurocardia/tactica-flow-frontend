@@ -21,7 +21,7 @@ interface FlowNodeCardProps {
     sourceNodeId: string;
     sourcePortId?: string;
   } | null;
-  onSelect: (nodeId: string) => void;
+  onSelect: (nodeId: string, isMulti?: boolean) => void;
   onEdit: (node: BotFlowNode) => void;
   onDelete: (nodeId: string) => void;
   onDuplicate: (node: BotFlowNode) => void;
@@ -113,7 +113,7 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
         if (activeConnecting && activeConnecting.sourceNodeId !== node.id) {
           onEndConnection(node.id);
         } else {
-          onSelect(node.id);
+          onSelect(node.id, e.shiftKey || e.ctrlKey || e.metaKey);
         }
       }}
       onMouseUp={(e) => {

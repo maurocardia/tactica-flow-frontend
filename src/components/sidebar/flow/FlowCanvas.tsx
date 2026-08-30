@@ -9,7 +9,9 @@ import {
   Trash2,
   X,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  MousePointer,
+  BoxSelect
 } from 'lucide-react';
 import { BotFlowConnection, BotFlowData, BotFlowNode, NodeType } from '@/types/bot';
 import { FlowPalette } from './FlowPalette';
@@ -125,7 +127,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     };
   });
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedConnectionId, setSelectedConnectionId] = useState<string | null>(null);
   const [editingNode, setEditingNode] = useState<BotFlowNode | null>(null);
   const [showSimulator, setShowSimulator] = useState(false);
@@ -133,6 +135,15 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showCloseConfirmModal, setShowCloseConfirmModal] = useState(false);
+
+  // Modo de selección de bloques vs modo mover canvas
+  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false);
+  const [selectionBox, setSelectionBox] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
 
   // Zoom & Pan
   const [zoom, setZoom] = useState(1);
@@ -152,8 +163,12 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     pan,
     isPanning: false,
     panStart: { x: 0, y: 0 },
-    draggingNodeId: null as string | null,
-    dragStart: { nodeX: 0, nodeY: 0, clientX: 0, clientY: 0 },
+    isSelectionMode: false,
+    isBoxSelecting: false,
+    boxStart: { x: 0, y: 0 },
+    selectedNodeIds: [] as string[],
+    draggingNodes: [] as { id: string; startX: number; startY: number }[],
+    dragStartClient: { clientX: 0, clientY: 0 },
     connectingState: null as {
       sourceNodeId: string;
       sourcePortId?: string;
@@ -164,6 +179,8 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   stateRef.current.flow = flow;
   stateRef.current.zoom = zoom;
   stateRef.current.pan = pan;
+  stateRef.current.isSelectionMode = isSelectionMode;
+  stateRef.current.selectedNodeIds = selectedNodeIds;
   stateRef.current.connectingState = connectingState;
 
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -246,71 +263,155 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     setConnectingState(null);
   }, [updateFlowWithDraft]);
 
-  // Pan canvas on background drag
+  // Pan canvas on background drag OR start Box Selection
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current || (e.target as HTMLElement).classList.contains('canvas-bg')) {
-      setSelectedNodeId(null);
-      setSelectedConnectionId(null);
       if (connectingState) {
         setConnectingState(null);
         stateRef.current.connectingState = null;
       }
-      stateRef.current.isPanning = true;
-      stateRef.current.panStart = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+      setSelectedConnectionId(null);
+
+      const shouldBoxSelect = isSelectionMode || e.shiftKey;
+
+      if (shouldBoxSelect) {
+        const canvasPos = screenToCanvasCoords(e.clientX, e.clientY);
+        stateRef.current.isBoxSelecting = true;
+        stateRef.current.boxStart = canvasPos;
+        setSelectionBox({
+          startX: canvasPos.x,
+          startY: canvasPos.y,
+          currentX: canvasPos.x,
+          currentY: canvasPos.y
+        });
+        if (!e.shiftKey) {
+          setSelectedNodeIds([]);
+          stateRef.current.selectedNodeIds = [];
+        }
+      } else {
+        setSelectedNodeIds([]);
+        stateRef.current.selectedNodeIds = [];
+        stateRef.current.isPanning = true;
+        stateRef.current.panStart = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+      }
     }
   };
 
-  // Node Drag Start
+  // Node Selection & Group Drag Start
   const handleNodeMouseDown = (nodeId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedNodeId(nodeId);
+    const isMulti = e.shiftKey || e.ctrlKey || e.metaKey;
+    let nextSelected: string[] = [];
 
-    const node = stateRef.current.flow.nodes.find((n) => n.id === nodeId);
-    if (node) {
-      stateRef.current.draggingNodeId = nodeId;
-      stateRef.current.dragStart = {
-        nodeX: Number.isFinite(node.position.x) ? node.position.x : 100,
-        nodeY: Number.isFinite(node.position.y) ? node.position.y : 100,
-        clientX: e.clientX,
-        clientY: e.clientY
-      };
+    if (isMulti) {
+      if (selectedNodeIds.includes(nodeId)) {
+        nextSelected = selectedNodeIds.filter((id) => id !== nodeId);
+      } else {
+        nextSelected = [...selectedNodeIds, nodeId];
+      }
+    } else {
+      if (selectedNodeIds.includes(nodeId) && selectedNodeIds.length > 1) {
+        nextSelected = selectedNodeIds;
+      } else {
+        nextSelected = [nodeId];
+      }
     }
+
+    setSelectedNodeIds(nextSelected);
+    stateRef.current.selectedNodeIds = nextSelected;
+    setSelectedConnectionId(null);
+
+    // Preparar arrastre de todos los nodos seleccionados en conjunto
+    const nodesToDrag = stateRef.current.flow.nodes
+      .filter((n) => nextSelected.includes(n.id))
+      .map((n) => ({
+        id: n.id,
+        startX: Number.isFinite(n.position?.x) ? n.position.x : 100,
+        startY: Number.isFinite(n.position?.y) ? n.position.y : 100
+      }));
+
+    stateRef.current.draggingNodes = nodesToDrag;
+    stateRef.current.dragStartClient = { clientX: e.clientX, clientY: e.clientY };
   };
 
   // Global mouse move & up listeners
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
-      const { isPanning, panStart, draggingNodeId, dragStart, zoom, connectingState: activeConn } = stateRef.current;
+      const {
+        isPanning,
+        panStart,
+        isBoxSelecting,
+        boxStart,
+        draggingNodes,
+        dragStartClient,
+        zoom,
+        connectingState: activeConn
+      } = stateRef.current;
 
       if (isPanning) {
         setPan({
           x: Math.round(e.clientX - panStart.x),
           y: Math.round(e.clientY - panStart.y)
         });
-      } else if (draggingNodeId) {
-        const safeZoom = zoom > 0 ? zoom : 1;
-        const dx = (e.clientX - dragStart.clientX) / safeZoom;
-        const dy = (e.clientY - dragStart.clientY) / safeZoom;
+      } else if (isBoxSelecting) {
+        const currentCanvas = screenToCanvasCoords(e.clientX, e.clientY);
+        const newBox = {
+          startX: boxStart.x,
+          startY: boxStart.y,
+          currentX: currentCanvas.x,
+          currentY: currentCanvas.y
+        };
+        setSelectionBox(newBox);
 
-        const newX = Math.round(dragStart.nodeX + dx);
-        const newY = Math.round(dragStart.nodeY + dy);
+        const minX = Math.min(newBox.startX, newBox.currentX);
+        const maxX = Math.max(newBox.startX, newBox.currentX);
+        const minY = Math.min(newBox.startY, newBox.currentY);
+        const maxY = Math.max(newBox.startY, newBox.currentY);
+
+        const highlightedIds = stateRef.current.flow.nodes
+          .filter((n) => {
+            const cardEl = document.getElementById(`flow-node-${n.id}`);
+            const h = cardEl ? cardEl.offsetHeight : 175;
+            const nodeLeft = n.position.x;
+            const nodeRight = n.position.x + 288;
+            const nodeTop = n.position.y;
+            const nodeBottom = n.position.y + h;
+            return !(nodeRight < minX || nodeLeft > maxX || nodeBottom < minY || nodeTop > maxY);
+          })
+          .map((n) => n.id);
+
+        setSelectedNodeIds(highlightedIds);
+        stateRef.current.selectedNodeIds = highlightedIds;
+      } else if (draggingNodes && draggingNodes.length > 0) {
+        const safeZoom = zoom > 0 ? zoom : 1;
+        const dx = (e.clientX - dragStartClient.clientX) / safeZoom;
+        const dy = (e.clientY - dragStartClient.clientY) / safeZoom;
+
+        const nodePosMap = new Map<string, { x: number; y: number }>();
+        for (const dn of draggingNodes) {
+          nodePosMap.set(dn.id, {
+            x: Math.round(dn.startX + dx),
+            y: Math.round(dn.startY + dy)
+          });
+        }
 
         updateFlowWithDraft((prev) => ({
           ...prev,
-          nodes: prev.nodes.map((n) =>
-            n.id === draggingNodeId
-              ? {
-                  ...n,
-                  position: {
-                    x: Number.isFinite(newX) ? newX : n.position.x,
-                    y: Number.isFinite(newY) ? newY : n.position.y
-                  }
+          nodes: prev.nodes.map((n) => {
+            const updated = nodePosMap.get(n.id);
+            if (updated) {
+              return {
+                ...n,
+                position: {
+                  x: Number.isFinite(updated.x) ? updated.x : n.position.x,
+                  y: Number.isFinite(updated.y) ? updated.y : n.position.y
                 }
-              : n
-          )
+              };
+            }
+            return n;
+          })
         }));
       } else if (activeConn) {
-        // Actualizar la punta del cable arrastrado en tiempo real
         const mouseCanvas = screenToCanvasCoords(e.clientX, e.clientY);
         setConnectingState({
           ...activeConn,
@@ -321,11 +422,14 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
 
     const onMouseUp = (e: MouseEvent) => {
       stateRef.current.isPanning = false;
-      stateRef.current.draggingNodeId = null;
+      stateRef.current.draggingNodes = [];
+      if (stateRef.current.isBoxSelecting) {
+        stateRef.current.isBoxSelecting = false;
+        setSelectionBox(null);
+      }
 
       const activeConn = stateRef.current.connectingState;
       if (activeConn) {
-        // Si el usuario soltó el mouse sobre un nodo de destino o su puerto
         const targetEl = document.elementFromPoint(e.clientX, e.clientY);
         const nodeEl = targetEl?.closest('[id^="flow-node-"]') as HTMLElement | null;
         if (nodeEl) {
@@ -347,7 +451,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     };
   }, [handleEndConnection, screenToCanvasCoords, updateFlowWithDraft]);
 
-  // Global Keyboard Shortcuts (Escape to cancel drag, Delete/Supr to delete selected item)
+  // Global Keyboard Shortcuts (Escape to cancel drag/selection, Delete/Supr to delete selected, V/S mode switch)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const path = e.composedPath ? e.composedPath() : [e.target];
@@ -370,22 +474,26 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           stateRef.current.connectingState = null;
         }
         setSelectedConnectionId(null);
-        setSelectedNodeId(null);
+        setSelectedNodeIds([]);
         setEditingNode(null);
-      } else if (e.key === 'Delete') {
+        setSelectionBox(null);
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedConnectionId) {
           handleDeleteConnection(selectedConnectionId);
           setSelectedConnectionId(null);
-        } else if (selectedNodeId) {
-          handleDeleteNode(selectedNodeId);
-          setSelectedNodeId(null);
+        } else if (selectedNodeIds.length > 0) {
+          handleDeleteSelectedNodes();
         }
+      } else if (e.key.toLowerCase() === 'v' && !e.ctrlKey && !e.metaKey) {
+        setIsSelectionMode(false);
+      } else if (e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey) {
+        setIsSelectionMode(true);
       }
     };
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedConnectionId, selectedNodeId, editingNode]);
+  }, [selectedConnectionId, selectedNodeIds, editingNode]);
 
   // Start Connection
   const handleStartConnection = (sourceNodeId: string, sourcePortId?: string, e?: React.MouseEvent) => {
@@ -463,7 +571,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       ...prev,
       nodes: [...prev.nodes, newNode]
     }));
-    setSelectedNodeId(newNode.id);
+    setSelectedNodeIds([newNode.id]);
   };
 
   // Handle Drop onto Canvas
@@ -496,7 +604,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       ...prev,
       nodes: [...prev.nodes, newNode]
     }));
-    setSelectedNodeId(newNode.id);
+    setSelectedNodeIds([newNode.id]);
   };
 
   // Node Actions
@@ -508,7 +616,19 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
         (c) => c.sourceNodeId !== nodeId && c.targetNodeId !== nodeId
       )
     }));
-    if (selectedNodeId === nodeId) setSelectedNodeId(null);
+    setSelectedNodeIds((prev) => prev.filter((id) => id !== nodeId));
+  };
+
+  const handleDeleteSelectedNodes = () => {
+    if (selectedNodeIds.length === 0) return;
+    updateFlowWithDraft((prev) => ({
+      ...prev,
+      nodes: prev.nodes.filter((n) => !selectedNodeIds.includes(n.id) || n.type === 'TRIGGER'),
+      connections: prev.connections.filter(
+        (c) => !selectedNodeIds.includes(c.sourceNodeId) && !selectedNodeIds.includes(c.targetNodeId)
+      )
+    }));
+    setSelectedNodeIds([]);
   };
 
   const handleDuplicateNode = (node: BotFlowNode) => {
@@ -527,7 +647,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       ...prev,
       nodes: [...prev.nodes, dupNode]
     }));
-    setSelectedNodeId(dupId);
+    setSelectedNodeIds([dupId]);
   };
 
   const handleDeleteConnection = (connectionId: string) => {
@@ -646,7 +766,9 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
           onMouseDown={handleCanvasMouseDown}
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
-          className="flex-1 h-full relative overflow-hidden bg-slate-50 dark:bg-slate-950 cursor-default"
+          className={`flex-1 h-full relative overflow-hidden bg-slate-50 dark:bg-slate-950 ${
+            isSelectionMode ? 'cursor-crosshair' : 'cursor-default'
+          }`}
           style={{
             backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
             backgroundSize: `${24 * (zoom || 1)}px ${24 * (zoom || 1)}px`,
@@ -667,13 +789,21 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
                 <FlowNodeCard
                   key={node.id}
                   node={node}
-                  isSelected={selectedNodeId === node.id}
+                  isSelected={selectedNodeIds.includes(node.id)}
                   isHoveredByConnection={
                     hoveredConnection?.sourceNodeId === node.id ||
                     hoveredConnection?.targetNodeId === node.id
                   }
                   activeConnecting={connectingState}
-                  onSelect={(id) => setSelectedNodeId(id)}
+                  onSelect={(id, isMulti) => {
+                    if (isMulti) {
+                      setSelectedNodeIds((prev) =>
+                        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                      );
+                    } else {
+                      setSelectedNodeIds([id]);
+                    }
+                  }}
                   onEdit={(n) => setEditingNode(n)}
                   onDelete={handleDeleteNode}
                   onDuplicate={handleDuplicateNode}
@@ -684,6 +814,19 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
               ))}
             </div>
 
+            {/* Marquee Selection Box */}
+            {selectionBox && (
+              <div
+                className="absolute border-2 border-dashed border-[#9e1114] bg-[#9e1114]/15 rounded-xl pointer-events-none z-30 transition-none"
+                style={{
+                  left: Math.min(selectionBox.startX, selectionBox.currentX),
+                  top: Math.min(selectionBox.startY, selectionBox.currentY),
+                  width: Math.abs(selectionBox.currentX - selectionBox.startX),
+                  height: Math.abs(selectionBox.currentY - selectionBox.startY)
+                }}
+              />
+            )}
+
             {/* SVG Cable Edge Layer - RENDERIZADO POR ENCIMA */}
             <FlowEdgeLayer
               nodes={flow.nodes}
@@ -691,7 +834,7 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
               selectedConnectionId={selectedConnectionId}
               onSelectConnection={(id) => {
                 setSelectedConnectionId(id);
-                if (id) setSelectedNodeId(null);
+                if (id) setSelectedNodeIds([]);
               }}
               onDeleteConnection={handleDeleteConnection}
               onHoverConnection={(c) => setHoveredConnection(c)}
@@ -699,36 +842,99 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
             />
           </div>
 
-          {/* Floating Zoom & Canvas Controls */}
-          <div className="absolute bottom-5 left-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-lg flex items-center gap-1 z-30 select-none">
-            <button
-              type="button"
-              onClick={() => setZoom((z) => Math.min(z + 0.15, 2.0))}
-              title="Acercar (Zoom In)"
-              className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-            >
-              <ZoomIn className="w-4 h-4" />
-            </button>
-            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 px-1.5 w-11 text-center">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              type="button"
-              onClick={() => setZoom((z) => Math.max(z - 0.15, 0.4))}
-              title="Alejar (Zoom Out)"
-              className="p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-            >
-              <ZoomOut className="w-4 h-4" />
-            </button>
-            <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
-            <button
-              type="button"
-              onClick={centerNodes}
-              title="Centrar Nodos en Pantalla"
-              className="flex items-center gap-1 p-2 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors text-xs font-semibold"
-            >
-              <Focus className="w-4 h-4" /> Centrar
-            </button>
+          {/* Top Multi-Selection Toolbar Pill */}
+          {selectedNodeIds.length > 0 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-2 shadow-xl flex items-center gap-3 z-30 animate-in fade-in slide-in-from-top-2 duration-150 select-none">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
+                <span className="w-2 h-2 rounded-full bg-[#9e1114] animate-pulse" />
+                {selectedNodeIds.length === 1
+                  ? '1 bloque seleccionado'
+                  : `${selectedNodeIds.length} bloques seleccionados`}
+              </div>
+              <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                (Arrastra cualquiera para mover el grupo)
+              </span>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
+              <button
+                type="button"
+                onClick={handleDeleteSelectedNodes}
+                className="flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 px-2 py-1 rounded-lg transition-colors cursor-pointer"
+                title="Eliminar bloques seleccionados (Supr)"
+              >
+                <Trash2 className="w-3.5 h-3.5" /> Eliminar
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedNodeIds([])}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Deseleccionar (Esc)"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Floating Controls: Mode Switch & Zoom/Pan */}
+          <div className="absolute bottom-5 left-6 flex items-center gap-2 z-30 select-none">
+            {/* Mode Switcher */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-lg flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsSelectionMode(false)}
+                title="Modo Mover Canvas (V)"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  !isSelectionMode
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <MousePointer className="w-3.5 h-3.5" /> Mover
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsSelectionMode(true)}
+                title="Modo Selección de Área / Bloques (S o Shift+Arrastrar)"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                  isSelectionMode
+                    ? 'bg-[#9e1114] text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <BoxSelect className="w-3.5 h-3.5" /> Seleccionar
+              </button>
+            </div>
+
+            {/* Zoom Controls */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1.5 shadow-lg flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(z + 0.15, 2.0))}
+                title="Acercar (Zoom In)"
+                className="p-1.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 px-1 w-10 text-center">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(z - 0.15, 0.4))}
+                title="Alejar (Zoom Out)"
+                className="p-1.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
+              <button
+                type="button"
+                onClick={centerNodes}
+                title="Centrar Nodos en Pantalla"
+                className="flex items-center gap-1 p-1.5 rounded-xl text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors text-xs font-semibold"
+              >
+                <Focus className="w-4 h-4" /> Centrar
+              </button>
+            </div>
           </div>
         </div>
 
