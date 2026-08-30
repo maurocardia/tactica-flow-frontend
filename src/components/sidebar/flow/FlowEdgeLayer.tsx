@@ -183,13 +183,15 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
   };
 
   /**
-   * Generador de caminos ortogonales con esquiva inteligente sin rodeos innecesarios
+   * Generador de caminos ortogonales con pistas separadas (multi-lane) y esquiva inteligente
    */
   const getStepPath = (
     start: { x: number; y: number; isRightPort?: boolean },
     end: { x: number; y: number },
     sourceNodeId?: string,
-    targetNodeId?: string
+    targetNodeId?: string,
+    sourcePortId?: string,
+    connIndex = 0
   ): PathResult => {
     const x1 = Number.isFinite(start.x) ? Math.round(start.x) : 100;
     const y1 = Number.isFinite(start.y) ? Math.round(start.y) : 100;
@@ -199,6 +201,18 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
     const deltaY = y2 - y1;
     const deltaX = x2 - x1;
+
+    // Calcular índice de la opción para asignar su propio carril exclusivo
+    const sourceNode = nodes.find((n) => n.id === sourceNodeId);
+    let optionIndex = 0;
+    if (sourceNode?.data?.options && sourcePortId && sourcePortId !== 'default') {
+      const idx = sourceNode.data.options.findIndex(
+        (o, i) => (o.id || `opt_${i}`) === sourcePortId
+      );
+      if (idx >= 0) optionIndex = idx;
+    } else {
+      optionIndex = connIndex % 4;
+    }
 
     // Cajas delimitadoras de los demás nodos (obstáculos)
     const obstacleBoxes: Box[] = nodes
@@ -214,12 +228,14 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         };
       });
 
-    // Caso 1: Salida desde la derecha (opción de menú)
+    // Caso 1: Salida desde la derecha (opciones de menú con carriles separados)
     if (isRightPort) {
-      const exitCorridorX = x1 + 28;
-      if (deltaX >= 40 && deltaY >= 10) {
+      // Separación de carriles verticales: cada opción toma una pista separada por 22px
+      const exitCorridorX = x1 + 24 + optionIndex * 22;
+
+      if (deltaX >= 50 && deltaY >= 15) {
         // Destino claramente a la derecha y abajo
-        const midY = Math.round(y1 + deltaY / 2);
+        const midY = Math.round(y1 + deltaY / 2 + optionIndex * 8);
         return {
           d: generateRoundedStepPath([
             { x: x1, y: y1 },
@@ -227,12 +243,14 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
             { x: exitCorridorX, y: midY },
             { x: x2, y: midY },
             { x: x2, y: y2 }
-          ], 10),
+          ], 12),
           midPoint: { x: (exitCorridorX + x2) / 2, y: midY }
         };
       } else {
-        // Destino arriba, alineado o a la izquierda: salir a la derecha, subir/bajar por el pasillo y entrar arriba
-        const entryCorridorY = y2 - 24;
+        // Destino arriba, en la misma fila o a la izquierda:
+        // Cada opción entra por un piso horizontal separado para no encimarse arriba de las tarjetas
+        const entryCorridorY = y2 - 24 - optionIndex * 14;
+
         return {
           d: generateRoundedStepPath([
             { x: x1, y: y1 },
@@ -240,7 +258,7 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
             { x: exitCorridorX, y: entryCorridorY },
             { x: x2, y: entryCorridorY },
             { x: x2, y: y2 }
-          ], 10),
+          ], 12),
           midPoint: { x: exitCorridorX, y: (y1 + entryCorridorY) / 2 }
         };
       }
@@ -248,7 +266,6 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
     // Caso 2: Destino alineado verticalmente justo abajo
     if (Math.abs(deltaX) < 12 && deltaY >= 15) {
-      // Verificar si hay alguna tarjeta intermedia entre medio en la misma columna
       const hasIntermediateCard = obstacleBoxes.some(
         (b) => b.left < x1 + 40 && b.right > x1 - 40 && b.top > y1 + 10 && b.bottom < y2 - 10
       );
@@ -263,16 +280,14 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
 
     // Caso 3: Destino está en una fila inferior (deltaY >= 25)
     if (deltaY >= 25) {
-      const midY = Math.round(y1 + deltaY / 2);
+      const midY = Math.round(y1 + deltaY / 2 + (connIndex % 3) * 10);
 
-      // Verificar si la línea horizontal en midY atraviesa alguna tarjeta
       const minX = Math.min(x1, x2) + 10;
       const maxX = Math.max(x1, x2) - 10;
       const horizontalObstacles = obstacleBoxes.filter(
         (b) => !(b.right < minX || b.left > maxX || b.bottom < midY || b.top > midY)
       );
 
-      // Si la calle horizontal intermedia está libre, hacer el giro directo sin rodeos
       if (horizontalObstacles.length === 0) {
         return {
           d: generateRoundedStepPath([
@@ -285,11 +300,10 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         };
       }
 
-      // Si hay una tarjeta bloqueando la calle horizontal en midY, bordear por la avenida lateral
       const maxObstacleRight = Math.max(...horizontalObstacles.map((b) => b.right), x1 + 144 + 20);
-      const avenueX = maxObstacleRight + 16;
-      const exitY = y1 + 20;
-      const entryY = y2 - 20;
+      const avenueX = maxObstacleRight + 16 + (connIndex % 3) * 14;
+      const exitY = y1 + 20 + (connIndex % 3) * 6;
+      const entryY = y2 - 20 - (connIndex % 3) * 6;
 
       return {
         d: generateRoundedStepPath([
@@ -305,12 +319,12 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     }
 
     // Caso 4: Destino está en la misma fila o hacia arriba (deltaY < 25)
-    const exitY = y1 + 24;
-    const entryY = y2 - 24;
+    const exitY = y1 + 24 + (connIndex % 3) * 8;
+    const entryY = y2 - 24 - (connIndex % 3) * 8;
 
-    let verticalCorridorX = Math.round((x1 + x2) / 2);
+    let verticalCorridorX = Math.round((x1 + x2) / 2 + (connIndex % 3) * 14);
     if (Math.abs(deltaX) < 80) {
-      verticalCorridorX = x1 + 160;
+      verticalCorridorX = x1 + 160 + (connIndex % 3) * 14;
     }
 
     return {
@@ -358,34 +372,38 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
         {/* Gradiente Rojo Táctica por defecto (Sutil y elegante) */}
         <linearGradient id="edge-gradient-red" x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#9e1114" stopOpacity="0.45" />
-          <stop offset="100%" stopColor="#e11d48" stopOpacity="0.55" />
+          <stop offset="100%" stopColor="#b81519" stopOpacity="0.75" />
         </linearGradient>
 
-        {/* Gradiente Rojo Intenso para Hover (Brillante) */}
+        {/* Gradiente Rojo Brillante al seleccionar o pasar el cursor */}
         <linearGradient id="edge-gradient-hover" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#b81519" />
-          <stop offset="100%" stopColor="#ff2e35" />
+          <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
+          <stop offset="100%" stopColor="#b81519" stopOpacity="1" />
         </linearGradient>
 
-        {/* Filtro de Resplandor Glow para hover */}
+        {/* Filtro Resplandor */}
         <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="3" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
 
       {/* Conexiones Existentes */}
-      {connections.map((conn) => {
+      {connections.map((conn, idx) => {
         const sourceNode = nodes.find((n) => n.id === conn.sourceNodeId);
         const targetNode = nodes.find((n) => n.id === conn.targetNodeId);
         if (!sourceNode || !targetNode) return null;
 
         const start = getNodeCenterCoords(sourceNode, conn.sourcePortId, false);
         const end = getNodeCenterCoords(targetNode, undefined, true);
-        const { d: pathData, midPoint } = getStepPath(start, end, sourceNode.id, targetNode.id);
+        const { d: pathData, midPoint } = getStepPath(
+          start,
+          end,
+          sourceNode.id,
+          targetNode.id,
+          conn.sourcePortId,
+          idx
+        );
 
         const isHovered = hoveredEdgeId === conn.id;
         const isSelected = selectedConnectionId === conn.id;
