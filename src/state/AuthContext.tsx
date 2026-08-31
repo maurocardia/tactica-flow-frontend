@@ -51,6 +51,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err) {
       console.error('[AuthContext] No se pudo desconectar WhatsApp al cerrar sesión:', err);
     }
+    
+    // Limpiar toda la caché local para evitar que queden rastros de chats o contactos en la siguiente sesión
+    try {
+      if (chrome?.storage?.local) {
+        await chrome.storage.local.clear();
+      }
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch (err) {
+      console.error('[AuthContext] Error al limpiar la caché:', err);
+    }
+
     await clearStoredAuth();
     setUser(null);
   };
