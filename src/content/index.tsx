@@ -12,6 +12,8 @@ import indexCss from '../index.css?inline';
 const PANEL_WIDTH = 360;
 const TOGGLE_EVENT = 'tactica-flow:toggle-panel';
 const MODAL_STATE_EVENT = 'tactica-flow:modal-state';
+const LAUNCHER_SIZE = 48;
+const LAUNCHER_POSITION_KEY = 'tactica_launcher_position';
 
 let panelOpen = false;
 // Si un modal se abrió desde los íconos inyectados en el header real de WhatsApp (ver
@@ -199,6 +201,76 @@ function updatePointerEvents(hostDiv: HTMLElement) {
     hostDiv.style.zIndex = modalOpen ? '2147483647' : '10000';
 }
 
+function clampLauncherTop(top: number) {
+    const maxTop = window.innerHeight - LAUNCHER_SIZE - 4;
+    return Math.min(Math.max(4, top), Math.max(4, maxTop));
+}
+
+// Mantiene el botón siempre pegado al lateral derecho (`right` fijo) — lo único que cambia es
+// `top`, así se desliza de arriba a abajo por el borde en vez de poder soltarse por cualquier
+// lado de la pantalla.
+function applyLauncherTop(launcher: HTMLElement, top: number) {
+    launcher.style.setProperty('top', `${clampLauncherTop(top)}px`, 'important');
+}
+
+// Deja el botón flotante deslizable verticalmente por el lateral: mousedown arranca el
+// seguimiento, mousemove lo mueve en vivo (con una transición corta para que se sienta fluido en
+// vez de saltar de golpe), y mouseup decide si fue un CLIC (abre el panel) o un ARRASTRE (guarda
+// la nueva posición) según cuánto se movió el mouse.
+const LAUNCHER_TRANSITION = 'top 0.12s ease-out, transform 0.15s ease, box-shadow 0.15s ease';
+
+function makeLauncherDraggable(launcher: HTMLElement, onClick: () => void) {
+    let dragging = false;
+    let moved = false;
+    let startY = 0;
+    let startTop = 0;
+
+    launcher.addEventListener('mousedown', (e) => {
+        dragging = true;
+        moved = false;
+        startY = e.clientY;
+        startTop = launcher.getBoundingClientRect().top;
+        // Sin transición mientras se arrastra activamente: el mouse ya se mueve suave frame a
+        // frame, y agregarle un delay encima solo lo haría sentir atrasado respecto al cursor.
+        // Se usa setProperty con "important" porque el estilo base también lo trae con
+        // "important" — un `style.transition = 'none'` normal no le habría ganado.
+        launcher.style.setProperty('transition', 'none', 'important');
+        launcher.classList.add('tactica-launcher-dragging');
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const dy = e.clientY - startY;
+        if (Math.abs(dy) > 4) moved = true;
+        if (moved) applyLauncherTop(launcher, startTop + dy);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!dragging) return;
+        dragging = false;
+        // Al soltar sí queremos la transición: acompaña el pequeño ajuste de "asentado" (por el
+        // clamp a los bordes) y el regreso de la escala/sombra con una animación suave.
+        launcher.style.setProperty('transition', LAUNCHER_TRANSITION, 'important');
+        launcher.classList.remove('tactica-launcher-dragging');
+        if (moved) {
+            const rect = launcher.getBoundingClientRect();
+            try {
+                chrome.storage.local.set({ [LAUNCHER_POSITION_KEY]: { top: rect.top } });
+            } catch {}
+        } else {
+            onClick();
+        }
+    });
+
+    // Si la ventana cambia de tamaño, reacomoda el botón por si quedó fuera de la pantalla.
+    window.addEventListener('resize', () => {
+        const rect = launcher.getBoundingClientRect();
+        if (rect.width === 0) return; // launcher oculto (panel abierto)
+        applyLauncherTop(launcher, rect.top);
+    });
+}
+
 function applyPanelState(hostDiv: HTMLElement, launcher: HTMLElement, open: boolean) {
     panelOpen = open;
     // `right` en vez de `transform`: un ancestro con `transform` pasa a ser el "containing
@@ -253,17 +325,43 @@ function injectSidebar() {
     background: #ffffff !important;
     align-items: center;
     justify-content: center;
-    cursor: pointer !important;
+    cursor: grab !important;
     box-shadow: 0 4px 16px rgba(0,0,0,0.35) !important;
     z-index: 2147483647 !important;
     overflow: hidden;
+    transition: ${LAUNCHER_TRANSITION} !important;
   `;
+    // Estado "agarrado" mientras se arrastra: un poco más grande y con más sombra, para que se
+    // sienta como que lo estás levantando en vez de solo teletransportarlo por la pantalla.
+    if (!document.getElementById('tactica-flow-launcher-style')) {
+        const dragStyle = document.createElement('style');
+        dragStyle.id = 'tactica-flow-launcher-style';
+        dragStyle.textContent = `
+            #tactica-flow-launcher.tactica-launcher-dragging {
+                cursor: grabbing !important;
+                transform: scale(1.12) !important;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.45) !important;
+            }
+        `;
+        document.head.appendChild(dragStyle);
+    }
     const launcherIcon = document.createElement('img');
     launcherIcon.src = chrome.runtime.getURL('icons/icon.png');
     launcherIcon.alt = 'TACTICA';
     launcherIcon.style.cssText = 'width: 100% !important; height: 100% !important; object-fit: cover !important; border-radius: 50% !important;';
     launcher.appendChild(launcherIcon);
     document.body.appendChild(launcher);
+
+    // Restaura la posición donde el usuario lo haya dejado arrastrado la última vez — si nunca lo
+    // movió, se queda en el lateral inferior derecho de siempre.
+    try {
+        chrome.storage.local.get([LAUNCHER_POSITION_KEY], (result: any) => {
+            const saved = result?.[LAUNCHER_POSITION_KEY];
+            if (saved && typeof saved.top === 'number') {
+                applyLauncherTop(launcher, saved.top);
+            }
+        });
+    } catch {}
 
     // Arranca cerrado: aplica de una el estado "cerrado" (right negativo, pointer-events:none,
     // launcher visible, ancho completo para WhatsApp) en vez de nacer abierto y tener que
@@ -304,7 +402,7 @@ function injectSidebar() {
 
     // 8. Abrir/cerrar: botón flotante para abrir, evento disparado desde el Header de React para
     //    cerrar (el Header vive dentro del Shadow DOM, así que no puede tocar `launcher` directo).
-    launcher.addEventListener('click', () => applyPanelState(hostDiv, launcher, true));
+    makeLauncherDraggable(launcher, () => applyPanelState(hostDiv, launcher, true));
     window.addEventListener(TOGGLE_EVENT, () => applyPanelState(hostDiv, launcher, !panelOpen));
 
     // Un modal abierto desde los íconos del header real de WhatsApp (ver waHeaderStatus.ts)
