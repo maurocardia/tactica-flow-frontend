@@ -2,6 +2,8 @@
 
 Interfaz web moderna de **Tactica Flow** estilo BlueTicks para la gestión de conversaciones de WhatsApp, agentes de Inteligencia Artificial y vinculación en tiempo real con **Táctica ERP**.
 
+🔗 **Tablero Oficial en GitHub Projects**: [https://github.com/users/maurocardia/projects/4/views/1](https://github.com/users/maurocardia/projects/4/views/1)
+
 ---
 
 ## 🛠️ Requisitos Previos
