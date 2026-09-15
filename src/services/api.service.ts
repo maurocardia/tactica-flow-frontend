@@ -3,7 +3,7 @@
 import { BotContact } from "@/types/botContact";
 import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
-import { AuthUser } from "@/types/auth";
+import { AuthUser, AiPromptConfig } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
 import { Conversation, ConversationMessage } from "@/types/conversation";
 import { API_URL } from '../config/env';
@@ -82,6 +82,18 @@ export const ApiService = {
     // Conocimiento activa — ver AIService.processMessage.
     async setAiCustomInstructions(instructions: string): Promise<{ aiCustomInstructions: string }> {
         return this.sendBackgroundRequest<{ aiCustomInstructions: string }>('/whatsapp/ai-custom-instructions', 'PUT', { instructions });
+    },
+
+    // Config estructurada del Agente IA (apartados de texto libre + switches de "Reglas
+    // generales", ver AiAgentConfigModal.tsx) — el backend guarda esto tal cual Y compone el
+    // texto final en aiCustomInstructions en la misma operación, así el bot en background siempre
+    // usa exactamente lo último guardado desde acá.
+    async setAiPromptConfig(config: AiPromptConfig): Promise<{ aiPromptConfig: AiPromptConfig | null; aiCustomInstructions: string }> {
+        return this.sendBackgroundRequest<{ aiPromptConfig: AiPromptConfig | null; aiCustomInstructions: string }>(
+            '/whatsapp/ai-prompt-config',
+            'PUT',
+            config
+        );
     },
 
     // Switch "Activar el bot para contactos nuevos": si está prendido, un contacto que escribe por
