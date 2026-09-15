@@ -46,6 +46,12 @@ export const ApiService = {
         return this.sendBackgroundRequest<AuthUser>('/auth/me');
     },
 
+    // Proveedor/modelo de IA (Issue #8 [EPIC] IA Multi-Provider): Google Gemini, OpenAI o
+    // Anthropic — ver AiAgentConfigModal.tsx para el selector.
+    async setAiProviderAndModel(aiProvider: string, aiModel: string): Promise<AuthUser> {
+        return this.sendBackgroundRequest<AuthUser>('/auth/me', 'PUT', { aiProvider, aiModel });
+    },
+
     // === WHATSAPP REAL (Baileys, por usuario autenticado) ===
 
     async whatsappConnect(): Promise<{ status: string }> {
