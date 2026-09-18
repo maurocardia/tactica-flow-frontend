@@ -59,6 +59,9 @@ export function createDefaultNode(type: NodeType, position: { x: number; y: numb
       node.data.pauseBotMinutes = null;
       node.data.replyText = 'Te estamos transfiriendo con un asesor de nuestro equipo. En instantes te responderán por este chat.';
       break;
+    case 'FINISH_FLOW':
+      node.data.replyText = 'Gracias por comunicarte con nosotros. ¡Que tengas un excelente día!';
+      break;
     default:
       break;
   }

@@ -13,7 +13,8 @@ import {
   Mic,
   FileText,
   MousePointerClick,
-  List
+  List,
+  CheckCircle2
 } from 'lucide-react';
 import { NodeType } from '@/types/bot';
 
@@ -25,7 +26,7 @@ interface BlockTypeMeta {
   color: string;
   bg: string;
   border: string;
-  group: 'Mensajes' | 'Interacción' | 'Lógica';
+  group: 'Mensajes' | 'Interacción' | 'Lógica' | 'Terminal';
 }
 
 export const PALETTE_BLOCKS: BlockTypeMeta[] = [
@@ -148,10 +149,20 @@ export const PALETTE_BLOCKS: BlockTypeMeta[] = [
     bg: 'bg-slate-50 dark:bg-slate-800/60',
     border: 'border-slate-200 dark:border-slate-700',
     group: 'Lógica'
+  },
+  {
+    type: 'FINISH_FLOW',
+    label: 'Finalizar Flujo',
+    desc: 'Termina la charla y levanta cualquier pausa de asesor',
+    icon: CheckCircle2,
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
+    border: 'border-emerald-200 dark:border-emerald-800',
+    group: 'Terminal'
   }
 ];
 
-const GROUP_ORDER: BlockTypeMeta['group'][] = ['Mensajes', 'Interacción', 'Lógica'];
+const GROUP_ORDER: BlockTypeMeta['group'][] = ['Mensajes', 'Interacción', 'Lógica', 'Terminal'];
 
 interface FlowPaletteProps {
   onAddBlock: (type: NodeType) => void;

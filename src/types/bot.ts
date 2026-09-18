@@ -60,7 +60,8 @@ export type NodeType =
   | 'SEND_AUDIO'
   | 'SEND_DOCUMENT'
   | 'BUTTONS_REPLY'
-  | 'LIST_MESSAGE';
+  | 'LIST_MESSAGE'
+  | 'FINISH_FLOW';
 
 // Adjunto multimedia de un nodo SEND_IMAGE/SEND_VIDEO/SEND_AUDIO/SEND_DOCUMENT — 'url' no requiere
 // subir nada (más simple, ideal para archivos grandes), 'upload' referencia un FlowMediaAsset ya
