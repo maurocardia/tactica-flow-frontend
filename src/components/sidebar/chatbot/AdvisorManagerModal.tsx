@@ -1,0 +1,346 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Loader2, Plus, Pencil, Trash2, RotateCcw, Headset, ChevronDown } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Field, fieldInputClass } from '@/components/ui/Field';
+import { Toggle } from '@/components/ui/Toggle';
+import { CountryFlag } from '@/components/ui/CountryFlag';
+import { ApiService } from '@/services/api.service';
+import { Advisor } from '@/types/advisor';
+import { COUNTRY_CODES } from '@/config/countryCodes';
+
+const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
+
+// Detecta el código de país de un teléfono ya guardado probando el prefijo más largo que
+// matchee primero — si no, un código corto (ej. "1") podría ganarle por casualidad a uno más
+// específico de 2-3 dígitos que también empieza igual.
+const SORTED_CODES = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+function detectCountryCode(phone: string): string {
+  const digits = onlyDigits(phone);
+  return SORTED_CODES.find((c) => digits.startsWith(c.code))?.code || COUNTRY_CODES[0].code;
+}
+
+interface FormState {
+  name: string;
+  phone: string; // solo la parte local, sin el código de país (ver countryCode)
+  countryCode: string;
+}
+const EMPTY_FORM: FormState = { name: '', phone: '', countryCode: COUNTRY_CODES[0].code };
+
+// Gestión de asesores humanos: a quién deriva el bot una conversación cuando decide que necesita
+// intervención de una persona — ver ChatbotModule.tsx (botón "Asesores"). La derivación en sí
+// (a qué asesor le toca, de forma equitativa) la resuelve el backend; acá solo se administra el
+// padrón (alta/baja/edición) y se pueden resetear los contadores de derivaciones.
+export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const [advisors, setAdvisors] = useState<Advisor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [busyId, setBusyId] = useState<number | null>(null);
+
+  const [editingId, setEditingId] = useState<number | 'new' | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [countryMenuOpen, setCountryMenuOpen] = useState(false);
+  const countryMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    ApiService.getAdvisors()
+      .then((list) => {
+        if (!cancelled) setAdvisors(list);
+      })
+      .catch((err) => {
+        console.error('[AdvisorManagerModal] No se pudieron cargar los asesores:', err);
+        if (!cancelled) setError('No se pudieron cargar los asesores.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Cierra el dropdown de país al tocar afuera (mismo patrón que ContactBotSwitchesModal): es un
+  // menú propio, no un <select> nativo, porque este último no puede mostrar la banderita SVG.
+  useEffect(() => {
+    if (!countryMenuOpen) return;
+    // Ojo con Shadow DOM: `e.target` de un listener en `document` (fuera del Shadow Root donde
+    // vive todo el panel) llega "retargeteado" al host del Shadow DOM para CUALQUIER clic adentro
+    // — nunca al botón real que se tocó. `contains()` contra ese target siempre da falso, así que
+    // este handler creía que TODO clic (incluso en un país de la lista) era "afuera" y cerraba el
+    // menú antes de que el clic llegara a seleccionar nada. `composedPath()` sí devuelve el
+    // camino real cruzando el límite del Shadow DOM.
+    const handleClickOutside = (e: MouseEvent) => {
+      const path = e.composedPath();
+      if (countryMenuRef.current && !path.includes(countryMenuRef.current)) {
+        setCountryMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [countryMenuOpen]);
+
+  const startCreate = () => {
+    setForm(EMPTY_FORM);
+    setEditingId('new');
+    setError(null);
+  };
+
+  const startEdit = (advisor: Advisor) => {
+    const code = detectCountryCode(advisor.phone);
+    setForm({ name: advisor.name, phone: onlyDigits(advisor.phone).slice(code.length), countryCode: code });
+    setEditingId(advisor.id);
+    setError(null);
+  };
+
+  const cancelForm = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
+
+  const handleSubmit = async () => {
+    const name = form.name.trim();
+    const localDigits = onlyDigits(form.phone);
+    if (!name || !localDigits) {
+      setError('Completá el nombre y el teléfono.');
+      return;
+    }
+    const fullPhone = `${form.countryCode}${localDigits}`;
+    setSaving(true);
+    setError(null);
+    try {
+      if (editingId === 'new') {
+        const created = await ApiService.createAdvisor({ name, phone: fullPhone });
+        setAdvisors((prev) => [...prev, created]);
+      } else if (typeof editingId === 'number') {
+        const updated = await ApiService.updateAdvisor(editingId, { name, phone: fullPhone });
+        setAdvisors((prev) => prev.map((a) => (a.id === editingId ? updated : a)));
+      }
+      cancelForm();
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo guardar el asesor:', err);
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el asesor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (advisor: Advisor, isActive: boolean) => {
+    setBusyId(advisor.id);
+    setError(null);
+    try {
+      const updated = await ApiService.updateAdvisor(advisor.id, { isActive });
+      setAdvisors((prev) => prev.map((a) => (a.id === advisor.id ? updated : a)));
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo actualizar el estado:', err);
+      setError('No se pudo actualizar ese asesor. Probá de nuevo.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleDelete = async (advisor: Advisor) => {
+    setBusyId(advisor.id);
+    setError(null);
+    try {
+      await ApiService.deleteAdvisor(advisor.id);
+      setAdvisors((prev) => prev.filter((a) => a.id !== advisor.id));
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo borrar el asesor:', err);
+      setError(`No se pudo borrar a "${advisor.name}". Probá de nuevo.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleResetCounts = async () => {
+    setResetting(true);
+    setError(null);
+    try {
+      await ApiService.resetAdvisorCounts();
+      setAdvisors((prev) => prev.map((a) => ({ ...a, handoffCount: 0, lastHandoffAt: null })));
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo resetear los contadores:', err);
+      setError('No se pudieron resetear los contadores. Probá de nuevo.');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  return (
+    <Modal
+      title="Asesores humanos"
+      onClose={onClose}
+      headerColor="bg-[#9e1114]"
+      footer={
+        <div className="flex items-center justify-between w-full gap-2">
+          <button
+            onClick={handleResetCounts}
+            disabled={resetting || advisors.length === 0}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
+            title="Vuelve a cero el contador de derivaciones de todos los asesores"
+          >
+            {resetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+            Resetear contadores
+          </button>
+          <button
+            onClick={onClose}
+            className="bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs cursor-pointer transition-colors"
+          >
+            Listo
+          </button>
+        </div>
+      }
+    >
+      {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">{error}</div>}
+
+      {editingId !== null ? (
+        <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-3 bg-slate-50/60 dark:bg-slate-800/60">
+          <Field label="Nombre">
+            <input
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="Ej: María Gómez"
+              className={fieldInputClass}
+            />
+          </Field>
+          <Field label="WhatsApp">
+            <div className="flex items-center gap-1.5">
+              <div className="relative shrink-0" ref={countryMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setCountryMenuOpen((v) => !v)}
+                  className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-lg pl-1.5 pr-1 py-1.5 text-[10.5px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs cursor-pointer transition-colors hover:border-[#9e1114]"
+                >
+                  <CountryFlag code={form.countryCode} />
+                  <span>+{form.countryCode}</span>
+                  <ChevronDown className="w-3 h-3 text-slate-400" />
+                </button>
+                {countryMenuOpen && (
+                  <div className="absolute z-10 top-full left-0 mt-1 w-44 max-h-56 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1">
+                    {COUNTRY_CODES.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => {
+                          setForm((f) => ({ ...f, countryCode: c.code }));
+                          setCountryMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer ${
+                          c.code === form.countryCode ? 'bg-slate-50 dark:bg-slate-700/60 font-bold' : ''
+                        }`}
+                      >
+                        <CountryFlag code={c.code} />
+                        <span className="flex-1 truncate text-slate-700 dark:text-slate-200">{c.name}</span>
+                        <span className="text-slate-400 dark:text-slate-500">+{c.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <input
+                type="text"
+                value={form.phone}
+                onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                placeholder="Número sin el prefijo"
+                className={`${fieldInputClass} flex-1`}
+              />
+            </div>
+          </Field>
+          <div className="flex items-center gap-2 pt-1">
+            <button
+              onClick={cancelForm}
+              disabled={saving}
+              className="flex-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={saving || !form.name.trim() || !form.phone.trim()}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-40 text-white font-bold text-xs px-4 py-2 rounded-xl shadow-xs cursor-pointer transition-colors"
+            >
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {editingId === 'new' ? 'Agregar asesor' : 'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={startCreate}
+          className="flex items-center justify-center gap-1.5 border border-dashed border-slate-300 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold py-2 rounded-xl cursor-pointer transition-colors"
+        >
+          <Plus className="w-3.5 h-3.5" /> Agregar asesor
+        </button>
+      )}
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-slate-400 py-8 justify-center">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando...
+        </div>
+      ) : advisors.length === 0 && editingId === null ? (
+        <EmptyState>
+          <span className="flex flex-col items-center gap-2">
+            <Headset className="w-7 h-7 text-slate-300 dark:text-slate-600" />
+            Agregá asesores para que el bot pueda derivar conversaciones automáticamente.
+          </span>
+        </EmptyState>
+      ) : advisors.length > 0 ? (
+        <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+          <table className="w-full text-[11px]">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              <tr>
+                <th className="text-left font-bold px-2 py-1.5">Nombre</th>
+                <th className="text-left font-bold px-2 py-1.5">Teléfono</th>
+                <th className="text-center font-bold px-2 py-1.5">Derivaciones</th>
+                <th className="text-center font-bold px-2 py-1.5">Estado</th>
+                <th className="text-right font-bold px-2 py-1.5">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {advisors.map((advisor) => (
+                <tr key={advisor.id} className="text-slate-700 dark:text-slate-300">
+                  <td className="px-2 py-1.5 font-bold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">{advisor.name}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
+                      <CountryFlag code={detectCountryCode(advisor.phone)} />+{onlyDigits(advisor.phone)}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1.5 text-center font-semibold">{advisor.handoffCount}</td>
+                  <td className="px-2 py-1.5 text-center">
+                    <Toggle size="sm" checked={advisor.isActive} disabled={busyId === advisor.id} onChange={(v) => toggleActive(advisor, v)} />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => startEdit(advisor)}
+                        disabled={busyId === advisor.id}
+                        className="p-1 rounded-md text-slate-400 hover:text-[#9e1114] dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(advisor)}
+                        disabled={busyId === advisor.id}
+                        className="p-1 rounded-md text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer transition-colors"
+                        title="Eliminar"
+                      >
+                        {busyId === advisor.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </Modal>
+  );
+};
+
+export default AdvisorManagerModal;

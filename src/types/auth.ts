@@ -47,6 +47,16 @@ export interface AuthUser {
   aiPromptConfig: AiPromptConfig | null;
   botEnabledForNewContacts: boolean;
   botReplyToAll: boolean;
+  // Modo de respuesta del bot: si usa el flujo visual, el Agente IA, o ambos (con IA de respaldo
+  // cuando el flujo no matchea) — ver selector de modo en ChatbotModule.tsx y
+  // PUT /api/whatsapp/bot-mode.
+  botMode: 'flow_only' | 'ai_only' | 'hybrid';
+  // "Delay humanizado": espera un tiempo aleatorio entre botReplyDelayMinMs y botReplyDelayMaxMs
+  // antes de mandar la respuesta del bot, para que no se sienta instantánea/robótica — ver
+  // ChatbotModule.tsx (sección "replyDelay") y PUT /api/whatsapp/bot-reply-delay.
+  botReplyDelayEnabled: boolean;
+  botReplyDelayMinMs: number;
+  botReplyDelayMaxMs: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,7 +1,9 @@
 // src/services/api.service.ts
 
-import { BotContact } from "@/types/botContact";
+import { BotContact, BulkImportContact, BulkImportResult } from "@/types/botContact";
+import { Advisor } from "@/types/advisor";
 import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
+import { FlowMediaAsset } from "@/types/flowMedia";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser, AiPromptConfig } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
@@ -114,6 +116,26 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ botReplyToAll: boolean }>('/whatsapp/bot-reply-to-all', 'PUT', { enabled });
     },
 
+    // "Delay humanizado": espera un tiempo aleatorio entre minMs y maxMs antes de mandar la
+    // respuesta del bot — ver ChatbotModule.tsx (sección "replyDelay").
+    async setBotReplyDelay(config: { enabled: boolean; minMs?: number; maxMs?: number }): Promise<{
+        botReplyDelayEnabled: boolean;
+        botReplyDelayMinMs: number;
+        botReplyDelayMaxMs: number;
+    }> {
+        return this.sendBackgroundRequest<{
+            botReplyDelayEnabled: boolean;
+            botReplyDelayMinMs: number;
+            botReplyDelayMaxMs: number;
+        }>('/whatsapp/bot-reply-delay', 'PUT', config);
+    },
+
+    // Con qué responde el bot: solo el flujo visual, solo el Agente IA, o ambos (flujo primero,
+    // IA de respaldo si ninguna palabra clave matchea) — ver selector en ChatbotModule.tsx.
+    async setBotMode(mode: 'flow_only' | 'ai_only' | 'hybrid'): Promise<{ botMode: 'flow_only' | 'ai_only' | 'hybrid' }> {
+        return this.sendBackgroundRequest<{ botMode: 'flow_only' | 'ai_only' | 'hybrid' }>('/whatsapp/bot-mode', 'PUT', { mode });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión
@@ -138,6 +160,17 @@ export const ApiService = {
     // toca conversations/messages).
     async deleteBotContact(id: number): Promise<void> {
         return this.sendBackgroundRequest<void>(`/whatsapp/bot-contacts/${id}`, 'DELETE');
+    },
+
+    // Blacklist (pestaña junto a Contactos/Grupos): bloquear apaga botEnabled automáticamente del
+    // lado del backend.
+    async setBotContactBlacklisted(id: number, blacklisted: boolean): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/blacklisted`, 'PUT', { blacklisted });
+    },
+
+    // Alta directa a la blacklist (número que nunca le escribió al bot pero se quiere bloquear igual).
+    async addToBlacklist(phone: string, name: string | undefined): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>('/whatsapp/bot-contacts/blacklist', 'POST', { phone, name });
     },
 
     // Registra (o encuentra) un número de teléfono como contacto administrable, sin esperar a que
@@ -168,6 +201,87 @@ export const ApiService = {
         names: string[]
     ): Promise<{ name: string; jid: string | null; source: 'known-contact' | 'conversations' | 'unresolved' }[]> {
         return this.sendBackgroundRequest('/whatsapp/bot-contacts/resolve-names', 'POST', { names });
+    },
+
+    // Importación masiva de contactos administrables desde un CSV/Excel ya parseado en el
+    // frontend (ver BulkImportPreview.tsx) — crea los que no existen y actualiza (nombre/switch)
+    // los que ya están, matcheando por teléfono.
+    async bulkImportBotContacts(contacts: BulkImportContact[]): Promise<BulkImportResult> {
+        return this.sendBackgroundRequest<BulkImportResult>('/whatsapp/bot-contacts/bulk-import', 'POST', { contacts });
+    },
+
+    // === Asesores humanos (derivación equitativa cuando el bot pide intervención, ver
+    // AdvisorManagerModal.tsx) ===
+
+    async getAdvisors(): Promise<Advisor[]> {
+        return this.sendBackgroundRequest<Advisor[]>('/whatsapp/advisors');
+    },
+
+    async createAdvisor(data: { name: string; phone: string }): Promise<Advisor> {
+        return this.sendBackgroundRequest<Advisor>('/whatsapp/advisors', 'POST', data);
+    },
+
+    async updateAdvisor(id: number, data: Partial<Advisor>): Promise<Advisor> {
+        return this.sendBackgroundRequest<Advisor>(`/whatsapp/advisors/${id}`, 'PUT', data);
+    },
+
+    async deleteAdvisor(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/whatsapp/advisors/${id}`, 'DELETE');
+    },
+
+    async resetAdvisorCounts(): Promise<void> {
+        return this.sendBackgroundRequest<void>('/whatsapp/advisors/reset-counts', 'POST');
+    },
+
+    // Reactiva el bot para un contacto pausado por una derivación a asesor (bloque "Contactar
+    // Asesor" del editor de flujos) — botón "Reactivar bot" en ContactBotSwitchesModal.
+    async resumeBotForContact(id: number): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/resume-bot`, 'PUT');
+    },
+
+    // === Adjuntos multimedia de nodos de flujo (Enviar Imagen/Video/Audio/Documento) ===
+
+    async getFlowMediaAssets(): Promise<FlowMediaAsset[]> {
+        return this.sendBackgroundRequest<FlowMediaAsset[]>('/whatsapp/flow-media');
+    },
+
+    async deleteFlowMedia(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/whatsapp/flow-media/${id}`, 'DELETE');
+    },
+
+    // Sube un archivo directo con fetch (igual que uploadKbDocument: el puente sendMessage solo
+    // transporta JSON) — a diferencia de esa ruta, ésta SÍ está detrás de authMiddleware en el
+    // backend, así que hay que mandar el token a mano.
+    async uploadFlowMedia(file: File, kind: 'image' | 'video' | 'audio' | 'document'): Promise<FlowMediaAsset> {
+        const token = await getStoredToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('kind', kind);
+        const res = await fetch(`${API_URL}/whatsapp/flow-media`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            body: formData,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(data?.error || `Error al subir el adjunto (HTTP ${res.status})`);
+        }
+        return data as FlowMediaAsset;
+    },
+
+    // <img>/<video src> no pueden llevar el header Authorization — se trae el archivo con fetch
+    // autenticado y se arma un blob: URL para el preview en el editor de flujos. El caller es
+    // responsable de revocar la URL (URL.revokeObjectURL) cuando ya no la necesite.
+    async fetchFlowMediaBlob(id: number): Promise<string> {
+        const token = await getStoredToken();
+        const res = await fetch(`${API_URL}/whatsapp/flow-media/${id}/raw`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) {
+            throw new Error(`Error al obtener el adjunto (HTTP ${res.status})`);
+        }
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
     },
 
     async getMessages(conversationId: string | number): Promise<ConversationMessage[]> {

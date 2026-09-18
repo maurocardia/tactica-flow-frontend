@@ -10,5 +10,25 @@ export interface BotContact {
   name: string;
   isGroup: boolean;
   botEnabled: boolean;
+  isBlacklisted: boolean;
   lastActivity: string; // ISO timestamp
+  // Pausa del bot por derivación a un asesor (bloque "Contactar Asesor" del editor de flujos) —
+  // ver ApiService.resumeBotForContact.
+  handoffAdvisorId: number | null;
+  handoffPausedUntil: string | null; // ISO timestamp, null = no está pausado
+}
+
+// Contacto ya parseado desde un archivo CSV/Excel, listo para mandar a
+// POST /whatsapp/bot-contacts/bulk-import — ver BulkImportPreview.tsx.
+export interface BulkImportContact {
+  phone: string;
+  name?: string;
+  enabled: boolean;
+}
+
+export interface BulkImportResult {
+  created: number;
+  updated: number;
+  errors: number;
+  errorDetails?: string[];
 }

@@ -8,10 +8,44 @@ import {
   CheckCheck,
   Zap,
   Sparkles,
-  Loader2
+  Loader2,
+  Paperclip
 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
-import { BotFlowData, BotFlowNode } from '@/types/bot';
+import { BotFlowData, BotFlowNode, FlowNodeOption } from '@/types/bot';
+
+const INTERACTIVE_TYPES = new Set(['OPTIONS_MENU', 'BUTTONS_REPLY', 'LIST_MESSAGE']);
+const MEDIA_LABEL: Record<string, string> = { image: 'Imagen', video: 'Video', audio: 'Audio', document: 'Documento' };
+
+// Mismo formateador que renderInteractiveAsText en flowEngine.service.ts (backend) — el
+// simulador reimplementa el motor del lado del frontend a propósito (para probar sin tocar la
+// sesión real de WhatsApp), así que hay que mantener el mismo formato a mano en los dos lugares.
+function renderInteractiveAsText(node: BotFlowNode): string {
+  const options: FlowNodeOption[] = node.data?.options || [];
+  if (options.length === 0) return '';
+  if (node.type !== 'LIST_MESSAGE') {
+    return options.map((opt) => `${opt.keyword}. ${opt.label}`).join('\n');
+  }
+  const lines: string[] = [];
+  let lastSection: string | null = null;
+  for (const opt of options) {
+    const section = (opt.sectionTitle || '').trim();
+    if (section && section !== lastSection) lines.push(`\n*${section}*`);
+    lastSection = section || null;
+    const desc = opt.description ? ` — ${opt.description}` : '';
+    lines.push(`${opt.keyword}. ${opt.label}${desc}`);
+  }
+  return lines.join('\n').trim();
+}
+
+function matchOption(node: BotFlowNode, textLower: string): FlowNodeOption | undefined {
+  const options: FlowNodeOption[] = node.data?.options || [];
+  const exact = options.find((o) => String(o.keyword).trim().toLowerCase() === textLower);
+  if (exact) return exact;
+  const byIndex = options.find((_o, i) => textLower === String(i + 1) || textLower === `${i + 1}.`);
+  if (byIndex) return byIndex;
+  return options.find((o) => String(o.label).trim().toLowerCase() === textLower);
+}
 
 interface FlowSimulatorModalProps {
   flow: BotFlowData;
@@ -73,10 +107,9 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
     setIsTyping(false);
 
     let textToSend = node.data.replyText || '';
-    if (node.type === 'OPTIONS_MENU' && node.data.options && node.data.options.length > 0) {
-      const optionsText = node.data.options
-        .map((opt, i) => `${i + 1}️⃣ ${opt.label}`)
-        .join('\n');
+
+    if (INTERACTIVE_TYPES.has(node.type) && node.data.options && node.data.options.length > 0) {
+      const optionsText = renderInteractiveAsText(node);
       textToSend = `${textToSend ? `${textToSend}\n\n` : ''}${optionsText}`;
     }
 
@@ -85,7 +118,36 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
     }
 
     if (node.type === 'HANDOFF') {
-      textToSend = textToSend || '👤 [Derivación Humana]: Un asesor del equipo comercial se conectará con vos a la brevedad.';
+      const advisorInfo =
+        node.data.advisorMode === 'fixed'
+          ? 'asesor fijo configurado en este bloque'
+          : 'el próximo asesor activo por turnos';
+      const pauseInfo = node.data.pauseBotMinutes
+        ? `el bot queda pausado ${node.data.pauseBotMinutes} min para este contacto`
+        : 'el bot queda pausado hasta reactivarlo a mano en el panel';
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `system_handoff_${Date.now()}`,
+          sender: 'system',
+          text: `🔀 (Aviso del Simulador: acá se derivaría a ${advisorInfo} y ${pauseInfo}. No se envía notificación real desde el simulador.)`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }
+
+    const mediaKind = node.data.media?.kind;
+    if (mediaKind) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot_media_${Date.now()}`,
+          sender: 'bot',
+          text: `📎 [${MEDIA_LABEL[mediaKind] || mediaKind}]${node.data.media?.fileName ? `: ${node.data.media.fileName}` : node.data.media?.url ? `: ${node.data.media.url}` : ' (sin adjunto configurado)'}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          activeNodeTitle: node.data.name || node.title
+        }
+      ]);
     }
 
     if (textToSend) {
@@ -101,8 +163,9 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
       ]);
     }
 
-    // Buscar conexión automática si no es menú múltiple
-    if (node.type !== 'OPTIONS_MENU') {
+    // Buscar conexión automática si no es un nodo interactivo (espera respuesta) ni un handoff
+    // (corta la cadena, igual que en el motor real — ver flowEngine.service.ts).
+    if (!INTERACTIVE_TYPES.has(node.type) && node.type !== 'HANDOFF') {
       const outgoingConn = flow.connections.find((c) => c.sourceNodeId === node.id);
       if (outgoingConn) {
         const nextNode = flow.nodes.find((n) => n.id === outgoingConn.targetNodeId);
@@ -133,20 +196,12 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
     // 1. Si estamos en un nodo activo con opciones
     if (currentNodeId) {
       const currentNode = flow.nodes.find((n) => n.id === currentNodeId);
-      if (currentNode && currentNode.type === 'OPTIONS_MENU' && currentNode.data?.options) {
+      if (currentNode && INTERACTIVE_TYPES.has(currentNode.type) && currentNode.data?.options) {
         const optionsList = currentNode.data.options;
-        const optIndex = optionsList.findIndex(
-          (opt, i) =>
-            (opt.keyword && opt.keyword.toLowerCase() === textLower) ||
-            opt.label.toLowerCase().includes(textLower) ||
-            textLower === `${i + 1}` ||
-            textLower === `${i + 1}.` ||
-            textLower.startsWith(`${i + 1} `) ||
-            textLower.startsWith(`${i + 1}. `)
-        );
+        const matchedOption = matchOption(currentNode, textLower);
+        const optIndex = matchedOption ? optionsList.indexOf(matchedOption) : -1;
 
-        if (optIndex !== -1) {
-          const matchedOption = optionsList[optIndex];
+        if (optIndex !== -1 && matchedOption) {
           const optionPortId = matchedOption.id || `opt_${optIndex}`;
 
           // Buscar conexión saliente desde esa opción
