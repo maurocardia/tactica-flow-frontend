@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Search, Plus, Users, ChevronLeft, ChevronRight, RefreshCw, HelpCircle, X, ChevronDown, Upload, Download, CheckCircle2 } from 'lucide-react';
+import { Loader2, Search, Plus, Users, ChevronLeft, ChevronRight, RefreshCw, HelpCircle, X, ChevronDown, Upload, Download, CheckCircle2, ShieldBan, ShieldCheck } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { fieldInputClass } from '@/components/ui/Field';
 import { Toggle } from '@/components/ui/Toggle';
@@ -75,7 +75,15 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const countryMenuRef = useRef<HTMLDivElement>(null);
   const [adding, setAdding] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [tab, setTab] = useState<'contacts' | 'groups'>('contacts');
+  const [tab, setTab] = useState<'contacts' | 'groups' | 'blacklist'>('contacts');
+
+  // Alta a la blacklist — mismo patrón de número+país que el alta normal de arriba, pero más
+  // simple (no abre el chat en WhatsApp a buscar el nombre real, no hace falta para bloquear).
+  const [blacklistPhone, setBlacklistPhone] = useState('');
+  const [blacklistCountryCode, setBlacklistCountryCode] = useState(COUNTRY_CODES[0].code);
+  const [blacklistCountryMenuOpen, setBlacklistCountryMenuOpen] = useState(false);
+  const blacklistCountryMenuRef = useRef<HTMLDivElement>(null);
+  const [blacklisting, setBlacklisting] = useState(false);
 
   // Importación masiva desde CSV/Excel (ver BulkImportPreview.tsx) — mientras hay un archivo
   // elegido, el cuerpo del modal muestra la previsualización en vez de la lista normal.
@@ -84,7 +92,11 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
 
   const downloadTemplate = () => {
-    const csv = 'telefono,nombre,activo\n573001234567,Juan Pérez,si\n';
+    // Punto y coma en vez de coma: es el separador que usa Excel por default en configuración
+    // regional en español (la coma la reserva como separador decimal) — con coma, Excel abría el
+    // CSV entero como una sola columna en vez de 3. Papa.parse ya auto-detecta el delimitador al
+    // importar, así que no hace falta tocar nada del lado del parseo.
+    const csv = 'telefono;nombre;activo\n573001234567;Juan Pérez;si\n';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -392,9 +404,45 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
     }
   };
 
+  // Bloquea un número directamente (no hace falta que ya le haya escrito al bot ni abrir el chat
+  // en WhatsApp — bloquear no necesita confirmar el nombre real, a diferencia del alta normal).
+  const handleAddToBlacklist = async () => {
+    const rawDigits = onlyDigits(blacklistPhone);
+    if (!rawDigits) return;
+    setBlacklisting(true);
+    setError(null);
+    try {
+      const digits = blacklistPhone.trim().startsWith('+') ? rawDigits : `${blacklistCountryCode}${rawDigits}`;
+      const created = await ApiService.addToBlacklist(digits, undefined);
+      setContacts((prev) => [created, ...prev.filter((c) => c.id !== created.id)]);
+      setBlacklistPhone('');
+    } catch (err) {
+      console.error('[ContactBotSwitchesModal] No se pudo bloquear el número:', err);
+      setError(err instanceof Error ? err.message : 'No se pudo bloquear ese número. Probá de nuevo.');
+    } finally {
+      setBlacklisting(false);
+    }
+  };
+
+  // Sacar de la blacklist NO borra la fila — el contacto simplemente vuelve a un estado neutral
+  // (bot apagado, visible de nuevo en la pestaña Contactos) en vez de perder su historial/nombre.
+  const handleUnblock = async (contact: BotContact) => {
+    setBusyKey(`real:${contact.id}`);
+    setError(null);
+    try {
+      const updated = await ApiService.setBotContactBlacklisted(contact.id, false);
+      setContacts((prev) => prev.map((c) => (c.id === contact.id ? updated : c)));
+    } catch (err) {
+      console.error('[ContactBotSwitchesModal] No se pudo desbloquear el contacto:', err);
+      setError(`No se pudo desbloquear "${contact.name}". Probá de nuevo.`);
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const contactRows = useMemo<DisplayRow[]>(() => {
     const real: DisplayRow[] = contacts
-      .filter((c) => !c.isGroup)
+      .filter((c) => !c.isGroup && !c.isBlacklisted)
       .map((c) => ({
         key: `real:${c.id}`,
         name: c.name,
@@ -418,7 +466,7 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const groupRows = useMemo<DisplayRow[]>(
     () =>
       contacts
-        .filter((c) => c.isGroup)
+        .filter((c) => c.isGroup && !c.isBlacklisted)
         .map((c) => ({
           key: `real:${c.id}`,
           name: c.name,
@@ -431,7 +479,25 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
     [contacts]
   );
 
-  const tabList = tab === 'contacts' ? contactRows : groupRows;
+  // Bloqueados: nunca reciben respuesta del bot, sin importar ningún otro switch (ver el chequeo
+  // al principio de WhatsappService.handleIncomingMessage, del lado del backend).
+  const blacklistRows = useMemo<DisplayRow[]>(
+    () =>
+      contacts
+        .filter((c) => c.isBlacklisted)
+        .map((c) => ({
+          key: `real:${c.id}`,
+          name: c.name,
+          isGroup: c.isGroup,
+          botEnabled: c.botEnabled,
+          subtitle: /^\d+$/.test(phoneOf(c.jid)) ? `+${phoneOf(c.jid)}` : phoneOf(c.jid),
+          pending: false,
+          contact: c,
+        })),
+    [contacts]
+  );
+
+  const tabList = tab === 'contacts' ? contactRows : tab === 'groups' ? groupRows : blacklistRows;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -448,14 +514,33 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   // a mano.
   useEffect(() => {
     if (!countryMenuOpen) return;
+    // Ojo con Shadow DOM: `e.target` de un listener en `document` (fuera del Shadow Root donde
+    // vive todo el panel) llega "retargeteado" al host del Shadow DOM para CUALQUIER clic adentro
+    // — nunca al botón real que se tocó. `contains()` contra ese target siempre da falso, así que
+    // este handler creía que TODO clic (incluso en un país de la lista) era "afuera" y cerraba el
+    // menú antes de que el clic llegara a seleccionar nada. `composedPath()` sí devuelve el
+    // camino real cruzando el límite del Shadow DOM.
     const handleClickOutside = (e: MouseEvent) => {
-      if (countryMenuRef.current && !countryMenuRef.current.contains(e.target as Node)) {
+      const path = e.composedPath();
+      if (countryMenuRef.current && !path.includes(countryMenuRef.current)) {
         setCountryMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [countryMenuOpen]);
+
+  useEffect(() => {
+    if (!blacklistCountryMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const path = e.composedPath();
+      if (blacklistCountryMenuRef.current && !path.includes(blacklistCountryMenuRef.current)) {
+        setBlacklistCountryMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [blacklistCountryMenuOpen]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages - 1);
@@ -502,85 +587,150 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
         >
           Grupos ({groupRows.length})
         </button>
+        <button
+          onClick={() => setTab('blacklist')}
+          className={`flex-1 flex items-center justify-center gap-1 text-[11px] font-bold py-1.5 rounded-lg transition-colors cursor-pointer ${
+            tab === 'blacklist'
+              ? 'bg-white dark:bg-slate-700 text-[#9e1114] dark:text-red-400 shadow-xs'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+          }`}
+        >
+          <ShieldBan className="w-3 h-3 shrink-0" /> Blacklist ({blacklistRows.length})
+        </button>
       </div>
 
-      <div className="flex items-center gap-1.5">
-        <div className="relative shrink-0" ref={countryMenuRef}>
+      {tab === 'blacklist' ? (
+        <div className="flex items-center gap-1.5">
+          <div className="relative shrink-0" ref={blacklistCountryMenuRef}>
+            <button
+              type="button"
+              onClick={() => setBlacklistCountryMenuOpen((v) => !v)}
+              title="País (solo aplica si escribís un número sin +)"
+              className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-lg pl-1.5 pr-1 py-1.5 text-[10.5px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs cursor-pointer transition-colors hover:border-[#9e1114]"
+            >
+              <CountryFlag code={blacklistCountryCode} />
+              <span>+{blacklistCountryCode}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+            {blacklistCountryMenuOpen && (
+              <div className="absolute z-10 top-full left-0 mt-1 w-44 max-h-56 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1">
+                {COUNTRY_CODES.map((c) => (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => {
+                      setBlacklistCountryCode(c.code);
+                      setBlacklistCountryMenuOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer ${
+                      c.code === blacklistCountryCode ? 'bg-slate-50 dark:bg-slate-700/60 font-bold' : ''
+                    }`}
+                  >
+                    <CountryFlag code={c.code} />
+                    <span className="flex-1 truncate text-slate-700 dark:text-slate-200">{c.name}</span>
+                    <span className="text-slate-400 dark:text-slate-500">+{c.code}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <input
+            type="text"
+            value={blacklistPhone}
+            onChange={(e) => setBlacklistPhone(e.target.value)}
+            placeholder="Bloquear por número de WhatsApp"
+            className={`${fieldInputClass} flex-1`}
+          />
           <button
-            type="button"
-            onClick={() => setCountryMenuOpen((v) => !v)}
-            title="País (solo aplica si escribís un número sin +)"
-            className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-lg pl-1.5 pr-1 py-1.5 text-[10.5px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs cursor-pointer transition-colors hover:border-[#9e1114]"
+            onClick={handleAddToBlacklist}
+            disabled={blacklisting || !blacklistPhone.trim()}
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-40 text-white transition-colors cursor-pointer"
+            title="Bloquear número"
           >
-            <CountryFlag code={addCountryCode} />
-            <span>+{addCountryCode}</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
+            {blacklisting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldBan className="w-3.5 h-3.5" />}
           </button>
-          {countryMenuOpen && (
-            <div className="absolute z-10 top-full left-0 mt-1 w-44 max-h-56 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1">
-              {COUNTRY_CODES.map((c) => (
-                <button
-                  key={c.code}
-                  type="button"
-                  onClick={() => {
-                    setAddCountryCode(c.code);
-                    setCountryMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer ${
-                    c.code === addCountryCode ? 'bg-slate-50 dark:bg-slate-700/60 font-bold' : ''
-                  }`}
-                >
-                  <CountryFlag code={c.code} />
-                  <span className="flex-1 truncate text-slate-700 dark:text-slate-200">{c.name}</span>
-                  <span className="text-slate-400 dark:text-slate-500">+{c.code}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </div>
-        <input
-          type="text"
-          value={addPhone}
-          onChange={(e) => setAddPhone(e.target.value)}
-          placeholder="Agregar por número o nombre de WhatsApp"
-          className={`${fieldInputClass} flex-1`}
-        />
-        <button
-          onClick={handleAddContact}
-          disabled={adding || !addPhone.trim()}
-          className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-40 text-white transition-colors cursor-pointer"
-          title="Agregar contacto"
-        >
-          {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-        </button>
-        <button
-          onClick={() => importInputRef.current?.click()}
-          className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#9e1114] hover:text-[#9e1114] dark:hover:text-red-400 transition-colors cursor-pointer"
-          title="Importar contactos desde Excel/CSV"
-        >
-          <Upload className="w-3.5 h-3.5" />
-        </button>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".csv,.xlsx"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              setImportResult(null);
-              setImportFile(file);
-            }
-            e.target.value = '';
-          }}
-        />
-      </div>
-      <button
-        onClick={downloadTemplate}
-        className="self-start flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 hover:text-[#9e1114] dark:hover:text-red-400 font-semibold cursor-pointer transition-colors -mt-1.5"
-      >
-        <Download className="w-3 h-3" /> Descargar plantilla de ejemplo (CSV)
-      </button>
+      ) : (
+        <>
+          <div className="flex items-center gap-1.5">
+            <div className="relative shrink-0" ref={countryMenuRef}>
+              <button
+                type="button"
+                onClick={() => setCountryMenuOpen((v) => !v)}
+                title="País (solo aplica si escribís un número sin +)"
+                className="flex items-center gap-1 border border-slate-300 dark:border-slate-700 rounded-lg pl-1.5 pr-1 py-1.5 text-[10.5px] bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-semibold shadow-2xs cursor-pointer transition-colors hover:border-[#9e1114]"
+              >
+                <CountryFlag code={addCountryCode} />
+                <span>+{addCountryCode}</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
+              {countryMenuOpen && (
+                <div className="absolute z-10 top-full left-0 mt-1 w-44 max-h-56 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1">
+                  {COUNTRY_CODES.map((c) => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        setAddCountryCode(c.code);
+                        setCountryMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 text-left text-[11px] font-medium hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer ${
+                        c.code === addCountryCode ? 'bg-slate-50 dark:bg-slate-700/60 font-bold' : ''
+                      }`}
+                    >
+                      <CountryFlag code={c.code} />
+                      <span className="flex-1 truncate text-slate-700 dark:text-slate-200">{c.name}</span>
+                      <span className="text-slate-400 dark:text-slate-500">+{c.code}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <input
+              type="text"
+              value={addPhone}
+              onChange={(e) => setAddPhone(e.target.value)}
+              placeholder="Agregar por número o nombre de WhatsApp"
+              className={`${fieldInputClass} flex-1`}
+            />
+            <button
+              onClick={handleAddContact}
+              disabled={adding || !addPhone.trim()}
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-40 text-white transition-colors cursor-pointer"
+              title="Agregar contacto"
+            >
+              {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={() => importInputRef.current?.click()}
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#9e1114] hover:text-[#9e1114] dark:hover:text-red-400 transition-colors cursor-pointer"
+              title="Importar contactos desde Excel/CSV"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,.xlsx"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setImportResult(null);
+                  setImportFile(file);
+                }
+                e.target.value = '';
+              }}
+            />
+          </div>
+          <button
+            onClick={downloadTemplate}
+            className="self-start flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 hover:text-[#9e1114] dark:hover:text-red-400 font-semibold cursor-pointer transition-colors -mt-1.5"
+          >
+            <Download className="w-3 h-3" /> Descargar plantilla de ejemplo (CSV)
+          </button>
+        </>
+      )}
 
       {importResult && (
         <div className="flex items-start gap-2 text-[11px] text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-2">
@@ -611,24 +761,26 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={tab === 'contacts' ? 'Buscar contacto...' : 'Buscar grupo...'}
+            placeholder={tab === 'contacts' ? 'Buscar contacto...' : tab === 'groups' ? 'Buscar grupo...' : 'Buscar en blacklist...'}
             className={`${fieldInputClass} pl-8`}
           />
         </div>
-        <button
-          onClick={handleSync}
-          disabled={syncing || loading}
-          title="Sincronizar contactos y grupos reales de WhatsApp"
-          className="shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#9e1114] hover:text-[#9e1114] dark:hover:text-red-400 disabled:opacity-40 text-[11px] font-bold transition-colors cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
-          Sincronizar
-        </button>
+        {tab !== 'blacklist' && (
+          <button
+            onClick={handleSync}
+            disabled={syncing || loading}
+            title="Sincronizar contactos y grupos reales de WhatsApp"
+            className="shrink-0 flex items-center gap-1.5 h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#9e1114] hover:text-[#9e1114] dark:hover:text-red-400 disabled:opacity-40 text-[11px] font-bold transition-colors cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncing ? 'animate-spin' : ''}`} />
+            Sincronizar
+          </button>
+        )}
       </div>
 
       <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-0.5">
-        <span>{tabList.length} {tab === 'contacts' ? 'contacto' : 'grupo'}{tabList.length === 1 ? '' : 's'}</span>
-        <span>{enabledCount} habilitado{enabledCount === 1 ? '' : 's'}</span>
+        <span>{tabList.length} {tab === 'contacts' ? 'contacto' : tab === 'groups' ? 'grupo' : 'bloqueado'}{tabList.length === 1 ? '' : 's'}</span>
+        {tab !== 'blacklist' && <span>{enabledCount} habilitado{enabledCount === 1 ? '' : 's'}</span>}
       </div>
 
       <div className="flex flex-col gap-1.5 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/60 rounded-xl p-2.5 min-h-[280px]">
@@ -641,7 +793,9 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
             {tabList.length === 0
               ? tab === 'contacts'
                 ? 'Todavía no hay contactos sincronizados.'
-                : 'Todavía no hay grupos sincronizados.'
+                : tab === 'groups'
+                ? 'Todavía no hay grupos sincronizados.'
+                : 'Todavía no bloqueaste a nadie.'
               : 'Sin resultados para esa búsqueda.'}
           </p>
         ) : (
@@ -679,30 +833,48 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {!row.pending && !row.isGroup && (
+                {tab === 'blacklist' ? (
                   <button
-                    onClick={() => refreshContact(row.contact!)}
+                    onClick={() => handleUnblock(row.contact!)}
                     disabled={busyKey === row.key}
-                    title="Recargar (por si quedó mal agregado)"
-                    className="p-1 rounded-md text-slate-400 hover:text-[#9e1114] dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer transition-colors"
+                    title="Desbloquear este número"
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 disabled:opacity-40 cursor-pointer transition-colors"
                   >
-                    <RefreshCw className="w-3 h-3" />
+                    {busyKey === row.key ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="w-3 h-3" />
+                    )}
+                    Desbloquear
                   </button>
+                ) : (
+                  <>
+                    {!row.pending && !row.isGroup && (
+                      <button
+                        onClick={() => refreshContact(row.contact!)}
+                        disabled={busyKey === row.key}
+                        title="Recargar (por si quedó mal agregado)"
+                        className="p-1 rounded-md text-slate-400 hover:text-[#9e1114] dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer transition-colors"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeRow(row)}
+                      disabled={busyKey === row.key}
+                      title={row.pending ? 'Descartar de la lista' : 'Borrar este contacto de la lista'}
+                      className="p-1 rounded-md text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    <Toggle
+                      size="sm"
+                      checked={row.botEnabled}
+                      disabled={savingKey === row.key || busyKey === row.key}
+                      onChange={(v) => handleToggle(row, v)}
+                    />
+                  </>
                 )}
-                <button
-                  onClick={() => removeRow(row)}
-                  disabled={busyKey === row.key}
-                  title={row.pending ? 'Descartar de la lista' : 'Borrar este contacto de la lista'}
-                  className="p-1 rounded-md text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 cursor-pointer transition-colors"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-                <Toggle
-                  size="sm"
-                  checked={row.botEnabled}
-                  disabled={savingKey === row.key || busyKey === row.key}
-                  onChange={(v) => handleToggle(row, v)}
-                />
               </div>
             </div>
           ))

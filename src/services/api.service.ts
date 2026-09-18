@@ -161,6 +161,17 @@ export const ApiService = {
         return this.sendBackgroundRequest<void>(`/whatsapp/bot-contacts/${id}`, 'DELETE');
     },
 
+    // Blacklist (pestaña junto a Contactos/Grupos): bloquear apaga botEnabled automáticamente del
+    // lado del backend.
+    async setBotContactBlacklisted(id: number, blacklisted: boolean): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/blacklisted`, 'PUT', { blacklisted });
+    },
+
+    // Alta directa a la blacklist (número que nunca le escribió al bot pero se quiere bloquear igual).
+    async addToBlacklist(phone: string, name: string | undefined): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>('/whatsapp/bot-contacts/blacklist', 'POST', { phone, name });
+    },
+
     // Registra (o encuentra) un número de teléfono como contacto administrable, sin esperar a que
     // ese número le escriba primero al bot.
     async addBotContact(phone: string, name: string | undefined, enabled: boolean): Promise<BotContact> {

@@ -10,6 +10,7 @@ export interface BotContact {
   name: string;
   isGroup: boolean;
   botEnabled: boolean;
+  isBlacklisted: boolean;
   lastActivity: string; // ISO timestamp
 }
 

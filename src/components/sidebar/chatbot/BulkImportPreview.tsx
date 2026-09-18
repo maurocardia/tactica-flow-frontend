@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { fieldInputClass } from '@/components/ui/Field';
 import { ApiService } from '@/services/api.service';
@@ -21,13 +19,19 @@ function parseEnabledValue(raw: string | undefined): boolean {
 // Lee el archivo y devuelve filas crudas como matriz de strings (primera fila = headers) — CSV se
 // parsea con papaparse (liviano, sin vulnerabilidades conocidas) y XLSX con la librería `xlsx`
 // (SheetJS), la única forma práctica de leer el formato binario real de Excel en el navegador.
+// Ambas se importan de forma DINÁMICA (en vez de arriba, con el resto de imports) para que Vite
+// las separe en su propio chunk — sin esto, `xlsx` (pesada) quedaba pegada al bundle de
+// content.js, que se inyecta en CADA carga de WhatsApp Web aunque nadie use el importador nunca.
+// Así solo se descargan la primera vez que alguien realmente abre "Importar Excel/CSV".
 async function parseFileToRows(file: File): Promise<string[][]> {
   const ext = file.name.toLowerCase().split('.').pop();
   if (ext === 'csv') {
+    const Papa = (await import('papaparse')).default;
     const text = await file.text();
     const result = Papa.parse<string[]>(text, { skipEmptyLines: true });
     return result.data as string[][];
   }
+  const XLSX = await import('xlsx');
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const firstSheet = workbook.Sheets[workbook.SheetNames[0]];

@@ -66,8 +66,15 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
   // menú propio, no un <select> nativo, porque este último no puede mostrar la banderita SVG.
   useEffect(() => {
     if (!countryMenuOpen) return;
+    // Ojo con Shadow DOM: `e.target` de un listener en `document` (fuera del Shadow Root donde
+    // vive todo el panel) llega "retargeteado" al host del Shadow DOM para CUALQUIER clic adentro
+    // — nunca al botón real que se tocó. `contains()` contra ese target siempre da falso, así que
+    // este handler creía que TODO clic (incluso en un país de la lista) era "afuera" y cerraba el
+    // menú antes de que el clic llegara a seleccionar nada. `composedPath()` sí devuelve el
+    // camino real cruzando el límite del Shadow DOM.
     const handleClickOutside = (e: MouseEvent) => {
-      if (countryMenuRef.current && !countryMenuRef.current.contains(e.target as Node)) {
+      const path = e.composedPath();
+      if (countryMenuRef.current && !path.includes(countryMenuRef.current)) {
         setCountryMenuOpen(false);
       }
     };
