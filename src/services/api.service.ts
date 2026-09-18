@@ -3,6 +3,7 @@
 import { BotContact, BulkImportContact, BulkImportResult } from "@/types/botContact";
 import { Advisor } from "@/types/advisor";
 import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
+import { FlowMediaAsset } from "@/types/flowMedia";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser, AiPromptConfig } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
@@ -230,6 +231,57 @@ export const ApiService = {
 
     async resetAdvisorCounts(): Promise<void> {
         return this.sendBackgroundRequest<void>('/whatsapp/advisors/reset-counts', 'POST');
+    },
+
+    // Reactiva el bot para un contacto pausado por una derivación a asesor (bloque "Contactar
+    // Asesor" del editor de flujos) — botón "Reactivar bot" en ContactBotSwitchesModal.
+    async resumeBotForContact(id: number): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/resume-bot`, 'PUT');
+    },
+
+    // === Adjuntos multimedia de nodos de flujo (Enviar Imagen/Video/Audio/Documento) ===
+
+    async getFlowMediaAssets(): Promise<FlowMediaAsset[]> {
+        return this.sendBackgroundRequest<FlowMediaAsset[]>('/whatsapp/flow-media');
+    },
+
+    async deleteFlowMedia(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/whatsapp/flow-media/${id}`, 'DELETE');
+    },
+
+    // Sube un archivo directo con fetch (igual que uploadKbDocument: el puente sendMessage solo
+    // transporta JSON) — a diferencia de esa ruta, ésta SÍ está detrás de authMiddleware en el
+    // backend, así que hay que mandar el token a mano.
+    async uploadFlowMedia(file: File, kind: 'image' | 'video' | 'audio' | 'document'): Promise<FlowMediaAsset> {
+        const token = await getStoredToken();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('kind', kind);
+        const res = await fetch(`${API_URL}/whatsapp/flow-media`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+            body: formData,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(data?.error || `Error al subir el adjunto (HTTP ${res.status})`);
+        }
+        return data as FlowMediaAsset;
+    },
+
+    // <img>/<video src> no pueden llevar el header Authorization — se trae el archivo con fetch
+    // autenticado y se arma un blob: URL para el preview en el editor de flujos. El caller es
+    // responsable de revocar la URL (URL.revokeObjectURL) cuando ya no la necesite.
+    async fetchFlowMediaBlob(id: number): Promise<string> {
+        const token = await getStoredToken();
+        const res = await fetch(`${API_URL}/whatsapp/flow-media/${id}/raw`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!res.ok) {
+            throw new Error(`Error al obtener el adjunto (HTTP ${res.status})`);
+        }
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
     },
 
     async getMessages(conversationId: string | number): Promise<ConversationMessage[]> {

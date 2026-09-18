@@ -9,7 +9,14 @@ import {
   Zap,
   Trash2,
   Edit2,
-  Copy
+  Copy,
+  Image,
+  Video,
+  Mic,
+  FileText,
+  MousePointerClick,
+  List,
+  Paperclip
 } from 'lucide-react';
 import { BotFlowNode, NodeType } from '@/types/bot';
 
@@ -60,7 +67,7 @@ const META_BY_TYPE: Record<NodeType, { label: string; icon: any; headerBg: strin
     iconColor: 'text-purple-600'
   },
   HANDOFF: {
-    label: 'Derivación Asesor',
+    label: 'Contactar Asesor',
     icon: UserCheck,
     headerBg: 'bg-gradient-to-r from-rose-600 to-red-600 text-white',
     border: 'border-rose-300 dark:border-rose-700',
@@ -79,8 +86,53 @@ const META_BY_TYPE: Record<NodeType, { label: string; icon: any; headerBg: strin
     headerBg: 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white',
     border: 'border-blue-300 dark:border-blue-700',
     iconColor: 'text-blue-600'
+  },
+  SEND_IMAGE: {
+    label: 'Enviar Imagen',
+    icon: Image,
+    headerBg: 'bg-gradient-to-r from-pink-600 to-rose-500 text-white',
+    border: 'border-pink-300 dark:border-pink-700',
+    iconColor: 'text-pink-600'
+  },
+  SEND_VIDEO: {
+    label: 'Enviar Video',
+    icon: Video,
+    headerBg: 'bg-gradient-to-r from-violet-600 to-purple-600 text-white',
+    border: 'border-violet-300 dark:border-violet-700',
+    iconColor: 'text-violet-600'
+  },
+  SEND_AUDIO: {
+    label: 'Enviar Audio',
+    icon: Mic,
+    headerBg: 'bg-gradient-to-r from-orange-600 to-amber-600 text-white',
+    border: 'border-orange-300 dark:border-orange-700',
+    iconColor: 'text-orange-600'
+  },
+  SEND_DOCUMENT: {
+    label: 'Enviar Documento',
+    icon: FileText,
+    headerBg: 'bg-gradient-to-r from-cyan-600 to-sky-600 text-white',
+    border: 'border-cyan-300 dark:border-cyan-700',
+    iconColor: 'text-cyan-600'
+  },
+  BUTTONS_REPLY: {
+    label: 'Respuestas',
+    icon: MousePointerClick,
+    headerBg: 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white',
+    border: 'border-teal-300 dark:border-teal-700',
+    iconColor: 'text-teal-600'
+  },
+  LIST_MESSAGE: {
+    label: 'Enviar Lista',
+    icon: List,
+    headerBg: 'bg-gradient-to-r from-lime-600 to-green-600 text-white',
+    border: 'border-lime-300 dark:border-lime-700',
+    iconColor: 'text-lime-600'
   }
 };
+
+const MEDIA_NODE_TYPES = new Set<NodeType>(['SEND_IMAGE', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_DOCUMENT']);
+const INTERACTIVE_NODE_TYPES = new Set<NodeType>(['OPTIONS_MENU', 'BUTTONS_REPLY', 'LIST_MESSAGE']);
 
 export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
   node,
@@ -99,7 +151,7 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
   const Icon = meta.icon;
 
   const isTrigger = node.type === 'TRIGGER';
-  const hasOptions = node.type === 'OPTIONS_MENU' && (node.data?.options?.length ?? 0) > 0;
+  const hasOptions = INTERACTIVE_NODE_TYPES.has(node.type) && (node.data?.options?.length ?? 0) > 0;
   const isConnectingTarget = activeConnecting && activeConnecting.sourceNodeId !== node.id && !isTrigger;
 
   return (
@@ -299,10 +351,60 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
         {node.type === 'HANDOFF' && (
           <div className="text-[11px] text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 p-2 rounded-lg border border-rose-200 dark:border-rose-800 flex items-center gap-1.5">
             <UserCheck className="w-4 h-4 shrink-0" />
-            <span>Pasa la conversación a estado Asesor Humano.</span>
+            <span>
+              Asesor: {node.data?.advisorMode === 'fixed' ? 'fijo' : 'automático (turnos)'}
+              {' · '}
+              {node.data?.pauseBotMinutes ? `pausa ${node.data.pauseBotMinutes} min` : 'pausa hasta reactivar a mano'}
+            </span>
+          </div>
+        )}
+
+        {/* Adjunto multimedia (Enviar Imagen/Video/Audio/Documento) */}
+        {MEDIA_NODE_TYPES.has(node.type) && (
+          <div className="text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+            <Paperclip className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+            {node.data?.media?.source === 'upload' && node.data.media.fileName ? (
+              <span className="truncate">{node.data.media.fileName}</span>
+            ) : node.data?.media?.source === 'url' && node.data.media.url ? (
+              <span className="truncate">{node.data.media.url}</span>
+            ) : (
+              <span className="italic text-slate-400">Sin adjunto configurado todavía</span>
+            )}
+          </div>
+        )}
+
+        {/* Tiempo de espera / Sin respuesta (Menú, Respuestas, Lista) */}
+        {hasOptions && !!node.data?.waitTimeoutMinutes && (
+          <div className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2 rounded-lg border border-amber-200 dark:border-amber-800 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            <span>Si no responde en {node.data.waitTimeoutMinutes} min, sigue por el puerto de abajo.</span>
           </div>
         )}
       </div>
+
+      {/* Puerto de "sin respuesta" (Ámbar) — solo si el bloque interactivo tiene tiempo de espera configurado */}
+      {hasOptions && !!node.data?.waitTimeoutMinutes && (() => {
+        const isTimeoutActive = activeConnecting?.sourceNodeId === node.id && activeConnecting?.sourcePortId === 'timeout';
+        return (
+          <div
+            id={`port-out-${node.id}-timeout`}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              onStartConnection(node.id, 'timeout', e);
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartConnection(node.id, 'timeout', e);
+            }}
+            title={`Sin respuesta en ${node.data.waitTimeoutMinutes} min — toca o arrastra para conectar`}
+            className={`absolute -bottom-3.5 left-1/2 -translate-x-1/2 w-7 h-7 rounded-full bg-amber-500 border-2 border-white dark:border-slate-800 flex items-center justify-center cursor-pointer transition-all shadow-md z-30 ${
+              isTimeoutActive ? 'ring-4 ring-amber-300 scale-125 animate-pulse' : 'hover:scale-125 hover:bg-amber-600'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-white" />
+          </div>
+        );
+      })()}
 
       {/* Default Output Handle (Inferior - Rojo Táctica) si no es menú múltiple */}
       {!hasOptions && (() => {

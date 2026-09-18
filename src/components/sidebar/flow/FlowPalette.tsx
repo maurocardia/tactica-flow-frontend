@@ -5,10 +5,15 @@ import {
   ListFilter,
   Bot,
   UserCheck,
-  GitFork,
   Clock,
   Zap,
-  Plus
+  Plus,
+  Image,
+  Video,
+  Mic,
+  FileText,
+  MousePointerClick,
+  List
 } from 'lucide-react';
 import { NodeType } from '@/types/bot';
 
@@ -20,6 +25,7 @@ interface BlockTypeMeta {
   color: string;
   bg: string;
   border: string;
+  group: 'Mensajes' | 'Interacción' | 'Lógica';
 }
 
 export const PALETTE_BLOCKS: BlockTypeMeta[] = [
@@ -30,7 +36,8 @@ export const PALETTE_BLOCKS: BlockTypeMeta[] = [
     icon: Zap,
     color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 dark:bg-amber-950/40',
-    border: 'border-amber-200 dark:border-amber-800'
+    border: 'border-amber-200 dark:border-amber-800',
+    group: 'Lógica'
   },
   {
     type: 'STATIC_REPLY',
@@ -39,7 +46,48 @@ export const PALETTE_BLOCKS: BlockTypeMeta[] = [
     icon: MessageSquare,
     color: 'text-blue-600 dark:text-blue-400',
     bg: 'bg-blue-50 dark:bg-blue-950/40',
-    border: 'border-blue-200 dark:border-blue-800'
+    border: 'border-blue-200 dark:border-blue-800',
+    group: 'Mensajes'
+  },
+  {
+    type: 'SEND_IMAGE',
+    label: 'Enviar Imagen',
+    desc: 'Manda una foto, con o sin texto (caption)',
+    icon: Image,
+    color: 'text-pink-600 dark:text-pink-400',
+    bg: 'bg-pink-50 dark:bg-pink-950/40',
+    border: 'border-pink-200 dark:border-pink-800',
+    group: 'Mensajes'
+  },
+  {
+    type: 'SEND_VIDEO',
+    label: 'Enviar Video',
+    desc: 'Manda un video, opcionalmente como GIF en loop',
+    icon: Video,
+    color: 'text-violet-600 dark:text-violet-400',
+    bg: 'bg-violet-50 dark:bg-violet-950/40',
+    border: 'border-violet-200 dark:border-violet-800',
+    group: 'Mensajes'
+  },
+  {
+    type: 'SEND_AUDIO',
+    label: 'Enviar Audio',
+    desc: 'Manda un audio, opcionalmente como nota de voz',
+    icon: Mic,
+    color: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-50 dark:bg-orange-950/40',
+    border: 'border-orange-200 dark:border-orange-800',
+    group: 'Mensajes'
+  },
+  {
+    type: 'SEND_DOCUMENT',
+    label: 'Enviar Documento',
+    desc: 'Manda un PDF, Word, Excel u otro archivo',
+    icon: FileText,
+    color: 'text-cyan-600 dark:text-cyan-400',
+    bg: 'bg-cyan-50 dark:bg-cyan-950/40',
+    border: 'border-cyan-200 dark:border-cyan-800',
+    group: 'Mensajes'
   },
   {
     type: 'OPTIONS_MENU',
@@ -48,7 +96,28 @@ export const PALETTE_BLOCKS: BlockTypeMeta[] = [
     icon: ListFilter,
     color: 'text-emerald-600 dark:text-emerald-400',
     bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-    border: 'border-emerald-200 dark:border-emerald-800'
+    border: 'border-emerald-200 dark:border-emerald-800',
+    group: 'Interacción'
+  },
+  {
+    type: 'BUTTONS_REPLY',
+    label: 'Respuestas',
+    desc: 'Hasta 3 opciones rápidas (se muestran numeradas)',
+    icon: MousePointerClick,
+    color: 'text-teal-600 dark:text-teal-400',
+    bg: 'bg-teal-50 dark:bg-teal-950/40',
+    border: 'border-teal-200 dark:border-teal-800',
+    group: 'Interacción'
+  },
+  {
+    type: 'LIST_MESSAGE',
+    label: 'Enviar Lista',
+    desc: 'Hasta 10 opciones agrupadas por sección',
+    icon: List,
+    color: 'text-lime-600 dark:text-lime-400',
+    bg: 'bg-lime-50 dark:bg-lime-950/40',
+    border: 'border-lime-200 dark:border-lime-800',
+    group: 'Interacción'
   },
   {
     type: 'CALL_AI',
@@ -57,16 +126,18 @@ export const PALETTE_BLOCKS: BlockTypeMeta[] = [
     icon: Bot,
     color: 'text-purple-600 dark:text-purple-400',
     bg: 'bg-purple-50 dark:bg-purple-950/40',
-    border: 'border-purple-200 dark:border-purple-800'
+    border: 'border-purple-200 dark:border-purple-800',
+    group: 'Lógica'
   },
   {
     type: 'HANDOFF',
-    label: 'Derivar a Asesor',
-    desc: 'Transfiere el chat a un asesor humano',
+    label: 'Contactar Asesor',
+    desc: 'Deriva el chat a un asesor real y pausa el bot',
     icon: UserCheck,
     color: 'text-rose-600 dark:text-rose-400',
     bg: 'bg-rose-50 dark:bg-rose-950/40',
-    border: 'border-rose-200 dark:border-rose-800'
+    border: 'border-rose-200 dark:border-rose-800',
+    group: 'Lógica'
   },
   {
     type: 'DELAY',
@@ -75,9 +146,12 @@ export const PALETTE_BLOCKS: BlockTypeMeta[] = [
     icon: Clock,
     color: 'text-slate-600 dark:text-slate-400',
     bg: 'bg-slate-50 dark:bg-slate-800/60',
-    border: 'border-slate-200 dark:border-slate-700'
+    border: 'border-slate-200 dark:border-slate-700',
+    group: 'Lógica'
   }
 ];
+
+const GROUP_ORDER: BlockTypeMeta['group'][] = ['Mensajes', 'Interacción', 'Lógica'];
 
 interface FlowPaletteProps {
   onAddBlock: (type: NodeType) => void;
@@ -95,38 +169,45 @@ export const FlowPalette: React.FC<FlowPaletteProps> = ({ onAddBlock }) => {
         </p>
       </div>
 
-      <div className="p-2.5 flex flex-col gap-2 overflow-y-auto flex-1">
-        {PALETTE_BLOCKS.map((b) => {
-          const Icon = b.icon;
-          return (
-            <button
-              key={b.type}
-              type="button"
-              onClick={() => onAddBlock(b.type)}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('application/tactica-flow-block', b.type);
-                e.dataTransfer.effectAllowed = 'copy';
-              }}
-              className={`flex items-start gap-2.5 p-2.5 rounded-xl border text-left cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02] transition-all bg-white dark:bg-slate-800/80 ${b.border}`}
-            >
-              <div className={`p-1.5 rounded-lg shrink-0 ${b.bg} ${b.color}`}>
-                <Icon className="w-4 h-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
-                    {b.label}
-                  </span>
-                  <Plus className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100" />
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                  {b.desc}
-                </p>
-              </div>
-            </button>
-          );
-        })}
+      <div className="p-2.5 flex flex-col gap-3 overflow-y-auto flex-1">
+        {GROUP_ORDER.map((group) => (
+          <div key={group} className="flex flex-col gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-0.5">
+              {group}
+            </span>
+            {PALETTE_BLOCKS.filter((b) => b.group === group).map((b) => {
+              const Icon = b.icon;
+              return (
+                <button
+                  key={b.type}
+                  type="button"
+                  onClick={() => onAddBlock(b.type)}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/tactica-flow-block', b.type);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                  className={`group flex items-start gap-2.5 p-2.5 rounded-xl border text-left cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02] transition-all bg-white dark:bg-slate-800/80 ${b.border}`}
+                >
+                  <div className={`p-1.5 rounded-lg shrink-0 ${b.bg} ${b.color}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                        {b.label}
+                      </span>
+                      <Plus className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100" />
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                      {b.desc}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
