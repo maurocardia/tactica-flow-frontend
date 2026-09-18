@@ -16,7 +16,8 @@ import {
   FileText,
   MousePointerClick,
   List,
-  Paperclip
+  Paperclip,
+  CheckCircle2
 } from 'lucide-react';
 import { BotFlowNode, NodeType } from '@/types/bot';
 
@@ -128,6 +129,13 @@ const META_BY_TYPE: Record<NodeType, { label: string; icon: any; headerBg: strin
     headerBg: 'bg-gradient-to-r from-lime-600 to-green-600 text-white',
     border: 'border-lime-300 dark:border-lime-700',
     iconColor: 'text-lime-600'
+  },
+  FINISH_FLOW: {
+    label: 'Finalizar Flujo',
+    icon: CheckCircle2,
+    headerBg: 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white',
+    border: 'border-emerald-300 dark:border-emerald-700',
+    iconColor: 'text-emerald-600'
   }
 };
 
@@ -151,6 +159,7 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
   const Icon = meta.icon;
 
   const isTrigger = node.type === 'TRIGGER';
+  const isTerminal = node.type === 'FINISH_FLOW';
   const hasOptions = INTERACTIVE_NODE_TYPES.has(node.type) && (node.data?.options?.length ?? 0) > 0;
   const isConnectingTarget = activeConnecting && activeConnecting.sourceNodeId !== node.id && !isTrigger;
 
@@ -359,6 +368,14 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
           </div>
         )}
 
+        {/* Finalizar Flujo */}
+        {node.type === 'FINISH_FLOW' && (
+          <div className="text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-2 rounded-lg border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>Termina la charla: limpia el flujo y levanta cualquier pausa de asesor activa.</span>
+          </div>
+        )}
+
         {/* Adjunto multimedia (Enviar Imagen/Video/Audio/Documento) */}
         {MEDIA_NODE_TYPES.has(node.type) && (
           <div className="text-[11px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
@@ -406,8 +423,9 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
         );
       })()}
 
-      {/* Default Output Handle (Inferior - Rojo Táctica) si no es menú múltiple */}
-      {!hasOptions && (() => {
+      {/* Default Output Handle (Inferior - Rojo Táctica) si no es menú múltiple ni un nodo
+          terminal (Finalizar Flujo no tiene salida — ver flowEngine.service.ts, backend) */}
+      {!hasOptions && !isTerminal && (() => {
         const isDefaultActive = activeConnecting?.sourceNodeId === node.id && (activeConnecting?.sourcePortId === 'default' || !activeConnecting?.sourcePortId);
         return (
           <div

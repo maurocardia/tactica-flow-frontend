@@ -239,6 +239,13 @@ export const ApiService = {
         return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/resume-bot`, 'PUT');
     },
 
+    // Igual que resumeBotForContact, pero por jid en vez del id de fila — para el botón
+    // "Finalizar atención y reactivar bot" de la tarjeta del chat activo (ContactCard.tsx), que
+    // solo conoce el jid del chat abierto, no la fila de bot_contacts.
+    async unpauseBotContact(jidOrPhone: string): Promise<void> {
+        return this.sendBackgroundRequest<void>('/whatsapp/bot-contacts/unpause', 'POST', { jid: jidOrPhone });
+    },
+
     // === Adjuntos multimedia de nodos de flujo (Enviar Imagen/Video/Audio/Documento) ===
 
     async getFlowMediaAssets(): Promise<FlowMediaAsset[]> {

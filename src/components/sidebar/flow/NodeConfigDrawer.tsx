@@ -411,6 +411,8 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
                   ? 'Texto previo (se envía aparte, antes del audio):'
                   : mediaKind
                   ? 'Texto del mensaje (caption):'
+                  : type === 'FINISH_FLOW'
+                  ? 'Mensaje de cierre / despedida (opcional):'
                   : 'Texto del mensaje:'}
               </label>
               <div className="flex items-center gap-1">
@@ -436,7 +438,11 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
               rows={4}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Escribe la respuesta que enviará el bot..."
+              placeholder={
+                type === 'FINISH_FLOW'
+                  ? 'Ej: Gracias por comunicarte con nosotros. ¡Hasta pronto!'
+                  : 'Escribe la respuesta que enviará el bot...'
+              }
               className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-normal focus:ring-2 focus:ring-red-500/20 focus:border-red-500 outline-hidden resize-none"
             />
             {mediaKind === 'audio' && (
