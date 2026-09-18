@@ -96,19 +96,35 @@ const ChatbotModule: React.FC = () => {
   const setBotReplyDelayEnabled = (v: boolean) => {
     setConfig((c) => ({ ...c, botReplyDelayEnabled: v }));
     if (user) {
-      ApiService.setBotReplyDelay({ enabled: v, minMs: botReplyDelayMinMs, maxMs: botReplyDelayMaxMs }).catch((err) => {
+      const min = Math.min(botReplyDelayMinMs, botReplyDelayMaxMs);
+      const max = Math.max(botReplyDelayMinMs, botReplyDelayMaxMs);
+      ApiService.setBotReplyDelay({ enabled: v, minMs: min, maxMs: max }).catch((err) => {
         console.error('[ChatbotModule] No se pudo sincronizar el delay humanizado con el backend:', err);
       });
     }
   };
   // El rango solo importa mientras el delay está activo, pero igual mandamos el "enabled" actual
   // para no pisarlo por accidente si el usuario edita los inputs con el toggle apagado.
+  // Solo sincronizamos con el backend cuando el rango es válido (minMs <= maxMs) para no tirar
+  // error en consola mientras el usuario está escribiendo o borrando dígitos.
   const setBotReplyDelayRange = (minMs: number, maxMs: number) => {
     setConfig((c) => ({ ...c, botReplyDelayMinMs: minMs, botReplyDelayMaxMs: maxMs }));
-    if (user) {
+    if (user && !isNaN(minMs) && !isNaN(maxMs) && minMs >= 0 && maxMs >= minMs) {
       ApiService.setBotReplyDelay({ enabled: botReplyDelayEnabled, minMs, maxMs }).catch((err) => {
         console.error('[ChatbotModule] No se pudo sincronizar el rango del delay con el backend:', err);
       });
+    }
+  };
+
+  const handleDelayRangeBlur = () => {
+    if (botReplyDelayMinMs > botReplyDelayMaxMs) {
+      const fixedMax = botReplyDelayMinMs;
+      setConfig((c) => ({ ...c, botReplyDelayMaxMs: fixedMax }));
+      if (user) {
+        ApiService.setBotReplyDelay({ enabled: botReplyDelayEnabled, minMs: botReplyDelayMinMs, maxMs: fixedMax }).catch((err) => {
+          console.error('[ChatbotModule] No se pudo sincronizar el rango del delay con el backend:', err);
+        });
+      }
     }
   };
 
@@ -327,34 +343,51 @@ const ChatbotModule: React.FC = () => {
           <Toggle size="sm" checked={botReplyDelayEnabled} onChange={setBotReplyDelayEnabled} />
         </div>
         {botReplyDelayEnabled && (
-          <div className="flex items-center gap-2 pt-0.5">
-            <label className="flex-1 flex flex-col gap-0.5">
-              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                Mínimo (ms)
+          <>
+            <div className="flex items-center gap-2 pt-0.5">
+              <label className="flex-1 flex flex-col gap-0.5">
+                <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  Mínimo (ms)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={botReplyDelayMinMs}
+                  onChange={(e) => setBotReplyDelayRange(Number(e.target.value), botReplyDelayMaxMs)}
+                  onBlur={handleDelayRangeBlur}
+                  className={`border rounded-lg px-2 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] focus:outline-none w-full ${
+                    botReplyDelayMinMs > botReplyDelayMaxMs
+                      ? 'border-red-500 text-red-600 focus:border-red-600'
+                      : 'border-slate-300 dark:border-slate-700 focus:border-red-500'
+                  }`}
+                />
+              </label>
+              <label className="flex-1 flex flex-col gap-0.5">
+                <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  Máximo (ms)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  step={100}
+                  value={botReplyDelayMaxMs}
+                  onChange={(e) => setBotReplyDelayRange(botReplyDelayMinMs, Number(e.target.value))}
+                  onBlur={handleDelayRangeBlur}
+                  className={`border rounded-lg px-2 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] focus:outline-none w-full ${
+                    botReplyDelayMinMs > botReplyDelayMaxMs
+                      ? 'border-red-500 text-red-600 focus:border-red-600'
+                      : 'border-slate-300 dark:border-slate-700 focus:border-red-500'
+                  }`}
+                />
+              </label>
+            </div>
+            {botReplyDelayMinMs > botReplyDelayMaxMs && (
+              <span className="text-[9.5px] text-red-500 font-semibold px-0.5">
+                El mínimo no puede ser mayor que el máximo
               </span>
-              <input
-                type="number"
-                min={0}
-                step={100}
-                value={botReplyDelayMinMs}
-                onChange={(e) => setBotReplyDelayRange(Number(e.target.value), botReplyDelayMaxMs)}
-                className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] focus:outline-none focus:border-red-500 w-full"
-              />
-            </label>
-            <label className="flex-1 flex flex-col gap-0.5">
-              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-                Máximo (ms)
-              </span>
-              <input
-                type="number"
-                min={0}
-                step={100}
-                value={botReplyDelayMaxMs}
-                onChange={(e) => setBotReplyDelayRange(botReplyDelayMinMs, Number(e.target.value))}
-                className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] focus:outline-none focus:border-red-500 w-full"
-              />
-            </label>
-          </div>
+            )}
+          </>
         )}
       </div>
     ),
