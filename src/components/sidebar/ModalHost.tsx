@@ -26,6 +26,7 @@ import { BotFlowModal } from './BotFlowModal';
 import { AiSummaryConfigModal } from './ai/AiSummaryConfigModal';
 import { AiAgentConfigModal } from './ai/AiAgentConfigModal';
 import { ContactBotSwitchesModal } from './ContactBotSwitchesModal';
+import { AdvisorManagerModal } from './chatbot/AdvisorManagerModal';
 
 // Único punto que decide qué modal está montado. Nunca hay más de uno a la vez.
 export const ModalHost: React.FC = () => {
@@ -65,6 +66,8 @@ export const ModalHost: React.FC = () => {
       return <AiAgentConfigModal onClose={closeModal} />;
     case 'contact-bot-switches':
       return <ContactBotSwitchesModal onClose={closeModal} />;
+    case 'advisor-manager':
+      return <AdvisorManagerModal onClose={closeModal} />;
     case 'config':
       return <ConfigModal onClose={closeModal} />;
     case 'bot-flow':
