@@ -142,6 +142,20 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
       };
     }
 
+    // Puerto de "sin respuesta" (timeout): vive abajo-centro, igual que el puerto default — a
+    // diferencia de los puertos por opción, NO está en el borde derecho (ver FlowNodeCard.tsx).
+    if (portId === 'timeout') {
+      const portEl = findFlowElement(`port-out-${node.id}-timeout`);
+      if (portEl && cardEl) {
+        const cardRect = cardEl.getBoundingClientRect();
+        const portRect = portEl.getBoundingClientRect();
+        const relativeX = (portRect.left - cardRect.left) + portRect.width / 2;
+        const relativeY = (portRect.top - cardRect.top) + portRect.height / 2;
+        return { x: posX + relativeX, y: posY + relativeY, isRightPort: false };
+      }
+      return { x: posX + nodeWidth / 2, y: posY + renderedHeight + 2, isRightPort: false };
+    }
+
     // Puerto de salida por opción (a la derecha):
     if (portId && portId !== 'default' && node.data?.options) {
       // Buscar el elemento exacto del puerto de la opción en el DOM
@@ -205,7 +219,11 @@ export const FlowEdgeLayer: React.FC<FlowEdgeLayerProps> = ({
     // Calcular índice de la opción para asignar su propio carril exclusivo
     const sourceNode = nodes.find((n) => n.id === sourceNodeId);
     let optionIndex = 0;
-    if (sourceNode?.data?.options && sourcePortId && sourcePortId !== 'default') {
+    if (sourcePortId === 'timeout') {
+      // Puerto de "sin respuesta": carril propio después de todas las opciones, para no pisar
+      // el cable de la opción 0 (ver FlowNodeCard.tsx).
+      optionIndex = sourceNode?.data?.options?.length ?? 0;
+    } else if (sourceNode?.data?.options && sourcePortId && sourcePortId !== 'default') {
       const idx = sourceNode.data.options.findIndex(
         (o, i) => (o.id || `opt_${i}`) === sourcePortId
       );

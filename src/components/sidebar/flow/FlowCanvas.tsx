@@ -19,6 +19,7 @@ import { FlowNodeCard } from './FlowNodeCard';
 import { FlowEdgeLayer } from './FlowEdgeLayer';
 import { NodeConfigDrawer } from './NodeConfigDrawer';
 import { FlowSimulatorModal } from './FlowSimulatorModal';
+import { createDefaultNode } from './nodeDefaults';
 
 const DEFAULT_INITIAL_FLOW: BotFlowData = {
   id: 'main_flow',
@@ -232,10 +233,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   const handleEndConnection = useCallback((targetNodeId: string) => {
     const activeConn = stateRef.current.connectingState;
     if (!activeConn) return;
-    if (activeConn.sourceNodeId === targetNodeId) {
-      setConnectingState(null);
-      return;
-    }
+    // Un bloque SÍ puede conectarse a sí mismo (ej: el puerto "sin respuesta" de un Menú vuelve a
+    // apuntar al mismo Menú, para reintentar/recordarle al cliente) — el motor ya soporta esto sin
+    // riesgo de loop infinito (ver FlowEngineService.buildNodeChain: corta apenas llega a un nodo
+    // interactivo, y el Set `visited` protege cualquier otra cadena que se cicle).
 
     updateFlowWithDraft((prev) => {
       const exists = prev.connections.some(
@@ -550,22 +551,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
       window.innerHeight / 2
     );
 
-    const newNode: BotFlowNode = {
-      id: `node_${type.toLowerCase()}_${Date.now()}`,
-      type,
-      title: `Bloque ${nextIdx}`,
-      position: {
-        x: Math.round(centerCanvas.x - 144),
-        y: Math.round(centerCanvas.y - 40)
-      },
-      data: {
-        name: `Bloque ${nextIdx}`,
-        replyText: type === 'DELAY' ? '' : 'Mensaje configurable del bot...',
-        options: type === 'OPTIONS_MENU' ? [{ id: `opt_${Date.now()}_1`, label: '1. Opción A', keyword: '1' }] : undefined,
-        delaySeconds: type === 'DELAY' ? 2 : undefined,
-        isActive: true
-      }
-    };
+    const newNode = createDefaultNode(type, {
+      x: Math.round(centerCanvas.x - 144),
+      y: Math.round(centerCanvas.y - 40)
+    }, nextIdx);
 
     updateFlowWithDraft((prev) => ({
       ...prev,
@@ -583,22 +572,10 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
     const coords = screenToCanvasCoords(e.clientX, e.clientY);
     const nextIdx = flow.nodes.length + 1;
 
-    const newNode: BotFlowNode = {
-      id: `node_${type.toLowerCase()}_${Date.now()}`,
-      type,
-      title: `Bloque ${nextIdx}`,
-      position: {
-        x: Math.round(coords.x - 144),
-        y: Math.round(coords.y - 30)
-      },
-      data: {
-        name: `Bloque ${nextIdx}`,
-        replyText: type === 'DELAY' ? '' : 'Mensaje configurable del bot...',
-        options: type === 'OPTIONS_MENU' ? [{ id: `opt_${Date.now()}_1`, label: '1. Opción A', keyword: '1' }] : undefined,
-        delaySeconds: type === 'DELAY' ? 2 : undefined,
-        isActive: true
-      }
-    };
+    const newNode = createDefaultNode(type, {
+      x: Math.round(coords.x - 144),
+      y: Math.round(coords.y - 30)
+    }, nextIdx);
 
     updateFlowWithDraft((prev) => ({
       ...prev,

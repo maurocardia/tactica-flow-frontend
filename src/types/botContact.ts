@@ -12,6 +12,10 @@ export interface BotContact {
   botEnabled: boolean;
   isBlacklisted: boolean;
   lastActivity: string; // ISO timestamp
+  // Pausa del bot por derivación a un asesor (bloque "Contactar Asesor" del editor de flujos) —
+  // ver ApiService.resumeBotForContact.
+  handoffAdvisorId: number | null;
+  handoffPausedUntil: string | null; // ISO timestamp, null = no está pausado
 }
 
 // Contacto ya parseado desde un archivo CSV/Excel, listo para mandar a

@@ -91,6 +91,28 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
 
+  const escapeCsvField = (value: string) => (/[;"\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value);
+
+  // Exporta la lista completa de la pestaña actual (no solo la página/búsqueda visible) — mismas
+  // columnas que la plantilla de importación (telefono;nombre;activo), así el archivo exportado
+  // sirve directo como plantilla para reimportar en otra cuenta.
+  const handleExport = () => {
+    const rows = tabList.filter((r) => !r.pending && r.contact);
+    const header = 'telefono;nombre;activo\n';
+    const lines = rows.map((r) => `${phoneOf(r.contact!.jid)};${escapeCsvField(r.name)};${r.botEnabled ? 'si' : 'no'}`);
+    const csv = header + lines.join('\n') + (lines.length ? '\n' : '');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const label = tab === 'contacts' ? 'contactos' : tab === 'groups' ? 'grupos' : 'blacklist';
+    a.download = `${label}-tactica-flow.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const downloadTemplate = () => {
     // Punto y coma en vez de coma: es el separador que usa Excel por default en configuración
     // regional en español (la coma la reserva como separador decimal) — con coma, Excel abría el
@@ -421,6 +443,25 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
       setError(err instanceof Error ? err.message : 'No se pudo bloquear ese número. Probá de nuevo.');
     } finally {
       setBlacklisting(false);
+    }
+  };
+
+  // El bloque "Contactar Asesor" del editor de flujos pausa el bot para este contacto puntual
+  // (ver handoffPausedUntil) — este botón lo reactiva a mano antes de que venza la pausa.
+  const isHandoffPaused = (contact?: BotContact) =>
+    !!contact?.handoffPausedUntil && new Date(contact.handoffPausedUntil) > new Date();
+
+  const handleResumeBot = async (contact: BotContact) => {
+    setBusyKey(`real:${contact.id}`);
+    setError(null);
+    try {
+      const updated = await ApiService.resumeBotForContact(contact.id);
+      setContacts((prev) => prev.map((c) => (c.id === contact.id ? updated : c)));
+    } catch (err) {
+      console.error('[ContactBotSwitchesModal] No se pudo reactivar el bot:', err);
+      setError(`No se pudo reactivar el bot para "${contact.name}". Probá de nuevo.`);
+    } finally {
+      setBusyKey(null);
     }
   };
 
@@ -780,7 +821,17 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
 
       <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-0.5">
         <span>{tabList.length} {tab === 'contacts' ? 'contacto' : tab === 'groups' ? 'grupo' : 'bloqueado'}{tabList.length === 1 ? '' : 's'}</span>
-        {tab !== 'blacklist' && <span>{enabledCount} habilitado{enabledCount === 1 ? '' : 's'}</span>}
+        <div className="flex items-center gap-2.5">
+          {tab !== 'blacklist' && <span>{enabledCount} habilitado{enabledCount === 1 ? '' : 's'}</span>}
+          <button
+            onClick={handleExport}
+            disabled={tabList.length === 0}
+            title="Exportar esta lista a CSV"
+            className="flex items-center gap-1 hover:text-[#9e1114] dark:hover:text-red-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          >
+            <Download className="w-3 h-3" /> Exportar
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col gap-1.5 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/60 rounded-xl p-2.5 min-h-[280px]">
@@ -830,9 +881,25 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
                   <p className={`text-[10px] truncate ${row.pending ? 'text-amber-700 dark:text-amber-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>
                     {row.subtitle}
                   </p>
+                  {tab !== 'blacklist' && isHandoffPaused(row.contact) && (
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold truncate">
+                      ⏸ En manos de un asesor
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {tab !== 'blacklist' && isHandoffPaused(row.contact) && (
+                  <button
+                    onClick={() => handleResumeBot(row.contact!)}
+                    disabled={busyKey === row.key}
+                    title="Reactivar el bot para este contacto"
+                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-40 cursor-pointer transition-colors"
+                  >
+                    {busyKey === row.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Reactivar bot
+                  </button>
+                )}
                 {tab === 'blacklist' ? (
                   <button
                     onClick={() => handleUnblock(row.contact!)}
