@@ -34,15 +34,18 @@ export const KbUploader: React.FC<{ knowledgeBaseId: number; onUploaded: (doc: K
         className="flex items-center justify-center gap-1.5 border border-dashed border-slate-300 hover:bg-slate-50 disabled:opacity-50 text-slate-600 text-[11px] font-semibold py-1.5 rounded-lg"
       >
         {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        {uploading ? 'Subiendo...' : 'Subir documento (PDF, Word, TXT, MD)'}
+        {uploading ? 'Subiendo...' : 'Subir documento'}
       </button>
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.docx,.txt,.md"
+        accept=".pdf,.docx,.txt,.md,.csv,.xlsx"
         className="hidden"
         onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
       />
+      <p className="text-[10px] text-slate-400 text-center">
+        Formatos soportados: PDF, Word, TXT, Markdown, CSV, Excel (.xlsx)
+      </p>
       {error && <p className="text-[10.5px] text-red-600">{error}</p>}
     </div>
   );
