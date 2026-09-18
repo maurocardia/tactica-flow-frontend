@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Search, Plus, Users, ChevronLeft, ChevronRight, RefreshCw, HelpCircle, X, ChevronDown } from 'lucide-react';
+import { Loader2, Search, Plus, Users, ChevronLeft, ChevronRight, RefreshCw, HelpCircle, X, ChevronDown, Upload, Download, CheckCircle2 } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { fieldInputClass } from '@/components/ui/Field';
 import { Toggle } from '@/components/ui/Toggle';
 import { CountryFlag } from '@/components/ui/CountryFlag';
 import { ApiService } from '@/services/api.service';
 import { DOMService } from '@/services/dom.service';
-import { BotContact } from '@/types/botContact';
+import { BotContact, BulkImportResult } from '@/types/botContact';
 import { COUNTRY_CODES } from '@/config/countryCodes';
+import { BulkImportPreview } from './chatbot/BulkImportPreview';
 
 const PAGE_SIZE = 5;
 
@@ -75,6 +76,31 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const [adding, setAdding] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState<'contacts' | 'groups'>('contacts');
+
+  // Importación masiva desde CSV/Excel (ver BulkImportPreview.tsx) — mientras hay un archivo
+  // elegido, el cuerpo del modal muestra la previsualización en vez de la lista normal.
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<BulkImportResult | null>(null);
+
+  const downloadTemplate = () => {
+    const csv = 'telefono,nombre,activo\n573001234567,Juan Pérez,si\n';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plantilla-contactos.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImported = async (result: BulkImportResult) => {
+    setImportFile(null);
+    setImportResult(result);
+    await loadPlainList();
+  };
 
   const loadPlainList = () =>
     ApiService.getBotContacts()
@@ -527,8 +553,57 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
         >
           {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
         </button>
+        <button
+          onClick={() => importInputRef.current?.click()}
+          className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#9e1114] hover:text-[#9e1114] dark:hover:text-red-400 transition-colors cursor-pointer"
+          title="Importar contactos desde Excel/CSV"
+        >
+          <Upload className="w-3.5 h-3.5" />
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".csv,.xlsx"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setImportResult(null);
+              setImportFile(file);
+            }
+            e.target.value = '';
+          }}
+        />
       </div>
+      <button
+        onClick={downloadTemplate}
+        className="self-start flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 hover:text-[#9e1114] dark:hover:text-red-400 font-semibold cursor-pointer transition-colors -mt-1.5"
+      >
+        <Download className="w-3 h-3" /> Descargar plantilla de ejemplo (CSV)
+      </button>
 
+      {importResult && (
+        <div className="flex items-start gap-2 text-[11px] text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg px-2.5 py-2">
+          <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span className="flex-1">
+            Se crearon {importResult.created} contacto{importResult.created === 1 ? '' : 's'}, se actualizaron {importResult.updated}
+            {importResult.errors > 0 ? `, ${importResult.errors} error${importResult.errors === 1 ? '' : 'es'}` : ''}.
+          </span>
+          <button onClick={() => setImportResult(null)} className="shrink-0 hover:text-emerald-950 dark:hover:text-emerald-100 cursor-pointer">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {importFile ? (
+        <BulkImportPreview
+          file={importFile}
+          existingContacts={contacts}
+          onCancel={() => setImportFile(null)}
+          onImported={handleImported}
+        />
+      ) : (
+        <>
       <div className="flex items-center gap-1.5">
         <div className="relative flex-1">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -652,6 +727,8 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
             Siguiente <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
+      )}
+        </>
       )}
     </Modal>
   );

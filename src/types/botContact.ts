@@ -12,3 +12,18 @@ export interface BotContact {
   botEnabled: boolean;
   lastActivity: string; // ISO timestamp
 }
+
+// Contacto ya parseado desde un archivo CSV/Excel, listo para mandar a
+// POST /whatsapp/bot-contacts/bulk-import — ver BulkImportPreview.tsx.
+export interface BulkImportContact {
+  phone: string;
+  name?: string;
+  enabled: boolean;
+}
+
+export interface BulkImportResult {
+  created: number;
+  updated: number;
+  errors: number;
+  errorDetails?: string[];
+}
