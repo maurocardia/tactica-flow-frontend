@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, ChevronDown, X, Loader2, Sparkles, Settings, Users, ExternalLink, GripVertical, Pencil, Check } from 'lucide-react';
+import { Bot, ChevronDown, X, Loader2, Sparkles, Settings, Users, ExternalLink, GripVertical, Pencil, Check, Clock, Shuffle, ListChecks, Headset } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
 import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 import { useModal } from '@/state/ModalContext';
@@ -8,7 +8,7 @@ import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
 import { Toggle } from '@/components/ui/Toggle';
 
-const SECTION_IDS = ['botStatus', 'newContacts', 'aiReply', 'knowledgeBase'] as const;
+const SECTION_IDS = ['botStatus', 'newContacts', 'aiReply', 'replyDelay', 'knowledgeBase'] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 const DEFAULT_SECTION_ORDER: SectionId[] = [...SECTION_IDS];
 
@@ -36,6 +36,10 @@ const ChatbotModule: React.FC = () => {
             aiFallbackEnabled: freshUser.aiFallbackEnabled,
             botEnabledForNewContacts: freshUser.botEnabledForNewContacts,
             botReplyToAll: freshUser.botReplyToAll,
+            botReplyDelayEnabled: freshUser.botReplyDelayEnabled,
+            botReplyDelayMinMs: freshUser.botReplyDelayMinMs,
+            botReplyDelayMaxMs: freshUser.botReplyDelayMaxMs,
+            botMode: freshUser.botMode,
           }));
         }
       })
@@ -81,6 +85,41 @@ const ChatbotModule: React.FC = () => {
     setConfig((c) => ({ ...c, botReplyToAll: v }));
     if (user) {
       ApiService.setBotReplyToAll(v).catch((err) => {
+        console.error('[ChatbotModule] No se pudo sincronizar el modo de respuesta con el backend:', err);
+      });
+    }
+  };
+
+  const botReplyDelayEnabled = config.botReplyDelayEnabled;
+  const botReplyDelayMinMs = config.botReplyDelayMinMs;
+  const botReplyDelayMaxMs = config.botReplyDelayMaxMs;
+  const setBotReplyDelayEnabled = (v: boolean) => {
+    setConfig((c) => ({ ...c, botReplyDelayEnabled: v }));
+    if (user) {
+      ApiService.setBotReplyDelay({ enabled: v, minMs: botReplyDelayMinMs, maxMs: botReplyDelayMaxMs }).catch((err) => {
+        console.error('[ChatbotModule] No se pudo sincronizar el delay humanizado con el backend:', err);
+      });
+    }
+  };
+  // El rango solo importa mientras el delay está activo, pero igual mandamos el "enabled" actual
+  // para no pisarlo por accidente si el usuario edita los inputs con el toggle apagado.
+  const setBotReplyDelayRange = (minMs: number, maxMs: number) => {
+    setConfig((c) => ({ ...c, botReplyDelayMinMs: minMs, botReplyDelayMaxMs: maxMs }));
+    if (user) {
+      ApiService.setBotReplyDelay({ enabled: botReplyDelayEnabled, minMs, maxMs }).catch((err) => {
+        console.error('[ChatbotModule] No se pudo sincronizar el rango del delay con el backend:', err);
+      });
+    }
+  };
+
+  // Modo de respuesta del bot: flujo visual, Agente IA, o ambos (IA como respaldo cuando el flujo
+  // no matchea) — dato distinto de `botMode` de abajo (que es el 3-way "apagado/selección/todos"
+  // de a quién le responde), por eso este se llama `replyMode` para no pisarlo.
+  const replyMode = config.botMode;
+  const setReplyMode = (mode: 'flow_only' | 'ai_only' | 'hybrid') => {
+    setConfig((c) => ({ ...c, botMode: mode }));
+    if (user) {
+      ApiService.setBotMode(mode).catch((err) => {
         console.error('[ChatbotModule] No se pudo sincronizar el modo de respuesta con el backend:', err);
       });
     }
@@ -204,6 +243,45 @@ const ChatbotModule: React.FC = () => {
             Todos
           </button>
         </div>
+
+        {/* Con qué responde el bot: solo el flujo visual, solo el Agente IA, o ambos (flujo
+            primero, IA de respaldo si no matchea ninguna palabra clave) — condiciona qué
+            secciones de abajo se muestran, ver `replyMode` y el filtro de sectionOrder. */}
+        <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-200/70 dark:bg-slate-900/60">
+          <button
+            onClick={() => setReplyMode('hybrid')}
+            title="Flujos + IA como respaldo"
+            className={`flex-1 flex items-center justify-center gap-1 text-[10.5px] font-bold py-1.5 rounded-md transition-colors cursor-pointer ${
+              replyMode === 'hybrid'
+                ? 'bg-white dark:bg-slate-700 text-[#9e1114] dark:text-red-400 shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            <Shuffle className="w-3 h-3 shrink-0" /> Híbrido
+          </button>
+          <button
+            onClick={() => setReplyMode('ai_only')}
+            title="Responde solo con la base de conocimiento"
+            className={`flex-1 flex items-center justify-center gap-1 text-[10.5px] font-bold py-1.5 rounded-md transition-colors cursor-pointer ${
+              replyMode === 'ai_only'
+                ? 'bg-white dark:bg-slate-700 text-[#9e1114] dark:text-red-400 shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            <Sparkles className="w-3 h-3 shrink-0" /> Solo IA
+          </button>
+          <button
+            onClick={() => setReplyMode('flow_only')}
+            title="Responde solo con el flujo visual"
+            className={`flex-1 flex items-center justify-center gap-1 text-[10.5px] font-bold py-1.5 rounded-md transition-colors cursor-pointer ${
+              replyMode === 'flow_only'
+                ? 'bg-white dark:bg-slate-700 text-[#9e1114] dark:text-red-400 shadow-xs'
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+            }`}
+          >
+            <ListChecks className="w-3 h-3 shrink-0" /> Solo Flujos
+          </button>
+        </div>
       </div>
     ),
     newContacts: (
@@ -234,6 +312,50 @@ const ChatbotModule: React.FC = () => {
           </button>
           <Toggle size="sm" checked={aiFallbackEnabled} onChange={setAiFallbackEnabled} />
         </div>
+      </div>
+    ),
+    replyDelay: (
+      // Simula el tiempo que tardaría una persona en escribir la respuesta, en vez de contestar
+      // al instante — se elige un valor aleatorio entre min y max en cada respuesta (ver
+      // WhatsappService.handleIncomingMessage, PUT /api/whatsapp/bot-reply-delay).
+      <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 font-bold">
+            <Clock className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+            Delay humanizado
+          </span>
+          <Toggle size="sm" checked={botReplyDelayEnabled} onChange={setBotReplyDelayEnabled} />
+        </div>
+        {botReplyDelayEnabled && (
+          <div className="flex items-center gap-2 pt-0.5">
+            <label className="flex-1 flex flex-col gap-0.5">
+              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Mínimo (ms)
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={botReplyDelayMinMs}
+                onChange={(e) => setBotReplyDelayRange(Number(e.target.value), botReplyDelayMaxMs)}
+                className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] focus:outline-none focus:border-red-500 w-full"
+              />
+            </label>
+            <label className="flex-1 flex flex-col gap-0.5">
+              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Máximo (ms)
+              </span>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={botReplyDelayMaxMs}
+                onChange={(e) => setBotReplyDelayRange(botReplyDelayMinMs, Number(e.target.value))}
+                className="border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-semibold bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 [color-scheme:light] focus:outline-none focus:border-red-500 w-full"
+              />
+            </label>
+          </div>
+        )}
       </div>
     ),
     knowledgeBase: (
@@ -283,8 +405,12 @@ const ChatbotModule: React.FC = () => {
       </div>
 
       {/* Secciones reordenables a gusto del usuario — arrastrar del ícono de agarre, que solo
-          aparece en "modo edición" (ver botón de lápiz de arriba). */}
-      {sectionOrder.map((id) => (
+          aparece en "modo edición" (ver botón de lápiz de arriba). Si el modo de respuesta es
+          "Solo Flujos", no tiene sentido mostrar IA/Base de conocimiento (esas secciones no se
+          usan); el flujo en sí no tiene una sección propia acá, se edita desde el botón de abajo. */}
+      {sectionOrder
+        .filter((id) => !(replyMode === 'flow_only' && (id === 'aiReply' || id === 'knowledgeBase')))
+        .map((id) => (
         <div
           key={id}
           draggable={editingOrder}
@@ -306,19 +432,29 @@ const ChatbotModule: React.FC = () => {
         </div>
       ))}
 
-      {/* Botones inferiores */}
-      <div className="grid grid-cols-2 gap-2 mt-0.5">
-        <button
-          onClick={() => openModal('bot-flow')}
-          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center cursor-pointer hover:scale-[1.02]"
-        >
-          Editar flujo
-        </button>
+      {/* Botones inferiores — "Editar flujo" no tiene sentido en modo "Solo IA" (el flujo visual
+          queda ignorado del lado del backend en ese modo). "Asesores" no depende del modo: la
+          derivación humana es independiente de si responde el flujo, la IA, o ambos. */}
+      <div className={`grid gap-2 mt-0.5 ${replyMode === 'ai_only' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {replyMode !== 'ai_only' && (
+          <button
+            onClick={() => openModal('bot-flow')}
+            className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center cursor-pointer hover:scale-[1.02]"
+          >
+            Editar flujo
+          </button>
+        )}
         <button
           onClick={() => openModal('knowledge-base')}
           className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs text-center leading-tight cursor-pointer hover:scale-[1.02]"
         >
           Bases de conocimiento
+        </button>
+        <button
+          onClick={() => openModal('advisor-manager')}
+          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs flex items-center justify-center gap-1.5 leading-tight cursor-pointer hover:scale-[1.02]"
+        >
+          <Headset className="w-3.5 h-3.5 shrink-0" /> Asesores
         </button>
       </div>
     </div>

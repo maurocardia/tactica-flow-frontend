@@ -48,6 +48,15 @@ export interface AppConfig {
   // "todos" el bot le responde a cualquier contacto sin importar el switch de bot_contacts — ver
   // PUT /api/whatsapp/bot-reply-to-all y WhatsappService.handleIncomingMessage.
   botReplyToAll: boolean;
+  // Modo de respuesta del bot (mismo dato que AuthUser.botMode, ver ChatbotModule.tsx) — controla
+  // si se muestran las secciones de flujo, de IA/Base de conocimiento, o ambas.
+  botMode: 'flow_only' | 'ai_only' | 'hybrid';
+  // "Delay humanizado": espera un tiempo aleatorio entre botReplyDelayMinMs y botReplyDelayMaxMs
+  // antes de mandar la respuesta del bot — ver ChatbotModule.tsx (sección "replyDelay") y
+  // PUT /api/whatsapp/bot-reply-delay.
+  botReplyDelayEnabled: boolean;
+  botReplyDelayMinMs: number;
+  botReplyDelayMaxMs: number;
   // Orden en que se pintan las secciones de ChatbotModule (arrastrables por el usuario, ver
   // ChatbotModule.tsx) — solo una preferencia visual local, no tiene endpoint en el backend.
   chatbotSectionOrder: string[];

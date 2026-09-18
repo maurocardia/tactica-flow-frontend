@@ -22,7 +22,11 @@ export const INITIAL_CONFIG: AppConfig = {
   aiFallbackEnabled: true,
   botEnabledForNewContacts: false,
   botReplyToAll: false,
-  chatbotSectionOrder: ['botStatus', 'newContacts', 'aiReply', 'knowledgeBase'],
+  botMode: 'hybrid',
+  botReplyDelayEnabled: false,
+  botReplyDelayMinMs: 1500,
+  botReplyDelayMaxMs: 4000,
+  chatbotSectionOrder: ['botStatus', 'newContacts', 'aiReply', 'replyDelay', 'knowledgeBase'],
   aiSummaryPrompt:
     'Resumí la conversación identificando: qué pidió el cliente, puntos clave, compromisos y próximo paso sugerido. Usá español rioplatense, tono profesional.',
   aiSummaryKnowledgeBaseId: null,

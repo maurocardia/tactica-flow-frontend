@@ -1,6 +1,7 @@
 // src/services/api.service.ts
 
-import { BotContact } from "@/types/botContact";
+import { BotContact, BulkImportContact, BulkImportResult } from "@/types/botContact";
+import { Advisor } from "@/types/advisor";
 import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
 import { AuthUser, AiPromptConfig } from "@/types/auth";
@@ -114,6 +115,26 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ botReplyToAll: boolean }>('/whatsapp/bot-reply-to-all', 'PUT', { enabled });
     },
 
+    // "Delay humanizado": espera un tiempo aleatorio entre minMs y maxMs antes de mandar la
+    // respuesta del bot — ver ChatbotModule.tsx (sección "replyDelay").
+    async setBotReplyDelay(config: { enabled: boolean; minMs?: number; maxMs?: number }): Promise<{
+        botReplyDelayEnabled: boolean;
+        botReplyDelayMinMs: number;
+        botReplyDelayMaxMs: number;
+    }> {
+        return this.sendBackgroundRequest<{
+            botReplyDelayEnabled: boolean;
+            botReplyDelayMinMs: number;
+            botReplyDelayMaxMs: number;
+        }>('/whatsapp/bot-reply-delay', 'PUT', config);
+    },
+
+    // Con qué responde el bot: solo el flujo visual, solo el Agente IA, o ambos (flujo primero,
+    // IA de respaldo si ninguna palabra clave matchea) — ver selector en ChatbotModule.tsx.
+    async setBotMode(mode: 'flow_only' | 'ai_only' | 'hybrid'): Promise<{ botMode: 'flow_only' | 'ai_only' | 'hybrid' }> {
+        return this.sendBackgroundRequest<{ botMode: 'flow_only' | 'ai_only' | 'hybrid' }>('/whatsapp/bot-mode', 'PUT', { mode });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión
@@ -168,6 +189,36 @@ export const ApiService = {
         names: string[]
     ): Promise<{ name: string; jid: string | null; source: 'known-contact' | 'conversations' | 'unresolved' }[]> {
         return this.sendBackgroundRequest('/whatsapp/bot-contacts/resolve-names', 'POST', { names });
+    },
+
+    // Importación masiva de contactos administrables desde un CSV/Excel ya parseado en el
+    // frontend (ver BulkImportPreview.tsx) — crea los que no existen y actualiza (nombre/switch)
+    // los que ya están, matcheando por teléfono.
+    async bulkImportBotContacts(contacts: BulkImportContact[]): Promise<BulkImportResult> {
+        return this.sendBackgroundRequest<BulkImportResult>('/whatsapp/bot-contacts/bulk-import', 'POST', { contacts });
+    },
+
+    // === Asesores humanos (derivación equitativa cuando el bot pide intervención, ver
+    // AdvisorManagerModal.tsx) ===
+
+    async getAdvisors(): Promise<Advisor[]> {
+        return this.sendBackgroundRequest<Advisor[]>('/whatsapp/advisors');
+    },
+
+    async createAdvisor(data: { name: string; phone: string }): Promise<Advisor> {
+        return this.sendBackgroundRequest<Advisor>('/whatsapp/advisors', 'POST', data);
+    },
+
+    async updateAdvisor(id: number, data: Partial<Advisor>): Promise<Advisor> {
+        return this.sendBackgroundRequest<Advisor>(`/whatsapp/advisors/${id}`, 'PUT', data);
+    },
+
+    async deleteAdvisor(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/whatsapp/advisors/${id}`, 'DELETE');
+    },
+
+    async resetAdvisorCounts(): Promise<void> {
+        return this.sendBackgroundRequest<void>('/whatsapp/advisors/reset-counts', 'POST');
     },
 
     async getMessages(conversationId: string | number): Promise<ConversationMessage[]> {
