@@ -24,11 +24,15 @@ export interface BulkImportContact {
   phone: string;
   name?: string;
   enabled: boolean;
+  // true = va a la pestaña Blacklist (nunca recibe respuesta del bot), en vez de solo apagar su
+  // switch — ver BotContactService.bulkImport en el backend.
+  blacklisted?: boolean;
 }
 
 export interface BulkImportResult {
   created: number;
   updated: number;
+  blacklisted?: number;
   errors: number;
   errorDetails?: string[];
 }
