@@ -143,6 +143,13 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ handoffReservationMinutes: number }>('/whatsapp/handoff-reservation-minutes', 'PUT', { minutes });
     },
 
+    // Cada cuántos minutos un cliente en la cola de espera de asesor recibe un mensaje con su
+    // posición actual — ver AdvisorQueueWorker en el backend y la sección "Asesores" de
+    // ChatbotModule.tsx.
+    async setQueueReminderMinutes(minutes: number): Promise<{ queueReminderMinutes: number }> {
+        return this.sendBackgroundRequest<{ queueReminderMinutes: number }>('/whatsapp/queue-reminder-minutes', 'PUT', { minutes });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión

@@ -12,6 +12,8 @@ import { COUNTRY_CODES } from '@/config/countryCodes';
 
 const RESERVATION_MINUTES_MIN = 1;
 const RESERVATION_MINUTES_MAX = 1440; // 24 horas — mismo tope que valida el backend
+const QUEUE_REMINDER_MINUTES_MIN = 1;
+const QUEUE_REMINDER_MINUTES_MAX = 1440;
 
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 
@@ -61,6 +63,25 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
       setError('No se pudo guardar la duración de la reserva de asesor.');
     } finally {
       setSavingReservation(false);
+    }
+  };
+
+  // Cada cuántos minutos un cliente en la cola de espera (sin asesor todavía) recibe un mensaje
+  // con su posición actual — mismo patrón que reservationMinutes de arriba.
+  const [queueReminderMinutes, setQueueReminderMinutes] = useState<number>(user?.queueReminderMinutes ?? 10);
+  const [savingQueueReminder, setSavingQueueReminder] = useState(false);
+
+  const handleQueueReminderMinutesBlur = async () => {
+    const clamped = Math.min(QUEUE_REMINDER_MINUTES_MAX, Math.max(QUEUE_REMINDER_MINUTES_MIN, Math.round(queueReminderMinutes) || 10));
+    setQueueReminderMinutes(clamped);
+    setSavingQueueReminder(true);
+    try {
+      await ApiService.setQueueReminderMinutes(clamped);
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo guardar el recordatorio de cola:', err);
+      setError('No se pudo guardar el recordatorio de cola.');
+    } finally {
+      setSavingQueueReminder(false);
     }
   };
 
@@ -240,6 +261,28 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
           />
           <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
           {savingReservation && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Recordatorio de cola</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            Cada cuánto le avisamos a un cliente en espera (sin asesor libre todavía) su posición en la fila.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <input
+            type="number"
+            min={QUEUE_REMINDER_MINUTES_MIN}
+            max={QUEUE_REMINDER_MINUTES_MAX}
+            value={queueReminderMinutes}
+            onChange={(e) => setQueueReminderMinutes(Number(e.target.value))}
+            onBlur={handleQueueReminderMinutesBlur}
+            className={`${fieldInputClass} w-16 text-center`}
+          />
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
+          {savingQueueReminder && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
         </div>
       </div>
 
