@@ -446,10 +446,11 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
     }
   };
 
-  // El bloque "Contactar Asesor" del editor de flujos pausa el bot para este contacto puntual
-  // (ver handoffPausedUntil) — este botón lo reactiva a mano antes de que venza la pausa.
-  const isHandoffPaused = (contact?: BotContact) =>
-    !!contact?.handoffPausedUntil && new Date(contact.handoffPausedUntil) > new Date();
+  // El bloque "Contactar Asesor" del editor de flujos reserva un asesor para este contacto por 30
+  // minutos (el bot sigue respondiendo con normalidad mientras tanto) — este botón libera esa
+  // reserva antes de que venza sola.
+  const hasActiveAdvisorReservation = (contact?: BotContact) =>
+    !!contact?.handoffExpiresAt && new Date(contact.handoffExpiresAt) > new Date();
 
   const handleResumeBot = async (contact: BotContact) => {
     setBusyKey(`real:${contact.id}`);
@@ -458,8 +459,8 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
       const updated = await ApiService.resumeBotForContact(contact.id);
       setContacts((prev) => prev.map((c) => (c.id === contact.id ? updated : c)));
     } catch (err) {
-      console.error('[ContactBotSwitchesModal] No se pudo reactivar el bot:', err);
-      setError(`No se pudo reactivar el bot para "${contact.name}". Probá de nuevo.`);
+      console.error('[ContactBotSwitchesModal] No se pudo liberar la reserva de asesor:', err);
+      setError(`No se pudo liberar la reserva de asesor para "${contact.name}". Probá de nuevo.`);
     } finally {
       setBusyKey(null);
     }
@@ -881,23 +882,23 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
                   <p className={`text-[10px] truncate ${row.pending ? 'text-amber-700 dark:text-amber-400 font-semibold' : 'text-slate-500 dark:text-slate-400'}`}>
                     {row.subtitle}
                   </p>
-                  {tab !== 'blacklist' && isHandoffPaused(row.contact) && (
+                  {tab !== 'blacklist' && hasActiveAdvisorReservation(row.contact) && (
                     <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold truncate">
-                      ⏸ En manos de un asesor
+                      🟡 Asesor asignado (30 min)
                     </p>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
-                {tab !== 'blacklist' && isHandoffPaused(row.contact) && (
+                {tab !== 'blacklist' && hasActiveAdvisorReservation(row.contact) && (
                   <button
                     onClick={() => handleResumeBot(row.contact!)}
                     disabled={busyKey === row.key}
-                    title="Reactivar el bot para este contacto"
+                    title="Liberar la reserva de asesor de este contacto"
                     className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30 disabled:opacity-40 cursor-pointer transition-colors"
                   >
                     {busyKey === row.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                    Reactivar bot
+                    Liberar asesor
                   </button>
                 )}
                 {tab === 'blacklist' ? (

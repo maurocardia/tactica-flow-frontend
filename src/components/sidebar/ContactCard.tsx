@@ -12,20 +12,22 @@ const normalizeName = (s: string) => s.trim().toLowerCase();
 
 // El control de bot por contacto vive en el modal "Bot habilitado por contacto" y en el ícono del
 // header de WhatsApp (ver ExternalBridge, que resuelve el contacto activo contra bot_contacts) —
-// esta tarjeta es solo informativa, mostrando el chat detectado. Issue #32 [FE-049] le suma el
-// banner de "En atención con asesor humano": mismo patrón de resolución por nombre que
-// ExternalBridge (polling propio de bot_contacts, sin socket — el frontend no tiene un cliente de
-// Socket.io conectado todavía), pero acá no se comparte estado con ExternalBridge a propósito,
-// para no acoplar dos componentes que hoy son independientes por una lista que ya es liviana.
+// esta tarjeta es solo informativa, mostrando el chat detectado. Le suma el banner de "Asesor
+// asignado" cuando esta conversación tiene una reserva de asesor sin vencer (el bot NO deja de
+// responder por esto, es solo informativo — ver AdvisorService.getActiveHandoffAdvisor en el
+// backend): mismo patrón de resolución por nombre que ExternalBridge (polling propio de
+// bot_contacts, sin socket — el frontend no tiene un cliente de Socket.io conectado todavía), pero
+// acá no se comparte estado con ExternalBridge a propósito, para no acoplar dos componentes que
+// hoy son independientes por una lista que ya es liviana.
 const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const { user } = useAuth();
     const isSelected = contactName !== 'Sin chat seleccionado';
 
     const [botContacts, setBotContacts] = useState<BotContact[]>([]);
     const [reactivating, setReactivating] = useState(false);
-    // Cuando se reactiva a mano, se ignora el handoffPausedUntil que todavía pueda traer el
-    // próximo polling (hasta 5s de por medio) — así el banner desaparece de inmediato como pide
-    // el issue, sin esperar a que el backend confirme en la siguiente vuelta.
+    // Cuando se libera a mano, se ignora el handoffExpiresAt que todavía pueda traer el próximo
+    // polling (hasta 5s de por medio) — así el banner desaparece de inmediato en vez de esperar a
+    // que el backend confirme en la siguiente vuelta.
     const [justReactivatedJid, setJustReactivatedJid] = useState<string | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
 
@@ -49,11 +51,11 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
         return botContacts.find((c) => normalizeName(c.name) === target) || null;
     }, [botContacts, contactName, isSelected]);
 
-    const isPausedByHandoff =
+    const hasActiveAdvisorReservation =
         !!activeBotContact &&
         activeBotContact.jid !== justReactivatedJid &&
-        !!activeBotContact.handoffPausedUntil &&
-        new Date(activeBotContact.handoffPausedUntil) > new Date();
+        !!activeBotContact.handoffExpiresAt &&
+        new Date(activeBotContact.handoffExpiresAt) > new Date();
 
     const handleReactivate = async () => {
         if (!activeBotContact || reactivating) return;
@@ -62,7 +64,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
             await ApiService.unpauseBotContact(activeBotContact.jid);
             setJustReactivatedJid(activeBotContact.jid);
             setBotContacts((prev) =>
-                prev.map((c) => (c.id === activeBotContact.id ? { ...c, handoffPausedUntil: null, handoffAdvisorId: null } : c))
+                prev.map((c) => (c.id === activeBotContact.id ? { ...c, handoffExpiresAt: null, handoffAdvisorId: null } : c))
             );
             setShowConfirmation(true);
             setTimeout(() => setShowConfirmation(false), 3000);
@@ -96,14 +98,14 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
             {showConfirmation && (
                 <div className="flex items-center gap-1.5 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    Bot reactivado para esta conversación
+                    Reserva de asesor liberada
                 </div>
             )}
 
-            {isPausedByHandoff && !showConfirmation && (
+            {hasActiveAdvisorReservation && !showConfirmation && (
                 <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
                     <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
-                        🟡 En atención con asesor humano
+                        🟡 Asesor asignado (el bot sigue respondiendo)
                     </span>
                     <button
                         type="button"
@@ -112,7 +114,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
                         className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/60 disabled:opacity-50 cursor-pointer transition-colors shrink-0"
                     >
                         {reactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        Finalizar atención y reactivar bot
+                        Liberar asesor
                     </button>
                 </div>
             )}

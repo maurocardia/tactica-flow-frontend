@@ -103,11 +103,12 @@ export interface BotFlowNode {
     // FlowEngineService.scheduleTimeout, backend). null/undefined = sin tiempo de espera (nunca
     // manda nada si el cliente no responde, comportamiento histórico).
     waitTimeoutMinutes?: number | null;
-    // HANDOFF ("Contactar Asesor")
+    // HANDOFF ("Contactar Asesor") — el bot NUNCA se pausa por esto, sigue respondiendo con
+    // normalidad; el asesor elegido solo queda reservado 30 minutos fijos (backend) para no
+    // derivar al mismo cliente a una segunda persona.
     advisorMode?: 'auto' | 'fixed';
     advisorId?: number | null;
     advisorNotifyTemplate?: string;
-    pauseBotMinutes?: number | null; // null/0 = pausa hasta reactivación manual desde el panel
   };
 }
 
