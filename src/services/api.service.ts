@@ -136,6 +136,13 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ botMode: 'flow_only' | 'ai_only' | 'hybrid' }>('/whatsapp/bot-mode', 'PUT', { mode });
     },
 
+    // Minutos que dura la reserva de un asesor antes de vencer sola y liberar al cliente para un
+    // próximo pedido — ver AdvisorService.getReservationMinutes en el backend y la sección
+    // "Asesores" de ChatbotModule.tsx.
+    async setHandoffReservationMinutes(minutes: number): Promise<{ handoffReservationMinutes: number }> {
+        return this.sendBackgroundRequest<{ handoffReservationMinutes: number }>('/whatsapp/handoff-reservation-minutes', 'PUT', { minutes });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión

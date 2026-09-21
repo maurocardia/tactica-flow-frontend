@@ -57,6 +57,10 @@ export interface AuthUser {
   botReplyDelayEnabled: boolean;
   botReplyDelayMinMs: number;
   botReplyDelayMaxMs: number;
+  // Minutos que dura la reserva de un asesor antes de vencer sola (ver AdvisorService.
+  // getReservationMinutes en el backend) — configurable en la sección "Asesores" de
+  // ChatbotModule.tsx y PUT /api/whatsapp/handoff-reservation-minutes.
+  handoffReservationMinutes: number;
   createdAt: string;
   updatedAt: string;
 }
