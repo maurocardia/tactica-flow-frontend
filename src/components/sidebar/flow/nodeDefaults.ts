@@ -56,7 +56,6 @@ export function createDefaultNode(type: NodeType, position: { x: number; y: numb
     case 'HANDOFF':
       node.data.advisorMode = 'auto';
       node.data.advisorId = null;
-      node.data.pauseBotMinutes = null;
       node.data.replyText = 'Te estamos transfiriendo con un asesor de nuestro equipo. En instantes te responderán por este chat.';
       break;
     case 'FINISH_FLOW':

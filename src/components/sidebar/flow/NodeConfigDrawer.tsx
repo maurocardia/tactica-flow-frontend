@@ -95,12 +95,12 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
   const [waitTimeoutEnabled, setWaitTimeoutEnabled] = useState(false);
   const [waitTimeoutMinutesValue, setWaitTimeoutMinutesValue] = useState(5);
 
-  // HANDOFF ("Contactar Asesor")
+  // HANDOFF ("Contactar Asesor") — el bot no se pausa por esto (sigue respondiendo con
+  // normalidad); el asesor elegido queda reservado 30 minutos fijos del lado del backend, para no
+  // derivar al mismo cliente a una segunda persona si vuelve a pedir un asesor antes de tiempo.
   const [advisorMode, setAdvisorMode] = useState<'auto' | 'fixed'>('auto');
   const [advisorId, setAdvisorId] = useState<number | null>(null);
   const [advisorNotifyTemplate, setAdvisorNotifyTemplate] = useState('');
-  const [pauseMode, setPauseMode] = useState<'manual' | 'timed'>('manual');
-  const [pauseMinutesValue, setPauseMinutesValue] = useState(120);
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
 
   useEffect(() => {
@@ -138,14 +138,6 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
       setAdvisorMode(node.data?.advisorMode === 'fixed' ? 'fixed' : 'auto');
       setAdvisorId(node.data?.advisorId ?? null);
       setAdvisorNotifyTemplate(node.data?.advisorNotifyTemplate || '');
-      const pauseMinutes = node.data?.pauseBotMinutes;
-      if (typeof pauseMinutes === 'number' && pauseMinutes > 0) {
-        setPauseMode('timed');
-        setPauseMinutesValue(pauseMinutes);
-      } else {
-        setPauseMode('manual');
-        setPauseMinutesValue(120);
-      }
       setUploadError(null);
     }
   }, [node]);
@@ -271,7 +263,6 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
         advisorMode: type === 'HANDOFF' ? advisorMode : undefined,
         advisorId: type === 'HANDOFF' && advisorMode === 'fixed' ? advisorId : undefined,
         advisorNotifyTemplate: type === 'HANDOFF' ? advisorNotifyTemplate.trim() || undefined : undefined,
-        pauseBotMinutes: type === 'HANDOFF' ? (pauseMode === 'manual' ? null : pauseMinutesValue) : undefined,
         isActive: true
       }
     };
@@ -801,32 +792,11 @@ export const NodeConfigDrawer: React.FC<NodeConfigDrawerProps> = ({
               />
             </div>
 
-            <div>
-              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                Pausar el bot para este contacto:
-              </label>
-              <div className="flex flex-col gap-1.5">
-                <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                  <input type="radio" checked={pauseMode === 'manual'} onChange={() => setPauseMode('manual')} className="cursor-pointer" />
-                  Hasta reactivarlo a mano desde el panel
-                </label>
-                <label className="flex items-center gap-2 text-[11px] font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                  <input type="radio" checked={pauseMode === 'timed'} onChange={() => setPauseMode('timed')} className="cursor-pointer" />
-                  Por un tiempo determinado
-                </label>
-                {pauseMode === 'timed' && (
-                  <div className="flex items-center gap-2 pl-6">
-                    <input
-                      type="number"
-                      min={1}
-                      value={pauseMinutesValue}
-                      onChange={(e) => setPauseMinutesValue(parseInt(e.target.value) || 1)}
-                      className="w-20 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-center"
-                    />
-                    <span className="text-[11px] text-slate-500">minutos</span>
-                  </div>
-                )}
-              </div>
+            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-[10.5px] text-slate-500 dark:text-slate-400">
+              El bot no deja de responderle a este cliente por derivarlo — sigue funcionando con
+              normalidad. El asesor elegido queda reservado 30 minutos: si el cliente pide un
+              asesor de nuevo antes de eso, se le avisa que ya tiene uno asignado en vez de
+              derivarlo a otra persona.
             </div>
           </div>
         )}

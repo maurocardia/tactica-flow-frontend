@@ -8,12 +8,20 @@ const PHONE_HEADER_RE = /tel[eé]fono|phone|n[uú]mero|numero|celular|whatsapp/i
 const NAME_HEADER_RE = /nombre|name/i;
 const STATUS_HEADER_RE = /activ|estado|enabled|status/i;
 const TRUTHY_VALUES = new Set(['si', 'sí', 'yes', 'true', '1', 'activo', 'x', 'on']);
+// Valores que en la columna de estado del archivo significan "bloquear" (van a la pestaña
+// Blacklist del panel) en vez de solo "desactivar" el switch del bot.
+const BLOCKED_VALUES = new Set(['bloqueado', 'bloquear', 'bloqueo', 'blacklist', 'block', 'blocked', 'lista negra']);
 
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 
 function parseEnabledValue(raw: string | undefined): boolean {
   if (!raw) return false;
   return TRUTHY_VALUES.has(raw.trim().toLowerCase());
+}
+
+function parseBlockedValue(raw: string | undefined): boolean {
+  if (!raw) return false;
+  return BLOCKED_VALUES.has(raw.trim().toLowerCase());
 }
 
 // Lee el archivo y devuelve filas crudas como matriz de strings (primera fila = headers) — CSV se
@@ -43,10 +51,11 @@ interface ParsedRow {
   phone: string;
   name: string;
   fileEnabled: boolean;
+  fileBlocked: boolean;
   isNew: boolean;
 }
 
-type OverrideMode = 'file' | 'enable_all' | 'disable_all';
+type OverrideMode = 'file' | 'enable_all' | 'disable_all' | 'block_all';
 
 interface Props {
   file: File;
@@ -107,14 +116,18 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
       .map((row) => {
         const phone = onlyDigits(row[phoneCol] || '');
         const name = nameCol !== -1 ? (row[nameCol] || '').trim() : '';
+        const fileBlocked = statusCol !== -1 ? parseBlockedValue(row[statusCol]) : false;
         const fileEnabled = statusCol !== -1 ? parseEnabledValue(row[statusCol]) : false;
-        return { phone, name, fileEnabled, isNew: !existingPhones.has(phone) };
+        return { phone, name, fileEnabled, fileBlocked, isNew: !existingPhones.has(phone) };
       })
       .filter((r) => r.phone.length >= 8); // descarta filas sin un teléfono usable
   }, [dataRows, phoneCol, nameCol, statusCol, existingPhones]);
 
+  const effectiveBlocked = (row: ParsedRow) =>
+    override === 'file' ? row.fileBlocked : override === 'block_all';
+
   const effectiveEnabled = (row: ParsedRow) =>
-    override === 'file' ? row.fileEnabled : override === 'enable_all';
+    effectiveBlocked(row) ? false : override === 'file' ? row.fileEnabled : override === 'enable_all';
 
   // Una fila que llega "no activa" (columna Estado en no/false/vacío) no se deja solo con el bot
   // apagado: se manda directo a la Blacklist (is_blacklisted=true) para que quede visible ahí y
@@ -248,6 +261,7 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
               <option value="file">Usar el valor de cada fila del archivo</option>
               <option value="enable_all">Activar bot para todos</option>
               <option value="disable_all">Mandar todos a blacklist</option>
+              <option value="block_all">Bloquear a todos (Blacklist)</option>
             </select>
           </label>
           <p className="text-[10px] text-slate-400 -mt-1">

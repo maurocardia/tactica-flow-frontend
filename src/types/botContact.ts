@@ -12,10 +12,11 @@ export interface BotContact {
   botEnabled: boolean;
   isBlacklisted: boolean;
   lastActivity: string; // ISO timestamp
-  // Pausa del bot por derivación a un asesor (bloque "Contactar Asesor" del editor de flujos) —
-  // ver ApiService.resumeBotForContact.
+  // Reserva de asesor por derivación (bloque "Contactar Asesor" del editor de flujos) — el bot
+  // sigue respondiendo con normalidad mientras tanto, esto solo evita derivar al mismo cliente a
+  // un segundo asesor. Ver ApiService.resumeBotForContact.
   handoffAdvisorId: number | null;
-  handoffPausedUntil: string | null; // ISO timestamp, null = no está pausado
+  handoffExpiresAt: string | null; // ISO timestamp, null/vencido = sin reserva activa
 }
 
 // Contacto ya parseado desde un archivo CSV/Excel, listo para mandar a
@@ -24,6 +25,8 @@ export interface BulkImportContact {
   phone: string;
   name?: string;
   enabled: boolean;
+  // true = va a la pestaña Blacklist (nunca recibe respuesta del bot), en vez de solo apagar su
+  // switch — ver BotContactService.bulkImport en el backend.
   blacklisted?: boolean;
 }
 

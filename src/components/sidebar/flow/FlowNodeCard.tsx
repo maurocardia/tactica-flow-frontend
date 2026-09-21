@@ -362,8 +362,7 @@ export const FlowNodeCard: React.FC<FlowNodeCardProps> = ({
             <UserCheck className="w-4 h-4 shrink-0" />
             <span>
               Asesor: {node.data?.advisorMode === 'fixed' ? 'fijo' : 'automático (turnos)'}
-              {' · '}
-              {node.data?.pauseBotMinutes ? `pausa ${node.data.pauseBotMinutes} min` : 'pausa hasta reactivar a mano'}
+              {' · '}reservado 30 min, el bot sigue respondiendo
             </span>
           </div>
         )}
