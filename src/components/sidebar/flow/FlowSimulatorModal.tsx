@@ -122,15 +122,12 @@ export const FlowSimulatorModal: React.FC<FlowSimulatorModalProps> = ({
         node.data.advisorMode === 'fixed'
           ? 'asesor fijo configurado en este bloque'
           : 'el próximo asesor activo por turnos';
-      const pauseInfo = node.data.pauseBotMinutes
-        ? `el bot queda pausado ${node.data.pauseBotMinutes} min para este contacto`
-        : 'el bot queda pausado hasta reactivarlo a mano en el panel';
       setMessages((prev) => [
         ...prev,
         {
           id: `system_handoff_${Date.now()}`,
           sender: 'system',
-          text: `🔀 (Aviso del Simulador: acá se derivaría a ${advisorInfo} y ${pauseInfo}. No se envía notificación real desde el simulador.)`,
+          text: `🔀 (Aviso del Simulador: acá se derivaría a ${advisorInfo}, reservado 30 min — el bot sigue respondiendo con normalidad. No se envía notificación real desde el simulador.)`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         }
       ]);
