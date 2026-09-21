@@ -778,6 +778,7 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
           <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span className="flex-1">
             Se crearon {importResult.created} contacto{importResult.created === 1 ? '' : 's'}, se actualizaron {importResult.updated}
+            {importResult.blacklisted ? `, ${importResult.blacklisted} a blacklist` : ''}
             {importResult.errors > 0 ? `, ${importResult.errors} error${importResult.errors === 1 ? '' : 'es'}` : ''}.
           </span>
           <button onClick={() => setImportResult(null)} className="shrink-0 hover:text-emerald-950 dark:hover:text-emerald-100 cursor-pointer">

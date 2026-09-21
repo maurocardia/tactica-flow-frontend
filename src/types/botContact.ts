@@ -24,11 +24,13 @@ export interface BulkImportContact {
   phone: string;
   name?: string;
   enabled: boolean;
+  blacklisted?: boolean;
 }
 
 export interface BulkImportResult {
   created: number;
   updated: number;
+  blacklisted?: number;
   errors: number;
   errorDetails?: string[];
 }

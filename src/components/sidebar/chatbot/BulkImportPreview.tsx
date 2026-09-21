@@ -116,6 +116,11 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
   const effectiveEnabled = (row: ParsedRow) =>
     override === 'file' ? row.fileEnabled : override === 'enable_all';
 
+  // Una fila que llega "no activa" (columna Estado en no/false/vacío) no se deja solo con el bot
+  // apagado: se manda directo a la Blacklist (is_blacklisted=true) para que quede visible ahí y
+  // nunca reciba respuesta — ver BotContactService.bulkImport en el backend.
+  const effectiveBlacklisted = (row: ParsedRow) => !effectiveEnabled(row);
+
   const newCount = parsedRows.filter((r) => r.isNew).length;
   const updateCount = parsedRows.length - newCount;
 
@@ -127,6 +132,7 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
         phone: r.phone,
         name: r.name || undefined,
         enabled: effectiveEnabled(r),
+        blacklisted: effectiveBlacklisted(r),
       }));
       const result = await ApiService.bulkImportBotContacts(contacts);
       onImported(result);
@@ -220,8 +226,8 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
                   <tr key={i} className="text-slate-700 dark:text-slate-300">
                     <td className="px-2 py-1 font-mono">+{r.phone}</td>
                     <td className="px-2 py-1 truncate max-w-[100px]">{r.name || '—'}</td>
-                    <td className={`px-2 py-1 font-semibold ${effectiveEnabled(r) ? 'text-emerald-600' : 'text-slate-400'}`}>
-                      {effectiveEnabled(r) ? 'Activar' : 'Desactivar'}
+                    <td className={`px-2 py-1 font-semibold ${effectiveEnabled(r) ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {effectiveEnabled(r) ? 'Activar' : 'Blacklist'}
                     </td>
                   </tr>
                 ))}
@@ -241,9 +247,12 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
             <select className={fieldInputClass} value={override} onChange={(e) => setOverride(e.target.value as OverrideMode)}>
               <option value="file">Usar el valor de cada fila del archivo</option>
               <option value="enable_all">Activar bot para todos</option>
-              <option value="disable_all">Desactivar bot para todos</option>
+              <option value="disable_all">Mandar todos a blacklist</option>
             </select>
           </label>
+          <p className="text-[10px] text-slate-400 -mt-1">
+            Los contactos que llegan como "no activo" se mandan directo a la Blacklist, no solo se apagan.
+          </p>
 
           {importError && <p className="text-[10.5px] text-red-600">{importError}</p>}
 
