@@ -21,6 +21,11 @@ let hasSyncedContactsThisSession = false;
 
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 const phoneOf = (jid: string) => jid.split('@')[0];
+const hasHiddenNumber = (c: BotContact) => c.identityType === 'lid' || c.jid.endsWith('@lid');
+// Texto secundario de un contacto: "+número" o, si tiene nombre de usuario (número oculto), una
+// etiqueta clara en vez de mostrar su identificador interno de 15 dígitos como si fuera un teléfono.
+const contactSubtitle = (c: BotContact) =>
+  hasHiddenNumber(c) ? 'Número oculto (usuario de WhatsApp)' : /^\d+$/.test(phoneOf(c.jid)) ? `+${phoneOf(c.jid)}` : phoneOf(c.jid);
 
 // WhatsApp lanzó nombres de usuario públicos (@usuario) — para esos contactos, el número real
 // queda oculto a propósito en TODA la interfaz (header, panel de info, todo), no es un dato que
@@ -97,7 +102,9 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   // columnas que la plantilla de importación (telefono;nombre;activo), así el archivo exportado
   // sirve directo como plantilla para reimportar en otra cuenta.
   const handleExport = () => {
-    const rows = tabList.filter((r) => !r.pending && r.contact);
+    // Los contactos con número oculto no tienen teléfono que exportar (la plantilla se reimporta por
+    // teléfono), así que quedan fuera del archivo.
+    const rows = tabList.filter((r) => !r.pending && r.contact && !hasHiddenNumber(r.contact));
     const header = 'telefono;nombre;activo\n';
     const lines = rows.map((r) => `${phoneOf(r.contact!.jid)};${escapeCsvField(r.name)};${r.botEnabled ? 'si' : 'no'}`);
     const csv = header + lines.join('\n') + (lines.length ? '\n' : '');
@@ -281,7 +288,7 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const openInWhatsapp = async (contact: BotContact) => {
     setBusyKey(`real:${contact.id}`);
     try {
-      const query = contact.isGroup ? contact.name : phoneOf(contact.jid);
+      const query = contact.isGroup || hasHiddenNumber(contact) ? contact.name : phoneOf(contact.jid);
       await DOMService.openChatByQuery(query);
     } catch (err) {
       console.error('[ContactBotSwitchesModal] No se pudo abrir el chat:', err);
@@ -490,7 +497,7 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
         name: c.name,
         isGroup: false,
         botEnabled: c.botEnabled,
-        subtitle: /^\d+$/.test(phoneOf(c.jid)) ? `+${phoneOf(c.jid)}` : phoneOf(c.jid),
+        subtitle: contactSubtitle(c),
         pending: false,
         contact: c,
       }));
@@ -532,7 +539,7 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
           name: c.name,
           isGroup: c.isGroup,
           botEnabled: c.botEnabled,
-          subtitle: /^\d+$/.test(phoneOf(c.jid)) ? `+${phoneOf(c.jid)}` : phoneOf(c.jid),
+          subtitle: contactSubtitle(c),
           pending: false,
           contact: c,
         })),

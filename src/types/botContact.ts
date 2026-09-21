@@ -11,6 +11,10 @@ export interface BotContact {
   isGroup: boolean;
   botEnabled: boolean;
   isBlacklisted: boolean;
+  // 'lid' = usuario con nombre de usuario (@) de WhatsApp: su número está oculto y el jid es un
+  // identificador interno, NO un teléfono (no mostrarlo como "+número" ni usarlo para abrir chats
+  // por número o exportarlo como teléfono). Ausente/'phone' = contacto normal.
+  identityType?: 'phone' | 'lid';
   lastActivity: string; // ISO timestamp
   // Reserva de asesor por derivación (bloque "Contactar Asesor" del editor de flujos) — el bot
   // sigue respondiendo con normalidad mientras tanto, esto solo evita derivar al mismo cliente a
