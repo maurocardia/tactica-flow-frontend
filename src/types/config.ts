@@ -57,6 +57,10 @@ export interface AppConfig {
   botReplyDelayEnabled: boolean;
   botReplyDelayMinMs: number;
   botReplyDelayMaxMs: number;
+  // Minutos que dura la reserva de un asesor antes de vencer sola y liberar al cliente para un
+  // próximo pedido (mismo dato que AuthUser.handoffReservationMinutes) — ver sección "Asesores"
+  // de ChatbotModule.tsx y PUT /api/whatsapp/handoff-reservation-minutes.
+  handoffReservationMinutes: number;
   // Orden en que se pintan las secciones de ChatbotModule (arrastrables por el usuario, ver
   // ChatbotModule.tsx) — solo una preferencia visual local, no tiene endpoint en el backend.
   chatbotSectionOrder: string[];

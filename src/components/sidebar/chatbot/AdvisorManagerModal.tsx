@@ -6,8 +6,12 @@ import { Field, fieldInputClass } from '@/components/ui/Field';
 import { Toggle } from '@/components/ui/Toggle';
 import { CountryFlag } from '@/components/ui/CountryFlag';
 import { ApiService } from '@/services/api.service';
+import { useAuth } from '@/state/AuthContext';
 import { Advisor } from '@/types/advisor';
 import { COUNTRY_CODES } from '@/config/countryCodes';
+
+const RESERVATION_MINUTES_MIN = 1;
+const RESERVATION_MINUTES_MAX = 1440; // 24 horas — mismo tope que valida el backend
 
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 
@@ -32,12 +36,33 @@ const EMPTY_FORM: FormState = { name: '', phone: '', countryCode: COUNTRY_CODES[
 // (a qué asesor le toca, de forma equitativa) la resuelve el backend; acá solo se administra el
 // padrón (alta/baja/edición) y se pueden resetear los contadores de derivaciones.
 export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { user } = useAuth();
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+
+  // Minutos que un cliente queda "reservado" para el mismo asesor antes de que el bot pueda
+  // asignarle a otro (ver AdvisorService.getReservationMinutes en el backend) — se guarda al
+  // perder el foco, mismo patrón que el delay humanizado en ChatbotModule.tsx.
+  const [reservationMinutes, setReservationMinutes] = useState<number>(user?.handoffReservationMinutes ?? 30);
+  const [savingReservation, setSavingReservation] = useState(false);
+
+  const handleReservationMinutesBlur = async () => {
+    const clamped = Math.min(RESERVATION_MINUTES_MAX, Math.max(RESERVATION_MINUTES_MIN, Math.round(reservationMinutes) || 30));
+    setReservationMinutes(clamped);
+    setSavingReservation(true);
+    try {
+      await ApiService.setHandoffReservationMinutes(clamped);
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo guardar la duración de la reserva de asesor:', err);
+      setError('No se pudo guardar la duración de la reserva de asesor.');
+    } finally {
+      setSavingReservation(false);
+    }
+  };
 
   const [editingId, setEditingId] = useState<number | 'new' | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -195,6 +220,28 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
       }
     >
       {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">{error}</div>}
+
+      <div className="flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Reserva de asesor</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            Minutos que un cliente queda con el mismo asesor antes de que el bot pueda asignarle otro.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <input
+            type="number"
+            min={RESERVATION_MINUTES_MIN}
+            max={RESERVATION_MINUTES_MAX}
+            value={reservationMinutes}
+            onChange={(e) => setReservationMinutes(Number(e.target.value))}
+            onBlur={handleReservationMinutesBlur}
+            className={`${fieldInputClass} w-16 text-center`}
+          />
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
+          {savingReservation && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+        </div>
+      </div>
 
       {editingId !== null ? (
         <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-3 bg-slate-50/60 dark:bg-slate-800/60">
