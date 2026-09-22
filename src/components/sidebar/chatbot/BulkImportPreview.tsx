@@ -14,6 +14,17 @@ const BLOCKED_VALUES = new Set(['bloqueado', 'bloquear', 'bloqueo', 'blacklist',
 
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 
+// Limpia la celda de teléfono antes de quedarse con los dígitos. Excel/CSV a veces guardan el
+// número como valor numérico y lo exportan mal: "573001234567.0" (un cero de más al sacar solo los
+// dígitos) o en notación científica "5.73001E+11" (ya perdió dígitos reales, no se puede recuperar
+// — antes esto se convertía en un número inventado como 57300111). En ese caso la fila se descarta
+// y se avisa, en vez de importar/habilitar un número que nunca estuvo en el archivo.
+function cleanPhoneCell(raw: string): { digits: string; lossy: boolean } {
+  const t = (raw || '').trim();
+  if (/^[+-]?\d+([.,]\d+)?[eE][+-]?\d+$/.test(t)) return { digits: '', lossy: true };
+  return { digits: onlyDigits(t.replace(/[.,]0+$/, '')), lossy: false };
+}
+
 function parseEnabledValue(raw: string | undefined): boolean {
   if (!raw) return false;
   return TRUTHY_VALUES.has(raw.trim().toLowerCase());
@@ -110,11 +121,17 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
 
   const needsColumnPicker = !parsing && !parseError && (phoneCol === -1 || nameCol === -1);
 
+  // Filas cuyo teléfono vino en notación científica (Excel lo convirtió y ya no es recuperable).
+  const lossyPhoneCount = useMemo(
+    () => (phoneCol === -1 ? 0 : dataRows.filter((row) => cleanPhoneCell(row[phoneCol] || '').lossy).length),
+    [dataRows, phoneCol]
+  );
+
   const parsedRows: ParsedRow[] = useMemo(() => {
     if (phoneCol === -1) return [];
     return dataRows
       .map((row) => {
-        const phone = onlyDigits(row[phoneCol] || '');
+        const phone = cleanPhoneCell(row[phoneCol] || '').digits;
         const name = nameCol !== -1 ? (row[nameCol] || '').trim() : '';
         const fileBlocked = statusCol !== -1 ? parseBlockedValue(row[statusCol]) : false;
         const fileEnabled = statusCol !== -1 ? parseEnabledValue(row[statusCol]) : false;
@@ -249,6 +266,12 @@ export const BulkImportPreview: React.FC<Props> = ({ file, existingContacts, onC
           </div>
           {parsedRows.length > 10 && (
             <p className="text-[10px] text-slate-400 text-center">...y {parsedRows.length - 10} fila{parsedRows.length - 10 === 1 ? '' : 's'} más</p>
+          )}
+
+          {lossyPhoneCount > 0 && (
+            <p className="text-[10.5px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg px-2 py-1.5">
+              {lossyPhoneCount} fila{lossyPhoneCount === 1 ? '' : 's'} con el teléfono en notación científica (ej. 5.73E+11) se omiti{lossyPhoneCount === 1 ? 'ó' : 'eron'}: Excel ya perdió esos dígitos. Formateá la columna como Texto en el archivo y volvé a subirlo.
+            </p>
           )}
 
           <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
