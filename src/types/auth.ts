@@ -61,6 +61,14 @@ export interface AuthUser {
   // getReservationMinutes en el backend) — configurable en la sección "Asesores" de
   // ChatbotModule.tsx y PUT /api/whatsapp/handoff-reservation-minutes.
   handoffReservationMinutes: number;
+  // Cada cuántos minutos un cliente en la cola de espera de asesor (sin asignar todavía) recibe
+  // un mensaje con su posición actual — ver sección "Asesores" de ChatbotModule.tsx y
+  // PUT /api/whatsapp/queue-reminder-minutes.
+  queueReminderMinutes: number;
+  // Minutos de silencio (de cualquiera de los dos lados) que tolera un relay YA ACTIVO antes de
+  // cerrarse solo — distinto de handoffReservationMinutes (esa es la ventana antes/al asignar).
+  // PUT /api/whatsapp/relay-inactivity-minutes.
+  relayInactivityMinutes: number;
   createdAt: string;
   updatedAt: string;
 }

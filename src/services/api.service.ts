@@ -143,6 +143,19 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ handoffReservationMinutes: number }>('/whatsapp/handoff-reservation-minutes', 'PUT', { minutes });
     },
 
+    // Cada cuántos minutos un cliente en la cola de espera de asesor recibe un mensaje con su
+    // posición actual — ver AdvisorQueueWorker en el backend y la sección "Asesores" de
+    // ChatbotModule.tsx.
+    async setQueueReminderMinutes(minutes: number): Promise<{ queueReminderMinutes: number }> {
+        return this.sendBackgroundRequest<{ queueReminderMinutes: number }>('/whatsapp/queue-reminder-minutes', 'PUT', { minutes });
+    },
+
+    // Timeout de inactividad de un relay YA ACTIVO (distinto de setHandoffReservationMinutes,
+    // que es la ventana antes/al asignar) — ver AdvisorService.getRelayInactivityMinutes.
+    async setRelayInactivityMinutes(minutes: number): Promise<{ relayInactivityMinutes: number }> {
+        return this.sendBackgroundRequest<{ relayInactivityMinutes: number }>('/whatsapp/relay-inactivity-minutes', 'PUT', { minutes });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión
