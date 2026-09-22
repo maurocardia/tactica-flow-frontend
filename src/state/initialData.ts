@@ -27,7 +27,7 @@ export const INITIAL_CONFIG: AppConfig = {
   botReplyDelayMinMs: 1500,
   botReplyDelayMaxMs: 4000,
   handoffReservationMinutes: 30,
-  queueReminderMinutes: 10,
+  queueReminderSeconds: 600,
   relayInactivityMinutes: 60,
   chatbotSectionOrder: ['botStatus', 'newContacts', 'aiReply', 'replyDelay', 'knowledgeBase'],
   aiSummaryPrompt:

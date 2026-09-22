@@ -61,10 +61,10 @@ export interface AppConfig {
   // próximo pedido (mismo dato que AuthUser.handoffReservationMinutes) — ver sección "Asesores"
   // de ChatbotModule.tsx y PUT /api/whatsapp/handoff-reservation-minutes.
   handoffReservationMinutes: number;
-  // Cada cuántos minutos un cliente en la cola de espera de asesor (sin asignar todavía) recibe
-  // un mensaje con su posición actual (mismo dato que AuthUser.queueReminderMinutes) — ver
-  // sección "Asesores" de ChatbotModule.tsx y PUT /api/whatsapp/queue-reminder-minutes.
-  queueReminderMinutes: number;
+  // Cada cuántos segundos un cliente en la cola de espera de asesor (sin asignar todavía) recibe
+  // un mensaje con su posición actual (mismo dato que AuthUser.queueReminderSeconds) — ver
+  // sección "Asesores" de ChatbotModule.tsx y PUT /api/whatsapp/queue-reminder-seconds.
+  queueReminderSeconds: number;
   // Minutos de silencio que tolera un relay ya activo antes de cerrarse solo (mismo dato que
   // AuthUser.relayInactivityMinutes) — distinto de handoffReservationMinutes.
   relayInactivityMinutes: number;
