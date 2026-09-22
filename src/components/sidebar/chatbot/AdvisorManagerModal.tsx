@@ -10,10 +10,13 @@ import { useAuth } from '@/state/AuthContext';
 import { Advisor } from '@/types/advisor';
 import { COUNTRY_CODES } from '@/config/countryCodes';
 
+// 0 = "sin límite" (ver BotContactService.UNLIMITED_RESERVATION_MINUTES en el backend) — por eso
+// el mínimo es 0 y no 1, y el checkbox "Sin límite" de abajo lo pone/saca de ese valor.
+const RESERVATION_MINUTES_UNLIMITED = 0;
 const RESERVATION_MINUTES_MIN = 1;
 const RESERVATION_MINUTES_MAX = 1440; // 24 horas — mismo tope que valida el backend
-const QUEUE_REMINDER_MINUTES_MIN = 1;
-const QUEUE_REMINDER_MINUTES_MAX = 1440;
+const QUEUE_REMINDER_SECONDS_MIN = 5;
+const QUEUE_REMINDER_SECONDS_MAX = 86400; // 24 horas — mismo tope que valida el backend
 const RELAY_INACTIVITY_MINUTES_MIN = 1;
 const RELAY_INACTIVITY_MINUTES_MAX = 1440;
 
@@ -40,7 +43,7 @@ const EMPTY_FORM: FormState = { name: '', phone: '', countryCode: COUNTRY_CODES[
 // (a qué asesor le toca, de forma equitativa) la resuelve el backend; acá solo se administra el
 // padrón (alta/baja/edición) y se pueden resetear los contadores de derivaciones.
 export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,16 +53,22 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
 
   // Minutos que un cliente queda "reservado" para el mismo asesor antes de que el bot pueda
   // asignarle a otro (ver AdvisorService.getReservationMinutes en el backend) — se guarda al
-  // perder el foco, mismo patrón que el delay humanizado en ChatbotModule.tsx.
+  // perder el foco, mismo patrón que el delay humanizado en ChatbotModule.tsx. 0 = sin límite
+  // (ver RESERVATION_MINUTES_UNLIMITED).
   const [reservationMinutes, setReservationMinutes] = useState<number>(user?.handoffReservationMinutes ?? 30);
   const [savingReservation, setSavingReservation] = useState(false);
+  const reservationUnlimited = reservationMinutes === RESERVATION_MINUTES_UNLIMITED;
 
-  const handleReservationMinutesBlur = async () => {
-    const clamped = Math.min(RESERVATION_MINUTES_MAX, Math.max(RESERVATION_MINUTES_MIN, Math.round(reservationMinutes) || 30));
-    setReservationMinutes(clamped);
+  // El valor de ANTES de marcar "Sin límite" — para volver a proponerlo si lo destildan, en vez
+  // de dejar el input en 0 (que ahí sí es una duración inválida para editar a mano).
+  const lastFiniteReservationRef = useRef(reservationMinutes || 30);
+
+  const saveReservationMinutes = async (minutes: number) => {
+    setReservationMinutes(minutes);
     setSavingReservation(true);
     try {
-      await ApiService.setHandoffReservationMinutes(clamped);
+      const result = await ApiService.setHandoffReservationMinutes(minutes);
+      updateUser({ handoffReservationMinutes: result.handoffReservationMinutes });
     } catch (err) {
       console.error('[AdvisorManagerModal] No se pudo guardar la duración de la reserva de asesor:', err);
       setError('No se pudo guardar la duración de la reserva de asesor.');
@@ -68,17 +77,37 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     }
   };
 
-  // Cada cuántos minutos un cliente en la cola de espera (sin asesor todavía) recibe un mensaje
-  // con su posición actual — mismo patrón que reservationMinutes de arriba.
-  const [queueReminderMinutes, setQueueReminderMinutes] = useState<number>(user?.queueReminderMinutes ?? 10);
+  const handleReservationMinutesBlur = () => {
+    const clamped = Math.min(RESERVATION_MINUTES_MAX, Math.max(RESERVATION_MINUTES_MIN, Math.round(reservationMinutes) || 30));
+    lastFiniteReservationRef.current = clamped;
+    saveReservationMinutes(clamped);
+  };
+
+  const toggleReservationUnlimited = (unlimited: boolean) => {
+    if (unlimited) {
+      lastFiniteReservationRef.current = reservationMinutes || lastFiniteReservationRef.current;
+      saveReservationMinutes(RESERVATION_MINUTES_UNLIMITED);
+    } else {
+      saveReservationMinutes(lastFiniteReservationRef.current);
+    }
+  };
+
+  // Cada cuántos segundos un cliente en la cola de espera (sin asesor todavía) recibe un mensaje
+  // con su posición actual — mismo patrón que reservationMinutes de arriba. En segundos (no
+  // minutos) a pedido del usuario, para poder avisar más seguido que una vez por minuto.
+  const [queueReminderSeconds, setQueueReminderSeconds] = useState<number>(user?.queueReminderSeconds ?? 600);
   const [savingQueueReminder, setSavingQueueReminder] = useState(false);
 
-  const handleQueueReminderMinutesBlur = async () => {
-    const clamped = Math.min(QUEUE_REMINDER_MINUTES_MAX, Math.max(QUEUE_REMINDER_MINUTES_MIN, Math.round(queueReminderMinutes) || 10));
-    setQueueReminderMinutes(clamped);
+  const handleQueueReminderSecondsBlur = async () => {
+    const clamped = Math.min(
+      QUEUE_REMINDER_SECONDS_MAX,
+      Math.max(QUEUE_REMINDER_SECONDS_MIN, Math.round(queueReminderSeconds) || 600)
+    );
+    setQueueReminderSeconds(clamped);
     setSavingQueueReminder(true);
     try {
-      await ApiService.setQueueReminderMinutes(clamped);
+      const result = await ApiService.setQueueReminderSeconds(clamped);
+      updateUser({ queueReminderSeconds: result.queueReminderSeconds });
     } catch (err) {
       console.error('[AdvisorManagerModal] No se pudo guardar el recordatorio de cola:', err);
       setError('No se pudo guardar el recordatorio de cola.');
@@ -97,7 +126,8 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     setRelayInactivityMinutes(clamped);
     setSavingRelayInactivity(true);
     try {
-      await ApiService.setRelayInactivityMinutes(clamped);
+      const result = await ApiService.setRelayInactivityMinutes(clamped);
+      updateUser({ relayInactivityMinutes: result.relayInactivityMinutes });
     } catch (err) {
       console.error('[AdvisorManagerModal] No se pudo guardar el timeout de inactividad del relay:', err);
       setError('No se pudo guardar el timeout de inactividad del relay.');
@@ -263,26 +293,40 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     >
       {error && <div className="text-[11px] text-red-700 bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5">{error}</div>}
 
-      <div className="flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Reserva de asesor</p>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-            Minutos que un cliente queda con el mismo asesor antes de que el bot pueda asignarle otro.
-          </p>
+      <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Reserva de asesor</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+              Minutos que un cliente queda con el mismo asesor antes de que el bot pueda asignarle otro.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {reservationUnlimited ? (
+              <span className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400 px-1">Sin límite</span>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  min={RESERVATION_MINUTES_MIN}
+                  max={RESERVATION_MINUTES_MAX}
+                  value={reservationMinutes}
+                  onChange={(e) => setReservationMinutes(Number(e.target.value))}
+                  onBlur={handleReservationMinutesBlur}
+                  className={`${fieldInputClass} w-16 text-center`}
+                />
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
+              </>
+            )}
+            {savingReservation && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <input
-            type="number"
-            min={RESERVATION_MINUTES_MIN}
-            max={RESERVATION_MINUTES_MAX}
-            value={reservationMinutes}
-            onChange={(e) => setReservationMinutes(Number(e.target.value))}
-            onBlur={handleReservationMinutesBlur}
-            className={`${fieldInputClass} w-16 text-center`}
-          />
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
-          {savingReservation && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
-        </div>
+        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+          <Toggle size="sm" checked={reservationUnlimited} disabled={savingReservation} onChange={toggleReservationUnlimited} />
+          <span className="text-[10.5px] font-semibold text-slate-600 dark:text-slate-300">
+            Sin límite de tiempo (la reserva no vence sola — hay que liberarla a mano)
+          </span>
+        </label>
       </div>
 
       <div className="flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
@@ -295,14 +339,14 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
         <div className="flex items-center gap-1.5 shrink-0">
           <input
             type="number"
-            min={QUEUE_REMINDER_MINUTES_MIN}
-            max={QUEUE_REMINDER_MINUTES_MAX}
-            value={queueReminderMinutes}
-            onChange={(e) => setQueueReminderMinutes(Number(e.target.value))}
-            onBlur={handleQueueReminderMinutesBlur}
+            min={QUEUE_REMINDER_SECONDS_MIN}
+            max={QUEUE_REMINDER_SECONDS_MAX}
+            value={queueReminderSeconds}
+            onChange={(e) => setQueueReminderSeconds(Number(e.target.value))}
+            onBlur={handleQueueReminderSecondsBlur}
             className={`${fieldInputClass} w-16 text-center`}
           />
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">seg</span>
           {savingQueueReminder && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
         </div>
       </div>

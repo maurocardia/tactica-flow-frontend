@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { AuthUser } from '@/types/auth';
 import { signInWithGoogle } from '@/services/googleAuth.service';
-import { getStoredToken, getStoredUser, setStoredAuth, clearStoredAuth } from '@/services/authStorage.service';
+import { getStoredToken, getStoredUser, setStoredAuth, setStoredUser, clearStoredAuth } from '@/services/authStorage.service';
 import { ApiService } from '@/services/api.service';
 
 interface AuthContextValue {
@@ -10,6 +10,14 @@ interface AuthContextValue {
   error: string | null;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  // Mergea campos en el usuario en memoria y en chrome.storage.local — para usar después de un PUT
+  // de configuración en background (reserva de asesor, recordatorio de cola, delay humanizado,
+  // etc.) que ya devuelve el valor guardado. Sin esto, esos ajustes "no se guardaban": el backend
+  // sí los persistía, pero el `user` de este contexto (hidratado una sola vez desde storage al
+  // iniciar sesión) quedaba desactualizado, así que cualquier modal que lo usara como valor
+  // inicial (`useState(user?.campo ?? default)`) volvía a mostrar el valor viejo la próxima vez
+  // que se abría, aunque el servidor tuviera el nuevo.
+  updateUser: (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -67,7 +75,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, error, login, logout }}>{children}</AuthContext.Provider>;
+  const updateUser = (patch: Partial<AuthUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      setStoredUser(next).catch((err) => {
+        console.error('[AuthContext] No se pudo persistir el usuario actualizado en storage:', err);
+      });
+      return next;
+    });
+  };
+
+  return <AuthContext.Provider value={{ user, loading, error, login, logout, updateUser }}>{children}</AuthContext.Provider>;
 };
 
 export function useAuth(): AuthContextValue {

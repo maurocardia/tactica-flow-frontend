@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, CheckCircle2, Loader2 } from 'lucide-react';
+import { User, CheckCircle2, Loader2, Unlock, ShieldBan, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
 import { BotContact } from '@/types/botContact';
@@ -10,12 +10,14 @@ interface ContactCardProps {
 
 const normalizeName = (s: string) => s.trim().toLowerCase();
 
-// El control de bot por contacto vive en el modal "Bot habilitado por contacto" y en el ícono del
-// header de WhatsApp (ver ExternalBridge, que resuelve el contacto activo contra bot_contacts) —
-// esta tarjeta es solo informativa, mostrando el chat detectado. Le suma el banner de "Asesor
-// asignado" cuando esta conversación tiene una reserva de asesor sin vencer (el bot NO deja de
-// responder por esto, es solo informativo — ver AdvisorService.getActiveHandoffAdvisor en el
-// backend): mismo patrón de resolución por nombre que ExternalBridge (polling propio de
+// El switch de "bot encendido/apagado" por contacto vive en el modal "Bot habilitado por contacto"
+// y en el ícono del header de WhatsApp (ver ExternalBridge, que resuelve el contacto activo contra
+// bot_contacts) — acá solo se muestra el chat detectado, más dos acciones rápidas SIEMPRE visibles
+// sobre ese mismo contacto: liberar la reserva de asesor (si hay una activa — el bot NO deja de
+// responder por esto, ver AdvisorService.getActiveHandoffAdvisor en el backend) y mandarlo a/sacarlo
+// de la Blacklist. Antes "Liberar asesor" solo aparecía condicionalmente cuando había una reserva
+// activa; ahora el botón siempre está, deshabilitado cuando no aplica, para no obligar a adivinar
+// si existe. Mismo patrón de resolución por nombre que ExternalBridge (polling propio de
 // bot_contacts, sin socket — el frontend no tiene un cliente de Socket.io conectado todavía), pero
 // acá no se comparte estado con ExternalBridge a propósito, para no acoplar dos componentes que
 // hoy son independientes por una lista que ya es liviana.
@@ -30,6 +32,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     // que el backend confirme en la siguiente vuelta.
     const [justReactivatedJid, setJustReactivatedJid] = useState<string | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [togglingBlacklist, setTogglingBlacklist] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -75,6 +78,20 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
         }
     };
 
+    const handleToggleBlacklist = async () => {
+        if (!activeBotContact || togglingBlacklist) return;
+        const nextBlacklisted = !activeBotContact.isBlacklisted;
+        setTogglingBlacklist(true);
+        try {
+            const updated = await ApiService.setBotContactBlacklisted(activeBotContact.id, nextBlacklisted);
+            setBotContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        } catch (err) {
+            console.error('[ContactCard] No se pudo actualizar la Blacklist de este contacto:', err);
+        } finally {
+            setTogglingBlacklist(false);
+        }
+    };
+
     return (
         <div className="glass-card glass-card-hover p-3.5 flex flex-col gap-2.5">
             <div className="flex items-center gap-3">
@@ -103,21 +120,54 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
             )}
 
             {hasActiveAdvisorReservation && !showConfirmation && (
-                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
-                    <span className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
-                        🟡 Asesor asignado (el bot sigue respondiendo)
-                    </span>
-                    <button
-                        type="button"
-                        onClick={handleReactivate}
-                        disabled={reactivating}
-                        className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/60 disabled:opacity-50 cursor-pointer transition-colors shrink-0"
-                    >
-                        {reactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                        Liberar asesor
-                    </button>
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                    🟡 Asesor asignado (el bot sigue respondiendo)
                 </div>
             )}
+
+            {/* Acciones rápidas sobre este contacto — SIEMPRE visibles (antes "Liberar asesor" solo
+                aparecía si había una reserva activa, y no había forma de bloquear/desbloquear desde
+                acá sin abrir el modal de Blacklist aparte). Cada botón se deshabilita solo cuando de
+                verdad no aplica (sin reserva que liberar, o contacto todavía sin sincronizar), pero
+                queda siempre a la vista para no tener que adivinar si existe. */}
+            <div className="flex items-center gap-1.5">
+                <button
+                    type="button"
+                    onClick={handleReactivate}
+                    disabled={!isSelected || !hasActiveAdvisorReservation || reactivating}
+                    title={hasActiveAdvisorReservation ? 'Quitar la reserva de asesor de este contacto' : 'Este contacto no tiene ningún asesor asignado ahora'}
+                    className="flex-1 flex items-center justify-center gap-1 text-[10.5px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 px-2 py-1.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/40 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                >
+                    {reactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
+                    Liberar asesor
+                </button>
+                <button
+                    type="button"
+                    onClick={handleToggleBlacklist}
+                    disabled={!activeBotContact || togglingBlacklist}
+                    title={
+                        !activeBotContact
+                            ? 'Este contacto todavía no se sincronizó — escribile primero'
+                            : activeBotContact.isBlacklisted
+                              ? 'Sacar a este contacto de la Blacklist'
+                              : 'Mandar a este contacto a la Blacklist (nunca más recibe respuesta del bot)'
+                    }
+                    className={`flex-1 flex items-center justify-center gap-1 text-[10.5px] font-bold px-2 py-1.5 rounded-lg border disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors ${
+                        activeBotContact?.isBlacklisted
+                            ? 'text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/40'
+                            : 'text-[#9e1114] dark:text-red-400 bg-white dark:bg-slate-900 border-red-300 dark:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/40'
+                    }`}
+                >
+                    {togglingBlacklist ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : activeBotContact?.isBlacklisted ? (
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                    ) : (
+                        <ShieldBan className="w-3.5 h-3.5" />
+                    )}
+                    {activeBotContact?.isBlacklisted ? 'Desbloquear' : 'Bloquear'}
+                </button>
+            </div>
         </div>
     );
 };

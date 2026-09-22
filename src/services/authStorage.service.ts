@@ -17,6 +17,13 @@ export async function setStoredAuth(token: string, user: unknown): Promise<void>
   await chrome.storage.local.set({ [TOKEN_KEY]: token, [USER_KEY]: user });
 }
 
+// Actualiza solo el usuario guardado (deja el token como está) — para cuando un PUT de
+// configuración en background devuelve el nuevo valor y hay que reflejarlo sin volver a loguear.
+// Ver AuthContext.updateUser.
+export async function setStoredUser(user: unknown): Promise<void> {
+  await chrome.storage.local.set({ [USER_KEY]: user });
+}
+
 export async function clearStoredAuth(): Promise<void> {
   await chrome.storage.local.remove([TOKEN_KEY, USER_KEY]);
 }
