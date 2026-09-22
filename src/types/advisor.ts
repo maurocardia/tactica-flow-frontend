@@ -10,4 +10,8 @@ export interface Advisor {
   handoffCount: number;
   lastHandoffAt: string | null;
   createdAt: string;
+  // Cliente con el que este asesor está en relay activo AHORA MISMO (null = ninguno) — GET
+  // /advisors lo arma con BotContactService.getActiveClientForAdvisor. Se usa para mostrar
+  // "Atendiendo a: Fulano" y habilitar el botón "Liberar" de su fila.
+  activeClient: { jid: string; name: string; expiresAt: string } | null;
 }

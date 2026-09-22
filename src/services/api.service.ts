@@ -254,6 +254,12 @@ export const ApiService = {
         return this.sendBackgroundRequest<void>('/whatsapp/advisors/reset-counts', 'POST');
     },
 
+    // Libera al cliente que este asesor tiene asignado ahora mismo (botón "Liberar" de su fila en
+    // el listado) — ver AdvisorService.releaseByAdvisorId en el backend.
+    async releaseAdvisor(id: number): Promise<void> {
+        return this.sendBackgroundRequest<void>(`/whatsapp/advisors/${id}/release`, 'POST');
+    },
+
     // Reactiva el bot para un contacto pausado por una derivación a asesor (bloque "Contactar
     // Asesor" del editor de flujos) — botón "Reactivar bot" en ContactBotSwitchesModal.
     async resumeBotForContact(id: number): Promise<BotContact> {

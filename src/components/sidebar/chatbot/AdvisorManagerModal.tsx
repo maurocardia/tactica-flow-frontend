@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, Plus, Pencil, Trash2, RotateCcw, Headset, ChevronDown } from 'lucide-react';
+import { Loader2, Plus, Pencil, Trash2, RotateCcw, Headset, ChevronDown, Unlock } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Field, fieldInputClass } from '@/components/ui/Field';
@@ -252,6 +252,23 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     }
   };
 
+  // Libera al cliente que este asesor tiene asignado ahora mismo — botón "Liberar" de su fila
+  // (ver AdvisorService.releaseByAdvisorId en el backend: le pregunta al cliente si quedó
+  // resuelto y promueve al siguiente de la cola de este asesor, igual que "FIN" por WhatsApp).
+  const handleReleaseAdvisor = async (advisor: Advisor) => {
+    setBusyId(advisor.id);
+    setError(null);
+    try {
+      await ApiService.releaseAdvisor(advisor.id);
+      setAdvisors((prev) => prev.map((a) => (a.id === advisor.id ? { ...a, activeClient: null } : a)));
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo liberar al asesor:', err);
+      setError(err instanceof Error ? err.message : `No se pudo liberar a "${advisor.name}". Probá de nuevo.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleResetCounts = async () => {
     setResetting(true);
     setError(null);
@@ -480,7 +497,14 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {advisors.map((advisor) => (
                 <tr key={advisor.id} className="text-slate-700 dark:text-slate-300">
-                  <td className="px-2 py-1.5 font-bold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">{advisor.name}</td>
+                  <td className="px-2 py-1.5 max-w-[110px]">
+                    <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{advisor.name}</p>
+                    {advisor.activeClient && (
+                      <p className="text-[9.5px] text-amber-700 dark:text-amber-400 font-semibold truncate" title={`Atendiendo a ${advisor.activeClient.name}`}>
+                        🟡 {advisor.activeClient.name}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-2 py-1.5">
                     <span className="flex items-center gap-1.5 font-mono whitespace-nowrap">
                       <CountryFlag code={detectCountryCode(advisor.phone)} />+{onlyDigits(advisor.phone)}
@@ -492,6 +516,14 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
                   </td>
                   <td className="px-2 py-1.5">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => handleReleaseAdvisor(advisor)}
+                        disabled={busyId === advisor.id || !advisor.activeClient}
+                        className="p-1 rounded-md text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                        title={advisor.activeClient ? `Liberar — atendiendo a ${advisor.activeClient.name}` : 'No tiene ningún cliente asignado ahora'}
+                      >
+                        {busyId === advisor.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Unlock className="w-3 h-3" />}
+                      </button>
                       <button
                         onClick={() => startEdit(advisor)}
                         disabled={busyId === advisor.id}
