@@ -199,21 +199,22 @@ const ChatbotModule: React.FC = () => {
       // Estado del bot: apagado del todo, respondiendo solo a contactos/grupos habilitados a
       // mano en la lista, o respondiendo a todos sin excepción — un doble clic en
       // "Contactos/Grupos", o el botón de la esquina, abre esa lista directo (ver
-      // ContactBotSwitchesModal, que administra ambas pestañas). El botón de acceso solo tiene
-      // sentido en el modo "Contactos/Grupos" — en los otros dos esa lista queda ignorada del
-      // lado del backend (ver WhatsappService.handleIncomingMessage).
+      // ContactBotSwitchesModal, que administra las pestañas Contactos/Grupos/Blacklist). El
+      // botón de acceso está SIEMPRE visible, sea cual sea el modo: aunque las pestañas
+      // Contactos/Grupos solo importen en modo "Contactos/Grupos" (en los otros dos esa lista
+      // queda ignorada del lado del backend, ver WhatsappService.handleIncomingMessage), la
+      // pestaña Blacklist bloquea siempre sin excepción — ocultar el botón entero por el modo
+      // dejaba sin forma de llegar a la Blacklist salvo cambiando de modo primero.
       <div className="flex flex-col gap-1.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
         <div className="flex items-center justify-between">
           <span className="text-[11px] text-slate-700 dark:text-slate-200 font-bold">Estado del bot</span>
-          {botMode === 'selected' && (
-            <button
-              onClick={() => openModal('contact-bot-switches')}
-              title="Administrar la lista de contactos y grupos"
-              className="p-1 rounded-md text-[#9e1114] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <button
+            onClick={() => openModal('contact-bot-switches')}
+            title="Administrar contactos, grupos y la Blacklist"
+            className="p-1 rounded-md text-[#9e1114] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
         </div>
         <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-200/70 dark:bg-slate-900/60">
           <button
