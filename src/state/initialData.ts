@@ -27,6 +27,8 @@ export const INITIAL_CONFIG: AppConfig = {
   botReplyDelayMinMs: 1500,
   botReplyDelayMaxMs: 4000,
   handoffReservationMinutes: 30,
+  queueReminderMinutes: 10,
+  relayInactivityMinutes: 60,
   chatbotSectionOrder: ['botStatus', 'newContacts', 'aiReply', 'replyDelay', 'knowledgeBase'],
   aiSummaryPrompt:
     'Resumí la conversación identificando: qué pidió el cliente, puntos clave, compromisos y próximo paso sugerido. Usá español rioplatense, tono profesional.',
