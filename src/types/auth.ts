@@ -69,6 +69,12 @@ export interface AuthUser {
   // cerrarse solo — distinto de handoffReservationMinutes (esa es la ventana antes/al asignar).
   // PUT /api/whatsapp/relay-inactivity-minutes.
   relayInactivityMinutes: number;
+  // Palabra(s) que el asesor escribe para cerrar la atención (antes fija: "FIN"/"LISTO") — lista
+  // separada por comas, ver sección "Asesores" y PUT /api/whatsapp/advisor-finish-keywords.
+  advisorFinishKeywords: string;
+  // Minutos que la IA queda muda para un cliente DESPUÉS de que se cierra su atención humana — 0 =
+  // reactivar de inmediato. PUT /api/whatsapp/ai-pause-after-advisor-minutes.
+  aiPauseAfterAdvisorMinutes: number;
   createdAt: string;
   updatedAt: string;
 }

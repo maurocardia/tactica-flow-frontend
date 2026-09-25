@@ -157,6 +157,18 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ relayInactivityMinutes: number }>('/whatsapp/relay-inactivity-minutes', 'PUT', { minutes });
     },
 
+    // Palabra(s) que el asesor escribe para cerrar la atención (antes fija: "FIN"/"LISTO") — lista
+    // separada por comas, ver AdvisorService.getFinishKeywords en el backend.
+    async setAdvisorFinishKeywords(keywords: string): Promise<{ advisorFinishKeywords: string }> {
+        return this.sendBackgroundRequest<{ advisorFinishKeywords: string }>('/whatsapp/advisor-finish-keywords', 'PUT', { keywords });
+    },
+
+    // Minutos que la IA queda muda para un cliente DESPUÉS de que se cierra su atención humana — 0
+    // = reactivar de inmediato. Ver AdvisorService.getAiPauseAfterCloseMinutes.
+    async setAiPauseAfterAdvisorMinutes(minutes: number): Promise<{ aiPauseAfterAdvisorMinutes: number }> {
+        return this.sendBackgroundRequest<{ aiPauseAfterAdvisorMinutes: number }>('/whatsapp/ai-pause-after-advisor-minutes', 'PUT', { minutes });
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión
