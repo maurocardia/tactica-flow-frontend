@@ -23,6 +23,13 @@ const AI_PAUSE_AFTER_ADVISOR_MINUTES_MIN = 0;
 const AI_PAUSE_AFTER_ADVISOR_MINUTES_MAX = 1440;
 const DEFAULT_FINISH_KEYWORDS = 'FIN,LISTO';
 
+// Mismos defaults que handoffIntent.service.ts en el backend — acá solo se muestran como ejemplo
+// (placeholder): un campo vacío se guarda vacío y el backend usa sus propios defaults.
+const DEFAULT_EXPLICIT_PHRASES_HINT = 'hablar con una persona, hablar con alguien, pasame con alguien, un humano, que me llamen…';
+const DEFAULT_AMBIGUOUS_WORDS_HINT = 'asesor, asesora, asesores, asesoria, asesoramiento';
+const DEFAULT_CLARIFY_QUESTION_HINT =
+  '¿Querés que te comunique con una persona de nuestro equipo, o preferís que te oriente yo con tu consulta?\n\n1. Hablar con una persona\n2. Seguir con mi consulta';
+
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 
 // Detecta el código de país de un teléfono ya guardado probando el prefijo más largo que
@@ -159,6 +166,34 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
       setError('No se pudo guardar la palabra de cierre.');
     } finally {
       setSavingFinishKeywords(false);
+    }
+  };
+
+  // Detección de pedido de asesor (ver handoffIntent.service.ts en el backend): los tres campos
+  // se guardan juntos al perder el foco de cualquiera. Vacío = el backend usa sus defaults.
+  const [explicitPhrases, setExplicitPhrases] = useState<string>(user?.handoffExplicitPhrases ?? '');
+  const [ambiguousWords, setAmbiguousWords] = useState<string>(user?.handoffAmbiguousWords ?? '');
+  const [clarifyQuestion, setClarifyQuestion] = useState<string>(user?.handoffClarifyQuestion ?? '');
+  const [savingIntent, setSavingIntent] = useState(false);
+
+  const handleIntentConfigBlur = async () => {
+    setSavingIntent(true);
+    try {
+      const result = await ApiService.setHandoffIntentConfig({
+        explicitPhrases: explicitPhrases.trim(),
+        ambiguousWords: ambiguousWords.trim(),
+        clarifyQuestion: clarifyQuestion.trim()
+      });
+      updateUser({
+        handoffExplicitPhrases: result.handoffExplicitPhrases,
+        handoffAmbiguousWords: result.handoffAmbiguousWords,
+        handoffClarifyQuestion: result.handoffClarifyQuestion
+      });
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo guardar la detección de pedido de asesor:', err);
+      setError(err instanceof Error ? err.message : 'No se pudo guardar la detección de pedido de asesor.');
+    } finally {
+      setSavingIntent(false);
     }
   };
 
@@ -494,6 +529,54 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
           <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
           {savingAiPause && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Detección de pedido de asesor</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+              Frases y palabras que el bot reconoce solo, sin depender de la IA. Separá con coma. Si dejás un campo vacío, se usan los valores de ejemplo.
+            </p>
+          </div>
+          {savingIntent && <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0" />}
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">Derivan directo</span>
+          <textarea
+            rows={2}
+            value={explicitPhrases}
+            onChange={(e) => setExplicitPhrases(e.target.value)}
+            onBlur={handleIntentConfigBlur}
+            placeholder={DEFAULT_EXPLICIT_PHRASES_HINT}
+            className={`${fieldInputClass} resize-y`}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">Preguntan antes de derivar (ambiguas)</span>
+          <input
+            type="text"
+            value={ambiguousWords}
+            onChange={(e) => setAmbiguousWords(e.target.value)}
+            onBlur={handleIntentConfigBlur}
+            placeholder={DEFAULT_AMBIGUOUS_WORDS_HINT}
+            className={fieldInputClass}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">Pregunta que se le hace al cliente</span>
+          <textarea
+            rows={4}
+            value={clarifyQuestion}
+            onChange={(e) => setClarifyQuestion(e.target.value)}
+            onBlur={handleIntentConfigBlur}
+            placeholder={DEFAULT_CLARIFY_QUESTION_HINT}
+            className={`${fieldInputClass} resize-y`}
+          />
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            El cliente puede contestar "1" o "sí" para hablar con una persona, o "2" o "no" para seguir con el bot.
+          </span>
+        </label>
       </div>
         </>
       )}
