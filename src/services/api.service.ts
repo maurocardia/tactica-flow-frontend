@@ -159,6 +159,17 @@ export const ApiService = {
 
     // Palabra(s) que el asesor escribe para cerrar la atención (antes fija: "FIN"/"LISTO") — lista
     // separada por comas, ver AdvisorService.getFinishKeywords en el backend.
+    // Detección de pedido de asesor (frases que derivan directo, palabras ambiguas que disparan
+    // la pregunta "¿querés hablar con una persona?", y el texto de esa pregunta) — ver
+    // handoffIntent.service.ts en el backend. Vacío = default.
+    async setHandoffIntentConfig(config: { explicitPhrases: string; ambiguousWords: string; clarifyQuestion: string }): Promise<{
+        handoffExplicitPhrases: string;
+        handoffAmbiguousWords: string;
+        handoffClarifyQuestion: string;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/handoff-intent-config', 'PUT', config);
+    },
+
     async setAdvisorFinishKeywords(keywords: string): Promise<{ advisorFinishKeywords: string }> {
         return this.sendBackgroundRequest<{ advisorFinishKeywords: string }>('/whatsapp/advisor-finish-keywords', 'PUT', { keywords });
     },

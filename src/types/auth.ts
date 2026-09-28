@@ -75,6 +75,13 @@ export interface AuthUser {
   // Minutos que la IA queda muda para un cliente DESPUÉS de que se cierra su atención humana — 0 =
   // reactivar de inmediato. PUT /api/whatsapp/ai-pause-after-advisor-minutes.
   aiPauseAfterAdvisorMinutes: number;
+  // Detección de "pide hablar con una persona" sin depender de la IA (ver handoffIntent.service.ts
+  // en el backend): frases que derivan directo, palabras ambiguas que disparan una pregunta de
+  // aclaración, y el texto de esa pregunta. Vacío = valores por default del backend.
+  // PUT /api/whatsapp/handoff-intent-config.
+  handoffExplicitPhrases: string;
+  handoffAmbiguousWords: string;
+  handoffClarifyQuestion: string;
   createdAt: string;
   updatedAt: string;
 }
