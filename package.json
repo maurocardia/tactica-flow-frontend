@@ -8,6 +8,7 @@
     "dev:cloud": "vite build --watch --mode cloud",
     "build": "vite build",
     "build:cloud": "vite build --mode cloud",
+    "build:prod": "vite build --mode prod",
     "preview": "vite preview",
     "tree": "node tree.js"
   },
