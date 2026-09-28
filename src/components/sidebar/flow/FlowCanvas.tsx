@@ -110,7 +110,9 @@ export const FlowCanvas: React.FC<FlowCanvasProps> = ({
   onClose
 }) => {
   const [flow, setFlow] = useState<BotFlowData>(() => {
-    const raw = initialData && initialData.nodes && initialData.nodes.length > 0
+    // Array.isArray y no length > 0: un flujo guardado vacío tiene que abrirse vacío (ver
+    // BotFlowModal.loadFlow), el ejemplo es solo para cuando no hay nada guardado.
+    const raw = initialData && Array.isArray(initialData.nodes)
       ? initialData
       : DEFAULT_INITIAL_FLOW;
 

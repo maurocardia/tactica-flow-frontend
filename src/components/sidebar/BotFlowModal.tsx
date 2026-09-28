@@ -47,7 +47,10 @@ export const BotFlowModal: React.FC<{
         console.warn('[BotFlowModal] Error leyendo borrador local:', e);
       }
 
-      if (savedFlow && savedFlow.nodes && savedFlow.nodes.length > 0) {
+      // Un flujo guardado con 0 nodos es un borrado a propósito (el usuario eliminó todo y
+      // guardó), no "nunca se guardó" — si no se respeta, se le vuelven a cargar las reglas
+      // convertidas o el flujo de ejemplo y parece que el borrado no se guardó.
+      if (savedFlow && Array.isArray(savedFlow.nodes)) {
         setFlowData(savedFlow);
       } else if (localDraft && localDraft.nodes && localDraft.nodes.length > 0) {
         setFlowData(localDraft);
