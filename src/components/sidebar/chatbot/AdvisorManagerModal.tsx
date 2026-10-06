@@ -217,6 +217,25 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     }
   };
 
+  // "Reactivar IA ahora": levanta las pausas post-atención que ya están corriendo, sin tocar el
+  // valor configurado para las próximas. `aiPauseCleared` es cuántos clientes se reactivaron.
+  const [clearingAiPauses, setClearingAiPauses] = useState(false);
+  const [aiPauseCleared, setAiPauseCleared] = useState<number | null>(null);
+
+  const handleClearAiPauses = async () => {
+    setClearingAiPauses(true);
+    setAiPauseCleared(null);
+    try {
+      const result = await ApiService.clearAiPauses();
+      setAiPauseCleared(result.cleared);
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo reactivar la IA:', err);
+      setError('No se pudo reactivar la IA.');
+    } finally {
+      setClearingAiPauses(false);
+    }
+  };
+
   // Los 5 campos de configuración de arriba ocupaban mucho espacio fijo y tapaban el botón
   // "Agregar asesor" (había que scrollear bastante para llegar) — quedan colapsados por default
   // adentro de este desplegable.
@@ -509,25 +528,44 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Pausa de IA post-atención</p>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-            Minutos que la IA sigue muda para ese cliente después de que se libera al asesor — 0 = vuelve a responder de inmediato.
-          </p>
+      <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Pausa de IA post-atención</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+              Minutos que la IA sigue muda para ese cliente después de que se libera al asesor — 0 = vuelve a responder de inmediato. Si lo cambiás, también aplica a los que ya están en pausa.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <input
+              type="number"
+              min={AI_PAUSE_AFTER_ADVISOR_MINUTES_MIN}
+              max={AI_PAUSE_AFTER_ADVISOR_MINUTES_MAX}
+              value={aiPauseMinutes}
+              onChange={(e) => setAiPauseMinutes(Number(e.target.value))}
+              onBlur={handleAiPauseMinutesBlur}
+              className={`${fieldInputClass} w-16 text-center`}
+            />
+            <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
+            {savingAiPause && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <input
-            type="number"
-            min={AI_PAUSE_AFTER_ADVISOR_MINUTES_MIN}
-            max={AI_PAUSE_AFTER_ADVISOR_MINUTES_MAX}
-            value={aiPauseMinutes}
-            onChange={(e) => setAiPauseMinutes(Number(e.target.value))}
-            onBlur={handleAiPauseMinutesBlur}
-            className={`${fieldInputClass} w-16 text-center`}
-          />
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">min</span>
-          {savingAiPause && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            {aiPauseCleared === null
+              ? 'Levanta ya la pausa de todos los clientes que están esperando.'
+              : aiPauseCleared === 0
+                ? 'No había ningún cliente en pausa.'
+                : `Listo: la IA volvió a responderle a ${aiPauseCleared} cliente${aiPauseCleared === 1 ? '' : 's'}.`}
+          </p>
+          <button
+            onClick={handleClearAiPauses}
+            disabled={clearingAiPauses}
+            className="shrink-0 flex items-center gap-1.5 bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-40 text-white font-bold text-[10.5px] px-3 py-1.5 rounded-lg shadow-xs cursor-pointer transition-colors"
+          >
+            {clearingAiPauses && <Loader2 className="w-3 h-3 animate-spin" />}
+            Reactivar IA ahora
+          </button>
         </div>
       </div>
 

@@ -180,6 +180,11 @@ export const ApiService = {
         return this.sendBackgroundRequest<{ aiPauseAfterAdvisorMinutes: number }>('/whatsapp/ai-pause-after-advisor-minutes', 'PUT', { minutes });
     },
 
+    // Levanta ya todas las pausas de IA post-atención en curso — botón "Reactivar IA ahora".
+    async clearAiPauses(): Promise<{ cleared: number }> {
+        return this.sendBackgroundRequest<{ cleared: number }>('/whatsapp/ai-pause/clear', 'POST');
+    },
+
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===
 
     // `userId` filtra por cuenta de WhatsApp conectada — sin esto, si hay más de una sesión
