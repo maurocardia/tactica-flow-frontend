@@ -14,13 +14,15 @@ import { useActiveChat } from '@/hooks/useActiveChat';
 import { useAppState } from '@/state/AppStateContext';
 import { useWhatsappStatus } from '@/state/WhatsappStatusContext';
 import { useModal } from '@/state/ModalContext';
-import { QrCode, WifiOff, Loader2 } from 'lucide-react';
+import { useAuth } from '@/state/AuthContext';
+import { QrCode, WifiOff, Loader2, OctagonAlert } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
     const { activeContact } = useActiveChat();
     const { config } = useAppState();
     const { status } = useWhatsappStatus();
     const { openModal } = useModal();
+    const { user } = useAuth();
     const visible = config.moduleVisibility;
     const isDark = config.theme === 'dark';
     const isConnected = status === 'connected';
@@ -61,6 +63,24 @@ export const Sidebar: React.FC = () => {
                             >
                                 <QrCode className="w-4 h-4" />
                                 <span>{status === 'qr_ready' ? 'Ver Código QR' : 'Vincular WhatsApp'}</span>
+                            </button>
+                        </div>
+                    )}
+
+                    {user?.emergencyStop && (
+                        <div className="sticky top-0 z-20 w-full p-3 bg-red-600 text-white rounded-xl flex flex-col gap-2 text-center shadow-lg">
+                            <div className="flex items-center justify-center gap-2 font-extrabold text-xs uppercase tracking-wide">
+                                <OctagonAlert className="w-4 h-4" />
+                                <span>Parada de emergencia activa</span>
+                            </div>
+                            <p className="text-[11px] leading-relaxed font-medium">
+                                La app no está respondiendo ni mandando ningún mensaje automático.
+                            </p>
+                            <button
+                                onClick={() => openModal('config')}
+                                className="w-full py-2 px-3 bg-white text-red-700 font-bold text-xs rounded-lg shadow-sm hover:bg-red-50 active:scale-[0.98] transition cursor-pointer"
+                            >
+                                Ir a reactivar
                             </button>
                         </div>
                     )}

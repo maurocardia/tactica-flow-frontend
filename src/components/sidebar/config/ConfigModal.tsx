@@ -8,6 +8,8 @@ import { BehaviorSection } from './BehaviorSection';
 import { VisibilitySection } from './VisibilitySection';
 import { AccountsSection } from './AccountsSection';
 import { ThemeSection } from './ThemeSection';
+import { EmergencyStopSection } from './EmergencyStopSection';
+import { ConfigTransferSection } from './ConfigTransferSection';
 
 export const ConfigModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
   <Modal title="Configuración" onClose={onClose} maxWidth="max-w-[480px]" footer={
@@ -15,6 +17,7 @@ export const ConfigModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
       Listo
     </button>
   }>
+    <EmergencyStopSection />
     <ThemeSection />
     <AccountSection />
     <WhatsappConnectionSection />
@@ -23,6 +26,7 @@ export const ConfigModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
     <BehaviorSection />
     <VisibilitySection />
     <AccountsSection />
+    <ConfigTransferSection />
   </Modal>
 );
 

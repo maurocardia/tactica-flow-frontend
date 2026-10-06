@@ -14,7 +14,7 @@ const DEFAULT_SECTION_ORDER: SectionId[] = [...SECTION_IDS];
 
 const ChatbotModule: React.FC = () => {
   const { config, setConfig } = useAppState();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const enabled = config.botEnabled;
 
   // Al loguearse (o al reabrir el panel con la sesión ya hidratada), consulta el estado real de
@@ -41,6 +41,9 @@ const ChatbotModule: React.FC = () => {
             botReplyDelayMaxMs: freshUser.botReplyDelayMaxMs,
             botMode: freshUser.botMode,
           }));
+          // Estos dos no viven en `config` sino en el `user` cacheado: si la parada de emergencia
+          // se activó desde otro navegador, el cartel rojo del panel tiene que enterarse igual.
+          updateUser({ emergencyStop: freshUser.emergencyStop, advisorCounterEnabled: freshUser.advisorCounterEnabled });
         }
       })
       .catch((err) => {

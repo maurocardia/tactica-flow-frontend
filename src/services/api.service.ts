@@ -5,7 +5,7 @@ import { Advisor } from "@/types/advisor";
 import { KeywordRule, KeywordRuleInput, BotFlowData } from "@/types/bot";
 import { FlowMediaAsset } from "@/types/flowMedia";
 import { KnowledgeBase, KnowledgeBaseInput, KnowledgeDocument } from "@/types/knowledgeBase";
-import { AuthUser, AiPromptConfig } from "@/types/auth";
+import { AuthUser, AiPromptConfig, ConfigImportSummary } from "@/types/auth";
 import { WhatsappStatusResponse } from "@/types/whatsapp";
 import { Conversation, ConversationMessage } from "@/types/conversation";
 import { API_URL } from '../config/env';
@@ -183,6 +183,44 @@ export const ApiService = {
     // Levanta ya todas las pausas de IA post-atención en curso — botón "Reactivar IA ahora".
     async clearAiPauses(): Promise<{ cleared: number }> {
         return this.sendBackgroundRequest<{ cleared: number }>('/whatsapp/ai-pause/clear', 'POST');
+    },
+
+    // Contador de derivaciones por asesor: apagado, el reparto sigue el orden de la lista.
+    async setAdvisorCounterEnabled(enabled: boolean): Promise<{ advisorCounterEnabled: boolean }> {
+        return this.sendBackgroundRequest<{ advisorCounterEnabled: boolean }>('/whatsapp/advisor-counter-enabled', 'PUT', { enabled });
+    },
+
+    // Parada de emergencia: corta todo envío automático de la cuenta (ver EmergencyStopService en
+    // el backend). `cleanup` solo viene al activarla: cuántas cosas a medias se limpiaron.
+    async setEmergencyStop(active: boolean): Promise<{
+        emergencyStop: boolean;
+        cleanup?: { queueCleared: number; handoffsCleared: number; flowStatesCleared: number };
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/emergency-stop', 'PUT', { active });
+    },
+
+    // Copia de configuración (todo menos la Base de Conocimiento). Va con fetch directo, no por el
+    // puente sendMessage: el archivo puede traer los adjuntos del flujo en base64 y pesar varios MB.
+    async exportConfig(): Promise<Record<string, unknown>> {
+        const token = await getStoredToken();
+        const res = await fetch(`${API_URL}/whatsapp/config/export`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `Error al exportar la configuración (HTTP ${res.status})`);
+        return data;
+    },
+
+    async importConfig(payload: unknown): Promise<{ summary: ConfigImportSummary; user: AuthUser | null }> {
+        const token = await getStoredToken();
+        const res = await fetch(`${API_URL}/whatsapp/config/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || `Error al importar la configuración (HTTP ${res.status})`);
+        return data;
     },
 
     // === ENDPOINTS DE LA RAMA 5-base-chatbot ===

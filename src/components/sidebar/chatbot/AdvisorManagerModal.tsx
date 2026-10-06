@@ -32,6 +32,16 @@ const DEFAULT_CLARIFY_QUESTION_HINT =
 
 const onlyDigits = (s: string) => s.replace(/[^0-9]/g, '');
 
+// Mismo orden que devuelve GET /advisors (nombre sin distinguir mayúsculas, después id) — con el
+// contador apagado ese orden ES el del reparto, así que un alta/edición no puede dejarlo distinto
+// hasta la próxima recarga.
+const sortLikeBackend = (list: Advisor[]) =>
+  [...list].sort((a, b) => {
+    const an = a.name.toLowerCase();
+    const bn = b.name.toLowerCase();
+    return an < bn ? -1 : an > bn ? 1 : a.id - b.id;
+  });
+
 // Detecta el código de país de un teléfono ya guardado probando el prefijo más largo que
 // matchee primero — si no, un código corto (ej. "1") podría ganarle por casualidad a uno más
 // específico de 2-3 dígitos que también empieza igual.
@@ -236,6 +246,28 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     }
   };
 
+  // Contador de derivaciones: apagado, no se cuenta ni se muestra, y el bot reparte siguiendo el
+  // orden de esta lista sin mirar cuántos casos atendió cada asesor (para soporte técnico, donde
+  // una atención larga no significa trabajar menos). El switch se guarda al tocarlo.
+  const [counterEnabled, setCounterEnabled] = useState<boolean>(user?.advisorCounterEnabled ?? true);
+  const [savingCounter, setSavingCounter] = useState(false);
+
+  const handleCounterToggle = async (enabled: boolean) => {
+    setCounterEnabled(enabled);
+    setSavingCounter(true);
+    try {
+      const result = await ApiService.setAdvisorCounterEnabled(enabled);
+      setCounterEnabled(result.advisorCounterEnabled);
+      updateUser({ advisorCounterEnabled: result.advisorCounterEnabled });
+    } catch (err) {
+      console.error('[AdvisorManagerModal] No se pudo guardar el contador de derivaciones:', err);
+      setCounterEnabled(!enabled);
+      setError('No se pudo guardar el contador de derivaciones.');
+    } finally {
+      setSavingCounter(false);
+    }
+  };
+
   // Los 5 campos de configuración de arriba ocupaban mucho espacio fijo y tapaban el botón
   // "Agregar asesor" (había que scrollear bastante para llegar) — quedan colapsados por default
   // adentro de este desplegable.
@@ -315,10 +347,10 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
     try {
       if (editingId === 'new') {
         const created = await ApiService.createAdvisor({ name, phone: fullPhone });
-        setAdvisors((prev) => [...prev, created]);
+        setAdvisors((prev) => sortLikeBackend([...prev, created]));
       } else if (typeof editingId === 'number') {
         const updated = await ApiService.updateAdvisor(editingId, { name, phone: fullPhone });
-        setAdvisors((prev) => prev.map((a) => (a.id === editingId ? updated : a)));
+        setAdvisors((prev) => sortLikeBackend(prev.map((a) => (a.id === editingId ? updated : a))));
       }
       cancelForm();
     } catch (err) {
@@ -395,15 +427,19 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
       headerColor="bg-[#9e1114]"
       footer={
         <div className="flex items-center justify-between w-full gap-2">
-          <button
-            onClick={handleResetCounts}
-            disabled={resetting || advisors.length === 0}
-            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
-            title="Vuelve a cero el contador de derivaciones de todos los asesores"
-          >
-            {resetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-            Resetear contadores
-          </button>
+          {counterEnabled ? (
+            <button
+              onClick={handleResetCounts}
+              disabled={resetting || advisors.length === 0}
+              className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-40"
+              title="Vuelve a cero el contador de derivaciones de todos los asesores"
+            >
+              {resetting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Resetear contadores
+            </button>
+          ) : (
+            <span className="text-[10.5px] text-slate-500 dark:text-slate-400 px-1">Reparto por orden de lista</span>
+          )}
           <button
             onClick={onClose}
             className="bg-[#9e1114] hover:bg-[#800d10] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-xs cursor-pointer transition-colors"
@@ -428,6 +464,21 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
 
       {configOpen && (
         <>
+      <div className="flex items-center justify-between gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">Contador de derivaciones</p>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            {counterEnabled
+              ? 'Se cuentan los casos de cada asesor y se le da el próximo al que menos lleva.'
+              : 'Apagado: no se cuentan los casos. El próximo cliente va al asesor que sigue en la lista, sin importar cuántos atendió.'}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {savingCounter && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+          <Toggle size="sm" checked={counterEnabled} disabled={savingCounter} onChange={handleCounterToggle} />
+        </div>
+      </div>
+
       <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -718,7 +769,7 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
               <tr>
                 <th className="text-left font-bold px-2 py-1.5">Nombre</th>
                 <th className="text-left font-bold px-2 py-1.5">Teléfono</th>
-                <th className="text-center font-bold px-2 py-1.5">Derivaciones</th>
+                {counterEnabled && <th className="text-center font-bold px-2 py-1.5">Derivaciones</th>}
                 <th className="text-center font-bold px-2 py-1.5">Estado</th>
                 <th className="text-right font-bold px-2 py-1.5">Acciones</th>
               </tr>
@@ -739,7 +790,7 @@ export const AdvisorManagerModal: React.FC<{ onClose: () => void }> = ({ onClose
                       <CountryFlag code={detectCountryCode(advisor.phone)} />+{onlyDigits(advisor.phone)}
                     </span>
                   </td>
-                  <td className="px-2 py-1.5 text-center font-semibold">{advisor.handoffCount}</td>
+                  {counterEnabled && <td className="px-2 py-1.5 text-center font-semibold">{advisor.handoffCount}</td>}
                   <td className="px-2 py-1.5 text-center">
                     <Toggle size="sm" checked={advisor.isActive} disabled={busyId === advisor.id} onChange={(v) => toggleActive(advisor, v)} />
                   </td>

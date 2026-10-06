@@ -82,6 +82,24 @@ export interface AuthUser {
   handoffExplicitPhrases: string;
   handoffAmbiguousWords: string;
   handoffClarifyQuestion: string;
+  // false = no se cuentan las derivaciones por asesor y se reparte siguiendo el orden de la lista
+  // (ver AdvisorManagerModal.tsx). PUT /api/whatsapp/advisor-counter-enabled.
+  advisorCounterEnabled: boolean;
+  // Parada de emergencia activa: la cuenta no manda nada automático (ver EmergencyStopSection.tsx).
+  // PUT /api/whatsapp/emergency-stop.
+  emergencyStop: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// Lo que devuelve POST /api/whatsapp/config/import (ver ConfigTransferService en el backend).
+export interface ConfigImportSummary {
+  settings: number;
+  advisors: number;
+  keywordRules: number;
+  flow: 'replaced' | 'removed' | 'unchanged';
+  flowMedia: number;
+  flowMediaSkipped: boolean;
+  contacts: number;
+  contactsSkipped: boolean;
 }
