@@ -170,6 +170,25 @@ export const ApiService = {
         return this.sendBackgroundRequest('/whatsapp/handoff-intent-config', 'PUT', config);
     },
 
+    // Mensaje de bienvenida al activarse un chat — ver WelcomeMessageService en el backend.
+    // En minutos (el panel ofrece minutos u horas como unidad, pero siempre se manda en minutos).
+    async setWelcomeMessage(config: { enabled: boolean; text: string; inactivityMinutes: number }): Promise<{
+        welcomeMessageEnabled: boolean;
+        welcomeMessageText: string;
+        welcomeInactivityMinutes: number;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/welcome-message', 'PUT', config);
+    },
+
+    // Comando STOP: el cliente escribe la palabra clave y el bot se apaga para ese contacto
+    // puntual — ver BotContactService.stopBotFor en el backend. minutes=0 es permanente.
+    async setStopCommand(config: { keyword: string; minutes: number }): Promise<{
+        stopCommandKeyword: string;
+        stopCommandMinutes: number;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/stop-command', 'PUT', config);
+    },
+
     async setAdvisorFinishKeywords(keywords: string): Promise<{ advisorFinishKeywords: string }> {
         return this.sendBackgroundRequest<{ advisorFinishKeywords: string }>('/whatsapp/advisor-finish-keywords', 'PUT', { keywords });
     },

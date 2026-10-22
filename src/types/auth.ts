@@ -88,6 +88,19 @@ export interface AuthUser {
   // Parada de emergencia activa: la cuenta no manda nada automático (ver EmergencyStopSection.tsx).
   // PUT /api/whatsapp/emergency-stop.
   emergencyStop: boolean;
+  // Mensaje de bienvenida (presentación del bot) que se manda cada vez que se activa un chat: el
+  // primer mensaje del cliente, o el primero tras welcomeInactivityMinutes sin mensajes. Texto vacío
+  // = el default del backend. PUT /api/whatsapp/welcome-message. En minutos (el panel ofrece
+  // minutos u horas como unidad, pero siempre se guarda y se manda en minutos).
+  welcomeMessageEnabled: boolean;
+  welcomeMessageText: string;
+  welcomeInactivityMinutes: number;
+  // Comando STOP: el cliente escribe esta palabra (case-insensitive) en un chat individual y el
+  // bot se apaga para ESE contacto puntual — mismo switch que "Bot habilitado por contacto" del
+  // panel. stopCommandMinutes = 0 es permanente; mayor a 0 se reactiva solo después de esos minutos.
+  // PUT /api/whatsapp/stop-command.
+  stopCommandKeyword: string;
+  stopCommandMinutes: number;
   createdAt: string;
   updatedAt: string;
 }

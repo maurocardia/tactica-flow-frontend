@@ -26,4 +26,5 @@ export type ModalId =
   | 'ai-transcribe'
   | 'bot-flow'
   | 'contact-bot-switches'
-  | 'advisor-manager';
+  | 'advisor-manager'
+  | 'welcome-message';

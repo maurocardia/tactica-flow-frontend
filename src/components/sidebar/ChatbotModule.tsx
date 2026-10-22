@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Bot, ChevronDown, X, Loader2, Sparkles, Settings, Users, ExternalLink, GripVertical, Pencil, Check, Clock, Shuffle, ListChecks, Headset } from 'lucide-react';
+import { Bot, ChevronDown, X, Loader2, Sparkles, Settings, Users, ExternalLink, GripVertical, Pencil, Check, Clock, Shuffle, ListChecks, Headset, MessageSquareText } from 'lucide-react';
 import { useAutoReply } from '@/hooks/useAutoReply';
 import { useKnowledgeBases } from '@/state/KnowledgeBaseContext';
 import { useModal } from '@/state/ModalContext';
@@ -43,7 +43,15 @@ const ChatbotModule: React.FC = () => {
           }));
           // Estos dos no viven en `config` sino en el `user` cacheado: si la parada de emergencia
           // se activó desde otro navegador, el cartel rojo del panel tiene que enterarse igual.
-          updateUser({ emergencyStop: freshUser.emergencyStop, advisorCounterEnabled: freshUser.advisorCounterEnabled });
+          updateUser({
+            emergencyStop: freshUser.emergencyStop,
+            advisorCounterEnabled: freshUser.advisorCounterEnabled,
+            welcomeMessageEnabled: freshUser.welcomeMessageEnabled,
+            welcomeMessageText: freshUser.welcomeMessageText,
+            welcomeInactivityMinutes: freshUser.welcomeInactivityMinutes,
+            stopCommandKeyword: freshUser.stopCommandKeyword,
+            stopCommandMinutes: freshUser.stopCommandMinutes,
+          });
         }
       })
       .catch((err) => {
@@ -172,14 +180,19 @@ const ChatbotModule: React.FC = () => {
   const botMode: 'none' | 'selected' | 'all' = !enabled ? 'none' : botReplyToAll ? 'all' : 'selected';
 
   // Orden de las secciones de abajo, a gusto del usuario (arrastrando el ícono de agarre) — se
-  // guarda en config, que ya persiste solo en chrome.storage.local (ver AppStateContext). Si el
-  // valor guardado no tiene exactamente estos 4 ids (config viejo de antes de este cambio, o
-  // corrupto), cae al orden por default en vez de romper.
-  const sectionOrder: SectionId[] =
-    config.chatbotSectionOrder?.length === SECTION_IDS.length &&
-    SECTION_IDS.every((id) => config.chatbotSectionOrder.includes(id))
-      ? (config.chatbotSectionOrder as SectionId[])
-      : DEFAULT_SECTION_ORDER;
+  // guarda en config, que ya persiste solo en chrome.storage.local (ver AppStateContext). Del valor
+  // guardado se descartan ids desconocidos, y una sección nueva (que el orden guardado todavía no
+  // conoce) se inserta en su lugar por default — así agregar una sección no resetea el orden.
+  const savedOrder = (config.chatbotSectionOrder ?? []).filter(
+    (id, i, arr): id is SectionId => (SECTION_IDS as readonly string[]).includes(id) && arr.indexOf(id) === i
+  );
+  const sectionOrder: SectionId[] = savedOrder.length === 0 ? DEFAULT_SECTION_ORDER.slice() : savedOrder;
+  for (const id of DEFAULT_SECTION_ORDER) {
+    if (!sectionOrder.includes(id)) {
+      const prev = DEFAULT_SECTION_ORDER[DEFAULT_SECTION_ORDER.indexOf(id) - 1];
+      sectionOrder.splice(prev ? sectionOrder.indexOf(prev) + 1 : 0, 0, id);
+    }
+  }
 
   const [draggingId, setDraggingId] = useState<SectionId | null>(null);
   // El ícono de agarre solo aparece en "modo edición" — mostrarlo siempre arriesgaba arrastres
@@ -472,7 +485,7 @@ const ChatbotModule: React.FC = () => {
       {/* Botones inferiores — "Editar flujo" no tiene sentido en modo "Solo IA" (el flujo visual
           queda ignorado del lado del backend en ese modo). "Asesores" no depende del modo: la
           derivación humana es independiente de si responde el flujo, la IA, o ambos. */}
-      <div className={`grid gap-2 mt-0.5 ${replyMode === 'ai_only' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+      <div className={`grid gap-2 mt-0.5 ${replyMode === 'ai_only' ? 'grid-cols-3' : 'grid-cols-4'}`}>
         {replyMode !== 'ai_only' && (
           <button
             onClick={() => openModal('bot-flow')}
@@ -492,6 +505,12 @@ const ChatbotModule: React.FC = () => {
           className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs flex items-center justify-center gap-1.5 leading-tight cursor-pointer hover:scale-[1.02]"
         >
           <Headset className="w-3.5 h-3.5 shrink-0" /> Asesores
+        </button>
+        <button
+          onClick={() => openModal('welcome-message')}
+          className="glass-pill hover:bg-red-50/70 dark:hover:bg-slate-800 text-[#9e1114] dark:text-red-300 font-bold text-xs py-2.5 px-2 rounded-xl transition-all border border-red-200/50 dark:border-red-900/60 shadow-2xs flex items-center justify-center gap-1.5 leading-tight cursor-pointer hover:scale-[1.02]"
+        >
+          <MessageSquareText className="w-3.5 h-3.5 shrink-0" /> Bienvenida
         </button>
       </div>
     </div>
