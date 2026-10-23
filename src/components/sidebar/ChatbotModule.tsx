@@ -52,6 +52,8 @@ const ChatbotModule: React.FC = () => {
             stopCommandKeyword: freshUser.stopCommandKeyword,
             stopCommandMinutes: freshUser.stopCommandMinutes,
             stopCommandMessage: freshUser.stopCommandMessage,
+            resumeCommandEnabled: freshUser.resumeCommandEnabled,
+            resumeCommandKeyword: freshUser.resumeCommandKeyword,
           });
         }
       })

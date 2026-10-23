@@ -104,6 +104,10 @@ export interface AuthUser {
   // Mensaje que recibe el cliente al activar el STOP — vacío = default del backend. Admite los
   // placeholders {palabra} (keyword) y {tiempo} (duración configurada, en texto legible).
   stopCommandMessage: string;
+  // Comando de reactivación (contracara del STOP, apagado por default): si el cliente escribe esta
+  // palabra con el bot apagado, se lo vuelve a prender. PUT /api/whatsapp/resume-command.
+  resumeCommandEnabled: boolean;
+  resumeCommandKeyword: string;
   createdAt: string;
   updatedAt: string;
 }

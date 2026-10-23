@@ -115,6 +115,32 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
   const stopDraftDirty = stopDraftMinutes !== stopMinutes;
   const stopDisplayValue = toDisplay(stopDraftMinutes, stopUnit);
 
+  // Comando de reactivación (contracara del STOP, apagado por default): el cliente escribe esta
+  // palabra con el bot apagado y se lo vuelve a prender. Switch guarda al tocarlo; la palabra, al
+  // perder el foco (mismo patrón que el resto del popup).
+  const [resumeEnabled, setResumeEnabled] = useState<boolean>(user?.resumeCommandEnabled ?? false);
+  const [resumeKeyword, setResumeKeyword] = useState<string>(user?.resumeCommandKeyword ?? 'INICIAR');
+  const [savingResume, setSavingResume] = useState(false);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+
+  const saveResumeCommand = async (enabled: boolean, keyword: string) => {
+    const trimmedKeyword = keyword.trim() || 'INICIAR';
+    setResumeEnabled(enabled);
+    setResumeKeyword(trimmedKeyword);
+    if (!user) return;
+    setSavingResume(true);
+    setResumeError(null);
+    try {
+      const result = await ApiService.setResumeCommand({ enabled, keyword: trimmedKeyword });
+      updateUser({ resumeCommandEnabled: result.resumeCommandEnabled, resumeCommandKeyword: result.resumeCommandKeyword });
+    } catch (err) {
+      console.error('[WelcomeMessageModal] No se pudo guardar el comando de reactivación:', err);
+      setResumeError('No se pudo guardar el comando de reactivación.');
+    } finally {
+      setSavingResume(false);
+    }
+  };
+
   return (
     <Modal
       title="Mensaje de bienvenida"
@@ -154,7 +180,9 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
               className={`${fieldInputClass} resize-y`}
             />
             <span className="text-[9.5px] text-slate-500 dark:text-slate-400 px-0.5 leading-snug">
-              Usá <b>{'{nombre}'}</b> para el nombre del contacto. Vacío = texto por defecto.
+              Usá <b>{'{nombre}'}</b> para el nombre del contacto, <b>{'{palabra}'}</b> para la
+              palabra clave del comando STOP y <b>{'{tiempo}'}</b> para su duración configurada
+              (ej: "20 minutos", "3 horas", "siempre"). Vacío = texto por defecto.
             </span>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">
@@ -261,6 +289,34 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
           (ej: "20 minutos", "3 horas", "siempre"). Vacío = texto por defecto.
         </span>
         {stopError && <span className="text-[9.5px] text-red-500 font-semibold px-0.5">{stopError}</span>}
+
+        <div className="border-t border-slate-200 dark:border-slate-700 pt-2 mt-0.5 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800 dark:text-slate-200">
+              Comando de reactivación
+              {savingResume && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
+            </span>
+            <Toggle size="sm" checked={resumeEnabled} onChange={(v) => saveResumeCommand(v, resumeKeyword)} />
+          </div>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            Si está prendido, un cliente con el bot apagado (por STOP o a mano desde el panel) puede
+            volver a prenderlo solo escribiendo esta palabra.
+          </p>
+          {resumeEnabled && (
+            <label className="flex flex-col gap-0.5">
+              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Palabra</span>
+              <input
+                type="text"
+                value={resumeKeyword}
+                onChange={(e) => setResumeKeyword(e.target.value)}
+                onBlur={() => saveResumeCommand(resumeEnabled, resumeKeyword)}
+                placeholder="INICIAR"
+                className={fieldInputClass}
+              />
+            </label>
+          )}
+          {resumeError && <span className="text-[9.5px] text-red-500 font-semibold px-0.5">{resumeError}</span>}
+        </div>
       </div>
     </Modal>
   );

@@ -191,6 +191,15 @@ export const ApiService = {
         return this.sendBackgroundRequest('/whatsapp/stop-command', 'PUT', config);
     },
 
+    // Comando de reactivación (contracara del STOP, apagado por default): el cliente escribe esta
+    // palabra con el bot apagado y se lo vuelve a prender — ver BotContactService.resumeBotFor.
+    async setResumeCommand(config: { enabled: boolean; keyword: string }): Promise<{
+        resumeCommandEnabled: boolean;
+        resumeCommandKeyword: string;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/resume-command', 'PUT', config);
+    },
+
     async setAdvisorFinishKeywords(keywords: string): Promise<{ advisorFinishKeywords: string }> {
         return this.sendBackgroundRequest<{ advisorFinishKeywords: string }>('/whatsapp/advisor-finish-keywords', 'PUT', { keywords });
     },
