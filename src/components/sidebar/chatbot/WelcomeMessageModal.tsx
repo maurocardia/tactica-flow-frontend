@@ -24,8 +24,11 @@ const STOP_COMMAND_MESSAGE_PLACEHOLDER =
 type TimeUnit = 'minutes' | 'hours';
 
 // Todo se guarda en minutos (igual que el backend) — este selector es solo para mostrar/editar
-// el número en la unidad que sea más cómoda, sin perder precisión por redondeos de hora.
-const toDisplay = (minutes: number, unit: TimeUnit) => (unit === 'hours' ? minutes / 60 : minutes);
+// el número en la unidad que sea más cómoda. En horas se redondea a 3 decimales para mostrar
+// (ej. 1 minuto = "0.017" en vez del decimal periódico entero); lo que se guarda sigue siendo
+// el valor en minutos sin redondear de más (toMinutes no pasa por este redondeo).
+const toDisplay = (minutes: number, unit: TimeUnit) =>
+  unit === 'hours' ? Math.round((minutes / 60) * 1000) / 1000 : minutes;
 const toMinutes = (value: number, unit: TimeUnit) => (unit === 'hours' ? value * 60 : value);
 
 // Configuración del mensaje de bienvenida y del comando STOP — antes vivían como una sección
