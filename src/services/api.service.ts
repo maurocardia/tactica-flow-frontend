@@ -170,6 +170,36 @@ export const ApiService = {
         return this.sendBackgroundRequest('/whatsapp/handoff-intent-config', 'PUT', config);
     },
 
+    // Mensaje de bienvenida al activarse un chat — ver WelcomeMessageService en el backend.
+    // En minutos (el panel ofrece minutos u horas como unidad, pero siempre se manda en minutos).
+    async setWelcomeMessage(config: { enabled: boolean; text: string; inactivityMinutes: number }): Promise<{
+        welcomeMessageEnabled: boolean;
+        welcomeMessageText: string;
+        welcomeInactivityMinutes: number;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/welcome-message', 'PUT', config);
+    },
+
+    // Comando STOP: el cliente escribe la palabra clave y el bot se apaga para ese contacto
+    // puntual — ver BotContactService.stopBotFor en el backend. minutes=0 es permanente.
+    // "message" acepta {palabra} y {tiempo} — ver WelcomeMessageService.renderStopMessage.
+    async setStopCommand(config: { keyword: string; minutes: number; message: string }): Promise<{
+        stopCommandKeyword: string;
+        stopCommandMinutes: number;
+        stopCommandMessage: string;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/stop-command', 'PUT', config);
+    },
+
+    // Comando de reactivación (contracara del STOP, apagado por default): el cliente escribe esta
+    // palabra con el bot apagado y se lo vuelve a prender — ver BotContactService.resumeBotFor.
+    async setResumeCommand(config: { enabled: boolean; keyword: string }): Promise<{
+        resumeCommandEnabled: boolean;
+        resumeCommandKeyword: string;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/resume-command', 'PUT', config);
+    },
+
     async setAdvisorFinishKeywords(keywords: string): Promise<{ advisorFinishKeywords: string }> {
         return this.sendBackgroundRequest<{ advisorFinishKeywords: string }>('/whatsapp/advisor-finish-keywords', 'PUT', { keywords });
     },
