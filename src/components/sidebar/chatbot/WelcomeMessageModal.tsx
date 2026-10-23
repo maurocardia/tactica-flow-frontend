@@ -19,7 +19,7 @@ const STOP_COMMAND_MINUTES_MIN = 0;
 const STOP_COMMAND_MINUTES_MAX = 525600; // 1 año
 const STOP_COMMAND_MESSAGE_MAX_LEN = 1500;
 const STOP_COMMAND_MESSAGE_PLACEHOLDER =
-  'Listo, no te vamos a volver a escribir. Si necesitás ayuda, escribinos cuando quieras.';
+  'Listo, no te vamos a escribir más. Si nos necesitás de nuevo, reactivá escribiendo {reactivacion}.';
 
 type TimeUnit = 'minutes' | 'hours';
 
@@ -285,8 +285,9 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
           />
         </label>
         <span className="text-[9.5px] text-slate-500 dark:text-slate-400 px-0.5 leading-snug">
-          Usá <b>{'{palabra}'}</b> para la palabra clave y <b>{'{tiempo}'}</b> para la duración configurada
-          (ej: "20 minutos", "3 horas", "siempre"). Vacío = texto por defecto.
+          Usá <b>{'{palabra}'}</b> para la palabra clave, <b>{'{tiempo}'}</b> para la duración configurada
+          (ej: "20 minutos", "3 horas", "siempre") y <b>{'{reactivacion}'}</b> para la palabra del
+          comando de reactivación. Vacío = texto por defecto.
         </span>
         {stopError && <span className="text-[9.5px] text-red-500 font-semibold px-0.5">{stopError}</span>}
 
