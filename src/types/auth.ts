@@ -101,6 +101,9 @@ export interface AuthUser {
   // PUT /api/whatsapp/stop-command.
   stopCommandKeyword: string;
   stopCommandMinutes: number;
+  // Mensaje que recibe el cliente al activar el STOP — vacío = default del backend. Admite los
+  // placeholders {palabra} (keyword) y {tiempo} (duración configurada, en texto legible).
+  stopCommandMessage: string;
   createdAt: string;
   updatedAt: string;
 }

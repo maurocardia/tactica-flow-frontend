@@ -182,9 +182,11 @@ export const ApiService = {
 
     // Comando STOP: el cliente escribe la palabra clave y el bot se apaga para ese contacto
     // puntual — ver BotContactService.stopBotFor en el backend. minutes=0 es permanente.
-    async setStopCommand(config: { keyword: string; minutes: number }): Promise<{
+    // "message" acepta {palabra} y {tiempo} — ver WelcomeMessageService.renderStopMessage.
+    async setStopCommand(config: { keyword: string; minutes: number; message: string }): Promise<{
         stopCommandKeyword: string;
         stopCommandMinutes: number;
+        stopCommandMessage: string;
     }> {
         return this.sendBackgroundRequest('/whatsapp/stop-command', 'PUT', config);
     },

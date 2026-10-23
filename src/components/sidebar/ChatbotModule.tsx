@@ -51,6 +51,7 @@ const ChatbotModule: React.FC = () => {
             welcomeInactivityMinutes: freshUser.welcomeInactivityMinutes,
             stopCommandKeyword: freshUser.stopCommandKeyword,
             stopCommandMinutes: freshUser.stopCommandMinutes,
+            stopCommandMessage: freshUser.stopCommandMessage,
           });
         }
       })

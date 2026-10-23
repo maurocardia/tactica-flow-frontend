@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, MessageSquareText } from 'lucide-react';
+import { Loader2, MessageSquareText, Check } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { Toggle } from '@/components/ui/Toggle';
 import { fieldInputClass } from '@/components/ui/Field';
@@ -17,6 +17,9 @@ const WELCOME_MESSAGE_PLACEHOLDER =
 // Mismos límites que valida el backend (PUT /api/whatsapp/stop-command), en minutos.
 const STOP_COMMAND_MINUTES_MIN = 0;
 const STOP_COMMAND_MINUTES_MAX = 525600; // 1 año
+const STOP_COMMAND_MESSAGE_MAX_LEN = 1500;
+const STOP_COMMAND_MESSAGE_PLACEHOLDER =
+  'Listo, no te vamos a volver a escribir. Si necesitás ayuda, escribinos cuando quieras.';
 
 type TimeUnit = 'minutes' | 'hours';
 
@@ -33,10 +36,16 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
 
   const welcomeEnabled = user?.welcomeMessageEnabled ?? false;
   const [welcomeText, setWelcomeText] = useState<string>(user?.welcomeMessageText ?? '');
-  const [welcomeMinutes, setWelcomeMinutes] = useState<number>(user?.welcomeInactivityMinutes ?? 720);
-  const [welcomeUnit, setWelcomeUnit] = useState<TimeUnit>('hours');
   const [savingWelcome, setSavingWelcome] = useState(false);
   const [welcomeError, setWelcomeError] = useState<string | null>(null);
+
+  // `welcomeMinutes` es el valor YA GUARDADO (lo que usan el switch y el texto al guardarse solos
+  // al perder el foco). `welcomeDraftMinutes` es lo que se está escribiendo en el input de tiempo:
+  // no se manda solo — hace falta tocar "Aplicar" para que pise al valor guardado (a pedido:
+  // "si tiene 20 minutos y la cambio a 3 por medio de un botón, usar 3 en vez de 20").
+  const [welcomeMinutes, setWelcomeMinutes] = useState<number>(user?.welcomeInactivityMinutes ?? 720);
+  const [welcomeDraftMinutes, setWelcomeDraftMinutes] = useState<number>(user?.welcomeInactivityMinutes ?? 720);
+  const [welcomeUnit, setWelcomeUnit] = useState<TimeUnit>('hours');
 
   const saveWelcome = async (enabled: boolean, text: string, minutes: number) => {
     const clampedMinutes = Math.min(
@@ -44,6 +53,7 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
       Math.max(WELCOME_INACTIVITY_MINUTES_MIN, Math.round(minutes) || 720)
     );
     setWelcomeMinutes(clampedMinutes);
+    setWelcomeDraftMinutes(clampedMinutes);
     updateUser({ welcomeMessageEnabled: enabled });
     if (!user) return;
     setSavingWelcome(true);
@@ -63,25 +73,34 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
     }
   };
 
-  const welcomeDisplayValue = toDisplay(welcomeMinutes, welcomeUnit);
+  const welcomeDraftDirty = welcomeDraftMinutes !== welcomeMinutes;
+  const welcomeDisplayValue = toDisplay(welcomeDraftMinutes, welcomeUnit);
 
+  const stopEnabledMinutesInitial = user?.stopCommandMinutes ?? 0;
   const [stopKeyword, setStopKeyword] = useState<string>(user?.stopCommandKeyword ?? 'STOP');
-  const [stopMinutes, setStopMinutes] = useState<number>(user?.stopCommandMinutes ?? 0);
+  const [stopMessage, setStopMessage] = useState<string>(user?.stopCommandMessage ?? '');
+  const [stopMinutes, setStopMinutes] = useState<number>(stopEnabledMinutesInitial);
+  const [stopDraftMinutes, setStopDraftMinutes] = useState<number>(stopEnabledMinutesInitial);
   const [stopUnit, setStopUnit] = useState<TimeUnit>('hours');
   const [savingStop, setSavingStop] = useState(false);
   const [stopError, setStopError] = useState<string | null>(null);
 
-  const saveStopCommand = async (keyword: string, minutes: number) => {
+  const saveStopCommand = async (keyword: string, minutes: number, message: string) => {
     const trimmedKeyword = keyword.trim() || 'STOP';
     const clampedMinutes = Math.min(STOP_COMMAND_MINUTES_MAX, Math.max(STOP_COMMAND_MINUTES_MIN, Math.round(minutes) || 0));
     setStopKeyword(trimmedKeyword);
     setStopMinutes(clampedMinutes);
+    setStopDraftMinutes(clampedMinutes);
     if (!user) return;
     setSavingStop(true);
     setStopError(null);
     try {
-      const result = await ApiService.setStopCommand({ keyword: trimmedKeyword, minutes: clampedMinutes });
-      updateUser({ stopCommandKeyword: result.stopCommandKeyword, stopCommandMinutes: result.stopCommandMinutes });
+      const result = await ApiService.setStopCommand({ keyword: trimmedKeyword, minutes: clampedMinutes, message: message.trim() });
+      updateUser({
+        stopCommandKeyword: result.stopCommandKeyword,
+        stopCommandMinutes: result.stopCommandMinutes,
+        stopCommandMessage: result.stopCommandMessage,
+      });
     } catch (err) {
       console.error('[WelcomeMessageModal] No se pudo guardar el comando STOP:', err);
       setStopError('No se pudo guardar el comando STOP.');
@@ -90,7 +109,8 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
     }
   };
 
-  const stopDisplayValue = toDisplay(stopMinutes, stopUnit);
+  const stopDraftDirty = stopDraftMinutes !== stopMinutes;
+  const stopDisplayValue = toDisplay(stopDraftMinutes, stopUnit);
 
   return (
     <Modal
@@ -143,8 +163,7 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
                   min={toDisplay(WELCOME_INACTIVITY_MINUTES_MIN, welcomeUnit)}
                   max={toDisplay(WELCOME_INACTIVITY_MINUTES_MAX, welcomeUnit)}
                   value={welcomeDisplayValue}
-                  onChange={(e) => setWelcomeMinutes(toMinutes(Number(e.target.value), welcomeUnit))}
-                  onBlur={() => saveWelcome(welcomeEnabled, welcomeText, welcomeMinutes)}
+                  onChange={(e) => setWelcomeDraftMinutes(toMinutes(Number(e.target.value), welcomeUnit))}
                   className={`${fieldInputClass} w-20 text-center`}
                 />
                 <select
@@ -155,6 +174,14 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
                   <option value="minutes">minutos</option>
                   <option value="hours">horas</option>
                 </select>
+                <button
+                  onClick={() => saveWelcome(welcomeEnabled, welcomeText, welcomeDraftMinutes)}
+                  disabled={!welcomeDraftDirty || savingWelcome}
+                  title="Usar este valor en vez del guardado"
+                  className="flex items-center gap-1 bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold text-[10.5px] px-2.5 py-1.5 rounded-lg shadow-xs cursor-pointer transition-colors"
+                >
+                  <Check className="w-3 h-3" /> Aplicar
+                </button>
               </div>
             </div>
           </>
@@ -170,19 +197,17 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
         <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
           Si un cliente escribe esta palabra en un chat individual, el bot se apaga solo para él.
         </p>
-        <div className="flex items-center gap-2">
-          <label className="flex-1 flex flex-col gap-0.5">
-            <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Palabra</span>
-            <input
-              type="text"
-              value={stopKeyword}
-              onChange={(e) => setStopKeyword(e.target.value)}
-              onBlur={() => saveStopCommand(stopKeyword, stopMinutes)}
-              placeholder="STOP"
-              className={fieldInputClass}
-            />
-          </label>
-        </div>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Palabra</span>
+          <input
+            type="text"
+            value={stopKeyword}
+            onChange={(e) => setStopKeyword(e.target.value)}
+            onBlur={() => saveStopCommand(stopKeyword, stopMinutes, stopMessage)}
+            placeholder="STOP"
+            className={fieldInputClass}
+          />
+        </label>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">
             Tiempo apagado (0 = siempre)
@@ -193,8 +218,7 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
               min={0}
               max={toDisplay(STOP_COMMAND_MINUTES_MAX, stopUnit)}
               value={stopDisplayValue}
-              onChange={(e) => setStopMinutes(toMinutes(Number(e.target.value), stopUnit))}
-              onBlur={() => saveStopCommand(stopKeyword, stopMinutes)}
+              onChange={(e) => setStopDraftMinutes(toMinutes(Number(e.target.value), stopUnit))}
               className={`${fieldInputClass} w-20 text-center`}
             />
             <select
@@ -205,8 +229,34 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
               <option value="minutes">minutos</option>
               <option value="hours">horas</option>
             </select>
+            <button
+              onClick={() => saveStopCommand(stopKeyword, stopDraftMinutes, stopMessage)}
+              disabled={!stopDraftDirty || savingStop}
+              title="Usar este valor en vez del guardado"
+              className="flex items-center gap-1 bg-[#9e1114] hover:bg-[#800d10] disabled:opacity-30 disabled:cursor-not-allowed text-white font-bold text-[10.5px] px-2.5 py-1.5 rounded-lg shadow-xs cursor-pointer transition-colors"
+            >
+              <Check className="w-3 h-3" /> Aplicar
+            </button>
           </div>
         </div>
+        <label className="flex flex-col gap-0.5">
+          <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            Mensaje para el cliente
+          </span>
+          <textarea
+            rows={3}
+            maxLength={STOP_COMMAND_MESSAGE_MAX_LEN}
+            value={stopMessage}
+            onChange={(e) => setStopMessage(e.target.value)}
+            onBlur={() => saveStopCommand(stopKeyword, stopMinutes, stopMessage)}
+            placeholder={STOP_COMMAND_MESSAGE_PLACEHOLDER}
+            className={`${fieldInputClass} resize-y`}
+          />
+        </label>
+        <span className="text-[9.5px] text-slate-500 dark:text-slate-400 px-0.5 leading-snug">
+          Usá <b>{'{palabra}'}</b> para la palabra clave y <b>{'{tiempo}'}</b> para la duración configurada
+          (ej: "20 minutos", "3 horas", "siempre"). Vacío = texto por defecto.
+        </span>
         {stopError && <span className="text-[9.5px] text-red-500 font-semibold px-0.5">{stopError}</span>}
       </div>
     </Modal>
