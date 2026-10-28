@@ -14,14 +14,17 @@ const WELCOME_MESSAGE_MAX_LEN = 1500;
 const WELCOME_MESSAGE_PLACEHOLDER =
   '¡Hola, {nombre}! 👋 Te damos la bienvenida.\n\nSoy el asistente virtual y estoy para ayudarte con tus consultas. Si hay algo que no pueda resolver, te paso con una persona de nuestro equipo.\n\n¿En qué te puedo ayudar?';
 
-// Mismos límites que valida el backend (PUT /api/whatsapp/stop-command), en minutos.
-const STOP_COMMAND_MINUTES_MIN = 0;
+// Mismos límites que valida el backend (PUT /api/whatsapp/stop-command), en minutos. El STOP lo
+// escribe el asesor en el puente y pausa el bot para su cliente (default 1 hora).
+const STOP_COMMAND_MINUTES_MIN = 1;
 const STOP_COMMAND_MINUTES_MAX = 525600; // 1 año
-const STOP_COMMAND_MESSAGE_MAX_LEN = 1500;
-const STOP_COMMAND_MESSAGE_PLACEHOLDER =
-  'Listo, no te vamos a escribir más. Si nos necesitás de nuevo, reactivá escribiendo {reactivacion}.';
+const STOP_COMMAND_MINUTES_DEFAULT = 60;
 
 type TimeUnit = 'minutes' | 'hours';
+
+// Horas solo si el valor es de horas enteras — si no, minutos (antes 5 minutos se mostraba como
+// "0,083 horas").
+const pickUnit = (minutes: number): TimeUnit => (minutes > 0 && minutes % 60 === 0 ? 'hours' : 'minutes');
 
 // Todo se guarda en minutos (igual que el backend) — este selector es solo para mostrar/editar
 // el número en la unidad que sea más cómoda. En horas se redondea a 3 decimales para mostrar
@@ -48,7 +51,7 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
   // "si tiene 20 minutos y la cambio a 3 por medio de un botón, usar 3 en vez de 20").
   const [welcomeMinutes, setWelcomeMinutes] = useState<number>(user?.welcomeInactivityMinutes ?? 720);
   const [welcomeDraftMinutes, setWelcomeDraftMinutes] = useState<number>(user?.welcomeInactivityMinutes ?? 720);
-  const [welcomeUnit, setWelcomeUnit] = useState<TimeUnit>('hours');
+  const [welcomeUnit, setWelcomeUnit] = useState<TimeUnit>(pickUnit(user?.welcomeInactivityMinutes ?? 720));
 
   const saveWelcome = async (enabled: boolean, text: string, minutes: number) => {
     const clampedMinutes = Math.min(
@@ -79,18 +82,24 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
   const welcomeDraftDirty = welcomeDraftMinutes !== welcomeMinutes;
   const welcomeDisplayValue = toDisplay(welcomeDraftMinutes, welcomeUnit);
 
-  const stopEnabledMinutesInitial = user?.stopCommandMinutes ?? 0;
+  const stopEnabledMinutesInitial =
+    user?.stopCommandMinutes && user.stopCommandMinutes > 0 ? user.stopCommandMinutes : STOP_COMMAND_MINUTES_DEFAULT;
   const [stopKeyword, setStopKeyword] = useState<string>(user?.stopCommandKeyword ?? 'STOP');
-  const [stopMessage, setStopMessage] = useState<string>(user?.stopCommandMessage ?? '');
+  // Ya no se edita (era el aviso al cliente cuando el STOP lo escribía él) — se reenvía tal cual
+  // porque el endpoint lo sigue pidiendo.
+  const stopMessage = user?.stopCommandMessage ?? '';
   const [stopMinutes, setStopMinutes] = useState<number>(stopEnabledMinutesInitial);
   const [stopDraftMinutes, setStopDraftMinutes] = useState<number>(stopEnabledMinutesInitial);
-  const [stopUnit, setStopUnit] = useState<TimeUnit>('hours');
+  const [stopUnit, setStopUnit] = useState<TimeUnit>(pickUnit(stopEnabledMinutesInitial));
   const [savingStop, setSavingStop] = useState(false);
   const [stopError, setStopError] = useState<string | null>(null);
 
   const saveStopCommand = async (keyword: string, minutes: number, message: string) => {
     const trimmedKeyword = keyword.trim() || 'STOP';
-    const clampedMinutes = Math.min(STOP_COMMAND_MINUTES_MAX, Math.max(STOP_COMMAND_MINUTES_MIN, Math.round(minutes) || 0));
+    const clampedMinutes = Math.min(
+      STOP_COMMAND_MINUTES_MAX,
+      Math.max(STOP_COMMAND_MINUTES_MIN, Math.round(minutes) || STOP_COMMAND_MINUTES_DEFAULT)
+    );
     setStopKeyword(trimmedKeyword);
     setStopMinutes(clampedMinutes);
     setStopDraftMinutes(clampedMinutes);
@@ -180,9 +189,7 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
               className={`${fieldInputClass} resize-y`}
             />
             <span className="text-[9.5px] text-slate-500 dark:text-slate-400 px-0.5 leading-snug">
-              Usá <b>{'{nombre}'}</b> para el nombre del contacto, <b>{'{palabra}'}</b> para la
-              palabra clave del comando STOP y <b>{'{tiempo}'}</b> para su duración configurada
-              (ej: "20 minutos", "3 horas", "siempre"). Vacío = texto por defecto.
+              Usá <b>{'{nombre}'}</b> para el nombre del contacto. Vacío = texto por defecto.
             </span>
             <div className="flex items-center justify-between gap-2">
               <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">
@@ -222,11 +229,12 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
 
       <div className="flex flex-col gap-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-slate-50/60 dark:bg-slate-800/60">
         <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-800 dark:text-slate-200">
-          Comando STOP
+          Comando STOP del asesor
           {savingStop && <Loader2 className="w-3 h-3 animate-spin text-slate-400" />}
         </span>
         <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-          Si un cliente escribe esta palabra en un chat individual, el bot se apaga solo para él.
+          Si el asesor escribe esta palabra mientras atiende a un cliente, el bot queda pausado para ese cliente durante el
+          tiempo configurado. El cliente no ve la palabra; al asesor le llega la confirmación.
         </p>
         <label className="flex flex-col gap-0.5">
           <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Palabra</span>
@@ -241,12 +249,12 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
         </label>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[10.5px] font-semibold text-slate-700 dark:text-slate-300">
-            Tiempo apagado (0 = siempre)
+            Tiempo de pausa
           </span>
           <div className="flex items-center gap-1.5 shrink-0">
             <input
               type="number"
-              min={0}
+              min={toDisplay(STOP_COMMAND_MINUTES_MIN, stopUnit)}
               max={toDisplay(STOP_COMMAND_MINUTES_MAX, stopUnit)}
               value={stopDisplayValue}
               onChange={(e) => setStopDraftMinutes(toMinutes(Number(e.target.value), stopUnit))}
@@ -270,25 +278,6 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
             </button>
           </div>
         </div>
-        <label className="flex flex-col gap-0.5">
-          <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-            Mensaje para el cliente
-          </span>
-          <textarea
-            rows={3}
-            maxLength={STOP_COMMAND_MESSAGE_MAX_LEN}
-            value={stopMessage}
-            onChange={(e) => setStopMessage(e.target.value)}
-            onBlur={() => saveStopCommand(stopKeyword, stopMinutes, stopMessage)}
-            placeholder={STOP_COMMAND_MESSAGE_PLACEHOLDER}
-            className={`${fieldInputClass} resize-y`}
-          />
-        </label>
-        <span className="text-[9.5px] text-slate-500 dark:text-slate-400 px-0.5 leading-snug">
-          Usá <b>{'{palabra}'}</b> para la palabra clave, <b>{'{tiempo}'}</b> para la duración configurada
-          (ej: "20 minutos", "3 horas", "siempre") y <b>{'{reactivacion}'}</b> para la palabra del
-          comando de reactivación. Vacío = texto por defecto.
-        </span>
         {stopError && <span className="text-[9.5px] text-red-500 font-semibold px-0.5">{stopError}</span>}
 
         <div className="border-t border-slate-200 dark:border-slate-700 pt-2 mt-0.5 flex flex-col gap-1.5">
@@ -300,8 +289,8 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
             <Toggle size="sm" checked={resumeEnabled} onChange={(v) => saveResumeCommand(v, resumeKeyword)} />
           </div>
           <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
-            Si está prendido, un cliente con el bot apagado (por STOP o a mano desde el panel) puede
-            volver a prenderlo solo escribiendo esta palabra.
+            Si está prendido, un cliente con el bot apagado a mano desde el panel puede volver a prenderlo escribiendo
+            esta palabra. No levanta una pausa puesta por un asesor con STOP.
           </p>
           {resumeEnabled && (
             <label className="flex flex-col gap-0.5">
