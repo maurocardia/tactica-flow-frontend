@@ -52,7 +52,17 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const activeBotContact = useMemo(() => {
         if (!isSelected) return null;
         const target = normalizeName(contactName);
-        return botContacts.find((c) => normalizeName(c.name) === target) || null;
+        const byName = botContacts.find((c) => normalizeName(c.name) === target);
+        if (byName) return byName;
+        // Contacto no agendado: WhatsApp Web muestra el número ("+57 312 2691023") en vez de un
+        // nombre — se busca por los dígitos del jid.
+        const digits = contactName.replace(/[^0-9]/g, '');
+        if (digits.length < 7 || /[a-z]/i.test(contactName)) return null;
+        return (
+            botContacts.find((c) => !c.isGroup && c.jid.split('@')[0] === digits) ||
+            botContacts.find((c) => !c.isGroup && c.jid.split('@')[0].endsWith(digits.slice(-10))) ||
+            null
+        );
     }, [botContacts, contactName, isSelected]);
 
     const hasActiveAdvisorReservation =
