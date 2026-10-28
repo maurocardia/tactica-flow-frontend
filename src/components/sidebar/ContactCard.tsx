@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { User, CheckCircle2, Loader2, Unlock, ShieldBan, ShieldCheck } from 'lucide-react';
+import { User, CheckCircle2, Loader2, Unlock, ShieldBan, ShieldCheck, Pause, Play } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
 import { BotContact } from '@/types/botContact';
@@ -33,6 +33,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const [justReactivatedJid, setJustReactivatedJid] = useState<string | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [togglingBlacklist, setTogglingBlacklist] = useState(false);
+    const [togglingPause, setTogglingPause] = useState(false);
 
     useEffect(() => {
         if (!user) return;
@@ -75,6 +76,25 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
             console.error('[ContactCard] No se pudo reactivar el bot para este contacto:', err);
         } finally {
             setReactivating(false);
+        }
+    };
+
+    // Pausa por STOP vigente (del asesor, del dueño o de este mismo botón).
+    const pausedUntil =
+        activeBotContact?.botPausedUntil && new Date(activeBotContact.botPausedUntil) > new Date()
+            ? new Date(activeBotContact.botPausedUntil)
+            : null;
+
+    const handleTogglePause = async () => {
+        if (!activeBotContact || togglingPause) return;
+        setTogglingPause(true);
+        try {
+            const updated = await ApiService.setBotContactPaused(activeBotContact.id, !pausedUntil);
+            setBotContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        } catch (err) {
+            console.error('[ContactCard] No se pudo pausar/reanudar el bot para este contacto:', err);
+        } finally {
+            setTogglingPause(false);
         }
     };
 
@@ -125,11 +145,45 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
                 </div>
             )}
 
+            {pausedUntil && (
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 text-[11px] font-bold text-sky-800 dark:text-sky-300">
+                    ⏸️ Bot pausado para este chat hasta las{' '}
+                    {pausedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </div>
+            )}
+
             {/* Acciones rápidas sobre este contacto — SIEMPRE visibles (antes "Liberar asesor" solo
                 aparecía si había una reserva activa, y no había forma de bloquear/desbloquear desde
                 acá sin abrir el modal de Blacklist aparte). Cada botón se deshabilita solo cuando de
                 verdad no aplica (sin reserva que liberar, o contacto todavía sin sincronizar), pero
                 queda siempre a la vista para no tener que adivinar si existe. */}
+            <button
+                type="button"
+                onClick={handleTogglePause}
+                disabled={!activeBotContact || togglingPause}
+                title={
+                    !activeBotContact
+                        ? 'Este contacto todavía no se sincronizó — escribile primero'
+                        : pausedUntil
+                          ? 'Volver a prender el bot para este chat ya'
+                          : 'Pausar el bot para este chat por el tiempo del comando STOP (el cliente no ve nada)'
+                }
+                className={`w-full flex items-center justify-center gap-1 text-[10.5px] font-bold px-2 py-1.5 rounded-lg border disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-colors ${
+                    pausedUntil
+                        ? 'text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-900/40'
+                        : 'text-sky-700 dark:text-sky-300 bg-white dark:bg-slate-900 border-sky-300 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-900/40'
+                }`}
+            >
+                {togglingPause ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : pausedUntil ? (
+                    <Play className="w-3.5 h-3.5" />
+                ) : (
+                    <Pause className="w-3.5 h-3.5" />
+                )}
+                {pausedUntil ? 'Reanudar bot' : 'Pausar bot'}
+            </button>
+
             <div className="flex items-center gap-1.5">
                 <button
                     type="button"

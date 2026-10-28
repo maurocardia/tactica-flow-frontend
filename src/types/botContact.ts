@@ -21,6 +21,8 @@ export interface BotContact {
   // un segundo asesor. Ver ApiService.resumeBotForContact.
   handoffAdvisorId: number | null;
   handoffExpiresAt: string | null; // ISO timestamp, null/vencido = sin reserva activa
+  // Pausa por STOP (asesor, dueño o botón "Pausar bot"): fecha futura = el bot no le responde.
+  botPausedUntil?: string | null;
 }
 
 // Contacto ya parseado desde un archivo CSV/Excel, listo para mandar a

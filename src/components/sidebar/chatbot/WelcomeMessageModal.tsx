@@ -234,9 +234,9 @@ export const WelcomeMessageModal: React.FC<{ onClose: () => void }> = ({ onClose
         </span>
         <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
           Si el asesor escribe esta palabra mientras atiende a un cliente, el bot queda pausado para ese cliente durante el
-          tiempo configurado. El cliente no ve la palabra; al asesor le llega la confirmación. También funciona si la
-          escribís desde la cuenta del bot en el chat del cliente: el mensaje se borra para todos y la confirmación te
-          llega a "Mensaje a ti mismo".
+          tiempo configurado. El cliente no ve la palabra; al asesor le llega la confirmación. Desde la cuenta del bot,
+          sin que el cliente vea nada: escribí en "Mensaje a ti mismo" la palabra seguida del número o nombre del
+          contacto (ej: STOP 573001234567), o usá el botón "Pausar bot" de la tarjeta del chat.
         </p>
         <label className="flex flex-col gap-0.5">
           <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Palabra</span>

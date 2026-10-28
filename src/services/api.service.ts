@@ -362,6 +362,12 @@ export const ApiService = {
         return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/resume-bot`, 'PUT');
     },
 
+    // Botón "Pausar bot"/"Reanudar bot" de la tarjeta del chat (ContactCard.tsx): pausa el bot para
+    // este contacto por el tiempo del comando STOP, o levanta la pausa. El cliente no ve nada.
+    async setBotContactPaused(id: number, paused: boolean): Promise<BotContact> {
+        return this.sendBackgroundRequest<BotContact>(`/whatsapp/bot-contacts/${id}/pause`, 'PUT', { paused });
+    },
+
     // Igual que resumeBotForContact, pero por jid en vez del id de fila — para el botón
     // "Finalizar atención y reactivar bot" de la tarjeta del chat activo (ContactCard.tsx), que
     // solo conoce el jid del chat abierto, no la fila de bot_contacts.
