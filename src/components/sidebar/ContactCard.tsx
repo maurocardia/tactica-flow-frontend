@@ -159,6 +159,11 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
                 <div className="flex items-center gap-1.5 p-2 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 text-[11px] font-bold text-sky-800 dark:text-sky-300">
                     ⏸️ Bot pausado para este chat hasta las{' '}
                     {pausedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {activeBotContact?.botPausedBy
+                        ? activeBotContact.botPausedBy === 'Dueño'
+                            ? ' (lo pausó el dueño)'
+                            : ` (escribió ${activeBotContact.botPausedBy})`
+                        : ''}
                 </div>
             )}
 

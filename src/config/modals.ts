@@ -27,4 +27,5 @@ export type ModalId =
   | 'bot-flow'
   | 'contact-bot-switches'
   | 'advisor-manager'
-  | 'welcome-message';
+  | 'welcome-message'
+  | 'business-hours';

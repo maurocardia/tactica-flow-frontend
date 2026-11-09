@@ -23,6 +23,8 @@ export interface BotContact {
   handoffExpiresAt: string | null; // ISO timestamp, null/vencido = sin reserva activa
   // Pausa por STOP (asesor, dueño o botón "Pausar bot"): fecha futura = el bot no le responde.
   botPausedUntil?: string | null;
+  // Quién la puso: nombre del asesor, "Dueño", o null (botón "Pausar bot").
+  botPausedBy?: string | null;
 }
 
 // Contacto ya parseado desde un archivo CSV/Excel, listo para mandar a

@@ -10,6 +10,7 @@ import { WhatsappStatusResponse } from "@/types/whatsapp";
 import { Conversation, ConversationMessage } from "@/types/conversation";
 import { API_URL } from '../config/env';
 import { getStoredToken } from './authStorage.service';
+import type { WeeklySchedule } from '@/types/auth';
 
 export const ApiService = {
     async sendBackgroundRequest<T>(endpoint: string, method = 'GET', body?: any): Promise<T> {
@@ -198,6 +199,38 @@ export const ApiService = {
         resumeCommandKeyword: string;
     }> {
         return this.sendBackgroundRequest('/whatsapp/resume-command', 'PUT', config);
+    },
+
+    // Horario de atención (ver BusinessHoursModal).
+    async setBusinessHours(config: {
+        enabled: boolean;
+        schedule: WeeklySchedule;
+        timezone: string;
+        offHoursEnabled: boolean;
+        offHoursText: string;
+    }): Promise<{
+        businessHoursEnabled: boolean;
+        businessHours: WeeklySchedule;
+        businessHoursTimezone: string;
+        offHoursMessageEnabled: boolean;
+        offHoursMessageText: string;
+    }> {
+        return this.sendBackgroundRequest('/whatsapp/business-hours', 'PUT', config);
+    },
+
+    // Interruptor general "Bot en grupos".
+    async setGroupsBotEnabled(enabled: boolean): Promise<{ groupsBotEnabled: boolean }> {
+        return this.sendBackgroundRequest('/whatsapp/groups-bot-enabled', 'PUT', { enabled });
+    },
+
+    // "Pausar la IA cuando escribe un asesor".
+    async setAdvisorPauseEnabled(enabled: boolean): Promise<{ advisorPauseEnabled: boolean }> {
+        return this.sendBackgroundRequest('/whatsapp/advisor-pause', 'PUT', { enabled });
+    },
+
+    // Botones "Prender todos" / "Apagar todos" de la pestaña Grupos.
+    async setAllGroupsEnabled(enabled: boolean): Promise<{ updated: number }> {
+        return this.sendBackgroundRequest('/whatsapp/bot-contacts/groups/enabled', 'POST', { enabled });
     },
 
     async setAdvisorFinishKeywords(keywords: string): Promise<{ advisorFinishKeywords: string }> {

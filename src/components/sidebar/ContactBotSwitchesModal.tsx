@@ -81,6 +81,21 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
   const [adding, setAdding] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState<'contacts' | 'groups' | 'blacklist'>('contacts');
+  const [bulkGroups, setBulkGroups] = useState<'on' | 'off' | null>(null);
+
+  // Botones "Prender todos" / "Apagar todos" de la pestaña Grupos.
+  const handleAllGroups = async (enabled: boolean) => {
+    if (bulkGroups) return;
+    setBulkGroups(enabled ? 'on' : 'off');
+    try {
+      await ApiService.setAllGroupsEnabled(enabled);
+      setContacts((prev) => prev.map((c) => (c.isGroup ? { ...c, botEnabled: enabled, ...(enabled ? { botPausedUntil: null, botPausedBy: null } : {}) } : c)));
+    } catch (err) {
+      console.error('[ContactBotSwitchesModal] No se pudieron actualizar todos los grupos:', err);
+    } finally {
+      setBulkGroups(null);
+    }
+  };
 
   // Alta a la blacklist — mismo patrón de número+país que el alta normal de arriba, pero más
   // simple (no abre el chat en WhatsApp a buscar el nombre real, no hace falta para bloquear).
@@ -827,6 +842,27 @@ export const ContactBotSwitchesModal: React.FC<{ onClose: () => void }> = ({ onC
           </button>
         )}
       </div>
+
+      {tab === 'groups' && (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => handleAllGroups(true)}
+            disabled={!!bulkGroups || loading}
+            className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 disabled:opacity-40 text-[11px] font-bold cursor-pointer transition-colors"
+          >
+            {bulkGroups === 'on' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Prender todos
+          </button>
+          <button
+            onClick={() => handleAllGroups(false)}
+            disabled={!!bulkGroups || loading}
+            className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg border border-red-300 dark:border-red-900 text-[#9e1114] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 disabled:opacity-40 text-[11px] font-bold cursor-pointer transition-colors"
+          >
+            {bulkGroups === 'off' && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            Apagar todos
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between text-[10.5px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-0.5">
         <span>{tabList.length} {tab === 'contacts' ? 'contacto' : tab === 'groups' ? 'grupo' : 'bloqueado'}{tabList.length === 1 ? '' : 's'}</span>

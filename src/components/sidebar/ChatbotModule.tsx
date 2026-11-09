@@ -7,8 +7,40 @@ import { useAppState } from '@/state/AppStateContext';
 import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
 import { Toggle } from '@/components/ui/Toggle';
+import { DayKey, WeeklySchedule } from '@/types/auth';
 
-const SECTION_IDS = ['botStatus', 'newContacts', 'aiReply', 'replyDelay', 'knowledgeBase'] as const;
+// Resumen del horario para el bloque del módulo ("Lun a Vie · 09:00–13:00, 14:00–18:00") y si
+// ahora está abierto, calculado en la zona horaria elegida.
+const DAY_ORDER: DayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_SHORT: Record<DayKey, string> = { mon: 'Lun', tue: 'Mar', wed: 'Mié', thu: 'Jue', fri: 'Vie', sat: 'Sáb', sun: 'Dom' };
+const summarizeSchedule = (schedule: WeeklySchedule): string => {
+  const groups: { days: DayKey[]; key: string }[] = [];
+  for (const d of DAY_ORDER) {
+    const list = schedule[d] ?? [];
+    if (!list.length) continue;
+    const key = list.map((r) => `${r.from}–${r.to}`).join(', ');
+    const last = groups[groups.length - 1];
+    if (last && last.key === key && DAY_ORDER.indexOf(last.days[last.days.length - 1]) === DAY_ORDER.indexOf(d) - 1) last.days.push(d);
+    else groups.push({ days: [d], key });
+  }
+  if (!groups.length) return 'Sin días cargados';
+  return groups
+    .map((g) => `${g.days.length > 2 ? `${DAY_SHORT[g.days[0]]} a ${DAY_SHORT[g.days[g.days.length - 1]]}` : g.days.map((d) => DAY_SHORT[d]).join(' y ')} · ${g.key}`)
+    .join(' | ');
+};
+const isOpenNow = (schedule: WeeklySchedule, tz: string): boolean => {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', weekday: 'short', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+    const day = get('weekday').toLowerCase().slice(0, 3) as DayKey;
+    const now = `${get('hour')}:${get('minute')}`;
+    return (schedule[day] ?? []).some((r) => now >= r.from && now < r.to);
+  } catch {
+    return true;
+  }
+};
+
+const SECTION_IDS = ['botStatus', 'groupsBot', 'businessHours', 'advisorPause', 'newContacts', 'aiReply', 'replyDelay', 'knowledgeBase'] as const;
 type SectionId = (typeof SECTION_IDS)[number];
 const DEFAULT_SECTION_ORDER: SectionId[] = [...SECTION_IDS];
 
@@ -54,6 +86,13 @@ const ChatbotModule: React.FC = () => {
             stopCommandMessage: freshUser.stopCommandMessage,
             resumeCommandEnabled: freshUser.resumeCommandEnabled,
             resumeCommandKeyword: freshUser.resumeCommandKeyword,
+            businessHoursEnabled: freshUser.businessHoursEnabled,
+            businessHours: freshUser.businessHours,
+            businessHoursTimezone: freshUser.businessHoursTimezone,
+            offHoursMessageEnabled: freshUser.offHoursMessageEnabled,
+            offHoursMessageText: freshUser.offHoursMessageText,
+            groupsBotEnabled: freshUser.groupsBotEnabled,
+            advisorPauseEnabled: freshUser.advisorPauseEnabled,
           });
         }
       })
@@ -93,6 +132,28 @@ const ChatbotModule: React.FC = () => {
       });
     }
   };
+
+  // Interruptor general "Bot en grupos" y "Pausar la IA cuando escribe un asesor": viven en el
+  // `user` (no en `config`), se guardan al tocarlos.
+  const groupsBotEnabled = user?.groupsBotEnabled ?? true;
+  const setGroupsBotEnabled = (v: boolean) => {
+    updateUser({ groupsBotEnabled: v });
+    ApiService.setGroupsBotEnabled(v).catch((err) => {
+      console.error('[ChatbotModule] No se pudo guardar "Bot en grupos":', err);
+      updateUser({ groupsBotEnabled: !v });
+    });
+  };
+  const advisorPauseEnabled = user?.advisorPauseEnabled ?? true;
+  const setAdvisorPauseEnabled = (v: boolean) => {
+    updateUser({ advisorPauseEnabled: v });
+    ApiService.setAdvisorPauseEnabled(v).catch((err) => {
+      console.error('[ChatbotModule] No se pudo guardar la pausa por asesor:', err);
+      updateUser({ advisorPauseEnabled: !v });
+    });
+  };
+  const businessHoursEnabled = user?.businessHoursEnabled ?? false;
+  const businessHours = user?.businessHours ?? {};
+  const businessOpenNow = isOpenNow(businessHours, user?.businessHoursTimezone || 'America/Argentina/Buenos_Aires');
 
   const botReplyToAll = config.botReplyToAll;
   const setBotReplyToAll = (v: boolean) => {
@@ -318,6 +379,75 @@ const ChatbotModule: React.FC = () => {
             <ListChecks className="w-3 h-3 shrink-0" /> Solo Flujos
           </button>
         </div>
+      </div>
+    ),
+    groupsBot: (
+      // Interruptor general: apagado, el bot no responde en ningún grupo, sin tocar el switch de
+      // cada grupo (que se administra en Contactos › Grupos).
+      <div className="flex flex-col gap-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 font-bold">
+            <Users className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+            Bot en grupos
+          </span>
+          <Toggle size="sm" checked={groupsBotEnabled} onChange={setGroupsBotEnabled} />
+        </div>
+        {!groupsBotEnabled && (
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+            Apagado: el bot no responde en ningún grupo. Lo configurado en cada grupo se conserva.
+          </span>
+        )}
+      </div>
+    ),
+    businessHours: (
+      <div className="flex flex-col gap-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 font-bold">
+            <Clock className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+            Horario de atención
+          </span>
+          <div className="flex items-center gap-1.5">
+            {businessHoursEnabled && (
+              <span
+                className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full border ${
+                  businessOpenNow
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-800'
+                    : 'text-amber-800 bg-amber-50 border-amber-200 dark:text-amber-300 dark:bg-amber-950/40 dark:border-amber-800'
+                }`}
+              >
+                {businessOpenNow ? 'Abierto' : 'Fuera de horario'}
+              </span>
+            )}
+            <button
+              onClick={() => openModal('business-hours')}
+              title="Configurar horario de atención"
+              className="p-1 rounded-md text-[#9e1114] dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 cursor-pointer transition-colors"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+          {businessHoursEnabled ? summarizeSchedule(businessHours) : 'Apagado: el bot responde las 24 horas.'}
+        </span>
+      </div>
+    ),
+    advisorPause: (
+      // Si alguien cargado como asesor escribe directo en un grupo, el bot se pausa ahí por el
+      // tiempo del STOP (ver WhatsappService.handleIncomingMessage).
+      <div className="flex flex-col gap-1 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-700 dark:text-slate-200 font-bold">
+            <Headset className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+            Pausar la IA cuando escribe un asesor
+          </span>
+          <Toggle size="sm" checked={advisorPauseEnabled} onChange={setAdvisorPauseEnabled} />
+        </div>
+        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">
+          {advisorPauseEnabled
+            ? 'Si un asesor escribe en un grupo, el bot se pausa ahí por el tiempo del STOP. Cada mensaje suyo reinicia el tiempo.'
+            : 'Apagado: el bot no le contesta al asesor, pero sigue respondiendo al resto del grupo.'}
+        </span>
       </div>
     ),
     newContacts: (

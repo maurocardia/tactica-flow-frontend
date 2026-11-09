@@ -1,3 +1,11 @@
+// Horario de atención: por día, tramos "HH:MM"–"HH:MM". Día ausente o vacío = cerrado.
+export type DayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+export interface TimeRange {
+  from: string;
+  to: string;
+}
+export type WeeklySchedule = Partial<Record<DayKey, TimeRange[]>>;
+
 // Espejo de AiPromptSections/AiGeneralRules/AiPromptConfig en auth.service.ts.
 export interface AiPromptSections {
   behavior: string;
@@ -108,6 +116,16 @@ export interface AuthUser {
   // palabra con el bot apagado, se lo vuelve a prender. PUT /api/whatsapp/resume-command.
   resumeCommandEnabled: boolean;
   resumeCommandKeyword: string;
+  // Horario de atención (PUT /api/whatsapp/business-hours): fuera de horario el bot no responde.
+  businessHoursEnabled: boolean;
+  businessHours: WeeklySchedule;
+  businessHoursTimezone: string;
+  offHoursMessageEnabled: boolean;
+  offHoursMessageText: string;
+  // Interruptor general "Bot en grupos" (PUT /api/whatsapp/groups-bot-enabled).
+  groupsBotEnabled: boolean;
+  // "Pausar la IA cuando escribe un asesor" (PUT /api/whatsapp/advisor-pause).
+  advisorPauseEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }

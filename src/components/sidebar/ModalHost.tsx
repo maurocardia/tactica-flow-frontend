@@ -28,6 +28,7 @@ import { AiAgentConfigModal } from './ai/AiAgentConfigModal';
 import { ContactBotSwitchesModal } from './ContactBotSwitchesModal';
 import { AdvisorManagerModal } from './chatbot/AdvisorManagerModal';
 import { WelcomeMessageModal } from './chatbot/WelcomeMessageModal';
+import { BusinessHoursModal } from './chatbot/BusinessHoursModal';
 
 // Único punto que decide qué modal está montado. Nunca hay más de uno a la vez.
 export const ModalHost: React.FC = () => {
@@ -71,6 +72,8 @@ export const ModalHost: React.FC = () => {
       return <AdvisorManagerModal onClose={closeModal} />;
     case 'welcome-message':
       return <WelcomeMessageModal onClose={closeModal} />;
+    case 'business-hours':
+      return <BusinessHoursModal onClose={closeModal} />;
     case 'config':
       return <ConfigModal onClose={closeModal} />;
     case 'bot-flow':
