@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { User, CheckCircle2, Loader2, Unlock, ShieldBan, ShieldCheck, Pause, Play } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
@@ -36,6 +36,37 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
     const [togglingBlacklist, setTogglingBlacklist] = useState(false);
     const [togglingPause, setTogglingPause] = useState(false);
 
+    // Chat abierto identificado por los ids de sus mensajes (ver getOpenChatMessageIds): sirve para
+    // grupos sin nombre propio y para chats que no se encuentran por nombre. Se reintenta en cada
+    // vuelta del polling hasta encontrarlo; se resetea al cambiar de chat.
+    const [resolvedId, setResolvedId] = useState<number | null>(null);
+    const resolvedFor = useRef<string | null>(null);
+    useEffect(() => {
+        setResolvedId(null);
+        resolvedFor.current = null;
+    }, [contactName]);
+
+    useEffect(() => {
+        if (!user) return;
+        const resolve = () => {
+            if (!isSelected || resolvedFor.current === contactName) return;
+            const ids = DOMService.getOpenChatMessageIds();
+            if (!ids.length) return;
+            const forName = contactName;
+            ApiService.getBotContactByMessageIds(ids)
+                .then((c) => {
+                    if (c && forName === contactName) {
+                        resolvedFor.current = forName;
+                        setResolvedId(c.id);
+                    }
+                })
+                .catch(() => {});
+        };
+        resolve();
+        const interval = setInterval(resolve, 5000);
+        return () => clearInterval(interval);
+    }, [user, contactName, isSelected]);
+
     useEffect(() => {
         if (!user) return;
         const load = () => ApiService.getBotContacts().then(setBotContacts).catch(() => {});
@@ -52,6 +83,10 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
 
     const activeBotContact = useMemo(() => {
         if (!isSelected) return null;
+        if (resolvedId !== null) {
+            const byMsg = botContacts.find((c) => c.id === resolvedId);
+            if (byMsg) return byMsg;
+        }
         // Grupo abierto: se busca por su JID real (leído de los mensajes en pantalla), no por el
         // nombre — un grupo sin nombre propio muestra la lista de participantes en el encabezado
         // ("Erick, ~Asistente y ~Mauro"), que no coincide con lo guardado, y además dos grupos
@@ -73,7 +108,7 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
             botContacts.find((c) => !c.isGroup && c.jid.split('@')[0].endsWith(digits.slice(-10))) ||
             null
         );
-    }, [botContacts, contactName, isSelected]);
+    }, [botContacts, contactName, isSelected, resolvedId]);
 
     const hasActiveAdvisorReservation =
         !!activeBotContact &&

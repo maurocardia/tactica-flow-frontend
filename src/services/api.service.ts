@@ -228,6 +228,11 @@ export const ApiService = {
         return this.sendBackgroundRequest('/whatsapp/advisor-pause', 'PUT', { enabled });
     },
 
+    // Tarjeta del chat: qué contacto/grupo es el chat abierto, por los ids de sus mensajes.
+    async getBotContactByMessageIds(ids: string[]): Promise<BotContact | null> {
+        return this.sendBackgroundRequest<BotContact | null>('/whatsapp/bot-contacts/by-message-ids', 'POST', { ids });
+    },
+
     // Botones "Prender todos" / "Apagar todos" de la pestaña Grupos.
     async setAllGroupsEnabled(enabled: boolean): Promise<{ updated: number }> {
         return this.sendBackgroundRequest('/whatsapp/bot-contacts/groups/enabled', 'POST', { enabled });

@@ -363,6 +363,20 @@ export const DOMService = {
      * cambio, es único de verdad — se usa en vez del nombre para saber con certeza a cuál de los
      * grupos homónimos corresponde el chat abierto.
      */
+    /** Ids de los mensajes del chat abierto que se ven en pantalla (los más recientes primero). El
+     * data-id puede venir con formato viejo ("false_<jid>_<id>") o solo el id del mensaje. */
+    getOpenChatMessageIds(max = 30): string[] {
+        try {
+            const ids = [...document.querySelectorAll('#main [data-id]')]
+                .map((el) => el.getAttribute('data-id') || '')
+                .map((id) => (id.includes('_') ? id.split('_')[2] || '' : id))
+                .filter((id) => /^[A-Za-z0-9]{8,64}$/.test(id));
+            return [...new Set(ids)].reverse().slice(0, max);
+        } catch {
+            return [];
+        }
+    },
+
     getOpenGroupJid(): string | null {
         try {
             const elements = document.querySelectorAll('#main [data-id], #main [data-item-id]');
