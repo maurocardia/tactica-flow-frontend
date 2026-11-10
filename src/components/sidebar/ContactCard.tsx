@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { User, CheckCircle2, Loader2, Unlock, ShieldBan, ShieldCheck, Pause, Play } from 'lucide-react';
 import { useAuth } from '@/state/AuthContext';
 import { ApiService } from '@/services/api.service';
+import { DOMService } from '@/services/dom.service';
 import { BotContact } from '@/types/botContact';
 
 interface ContactCardProps {
@@ -51,6 +52,15 @@ const ContactCard: React.FC<ContactCardProps> = ({ contactName }) => {
 
     const activeBotContact = useMemo(() => {
         if (!isSelected) return null;
+        // Grupo abierto: se busca por su JID real (leído de los mensajes en pantalla), no por el
+        // nombre — un grupo sin nombre propio muestra la lista de participantes en el encabezado
+        // ("Erick, ~Asistente y ~Mauro"), que no coincide con lo guardado, y además dos grupos
+        // pueden llamarse igual.
+        const groupJid = DOMService.getOpenGroupJid();
+        if (groupJid) {
+            const byJid = botContacts.find((c) => c.jid === groupJid);
+            if (byJid) return byJid;
+        }
         const target = normalizeName(contactName);
         const byName = botContacts.find((c) => normalizeName(c.name) === target);
         if (byName) return byName;
